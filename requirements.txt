@@ -5,3 +5,4 @@ wtforms==3.0.1
 email_validator==2.0.0
 werkzeug==2.3.7
 reportlab==4.0.4
+flask-login==0.6.3

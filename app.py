@@ -1,13 +1,17 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
-from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting
+from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting, User
 import os
 from datetime import datetime, timezone
 import json
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'green-pos-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 
 db.init_app(app)
 
@@ -16,12 +20,43 @@ db.init_app(app)
 def inject_now():
     return {"now": datetime.now(timezone.utc)}
 
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
 # Create DB tables if they don't exist
 with app.app_context():
     db.create_all()
+    User.create_defaults()
 
-# Home route
+# Login routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            if not user.active:
+                flash('Usuario inactivo', 'danger')
+                return redirect(url_for('login'))
+            login_user(user)
+            flash('Inicio de sesión exitoso', 'success')
+            next_page = request.args.get('next') or url_for('index')
+            return redirect(next_page)
+        flash('Credenciales inválidas', 'danger')
+    return render_template('auth/login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Sesión cerrada', 'success')
+    return redirect(url_for('login'))
+
+# Proteger rutas principales
 @app.route('/')
+@login_required
 def index():
     product_count = Product.query.count()
     customer_count = Customer.query.count()
