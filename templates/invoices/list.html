@@ -54,23 +54,32 @@
                                 <td><span class="utc-date" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></td>
                                 <td>${{ "%.2f"|format(invoice.total) }}</td>
                                 <td>
-                                    <span class="badge bg-{{ 'success' if invoice.status == 'paid' else ('warning' if invoice.status == 'pending' else 'danger') }}">
-                                        {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada'}.get(invoice.status, invoice.status) }}
+                                    <span class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
+                                        {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada', 'validated': 'Validada'}.get(invoice.status, invoice.status) }}
                                     </span>
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
-                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}" class="btn btn-outline-primary">
+                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}" class="btn btn-outline-primary" title="Ver">
                                             <i class="bi bi-eye"></i>
                                         </a>
                                         {% if current_user.role == 'admin' %}
-                                        <button type="button" class="btn btn-outline-danger" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#deleteModal" 
-                                                data-id="{{ invoice.id }}"
-                                                data-number="{{ invoice.number }}">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                                            {% if invoice.status == 'pending' %}
+                                            <form method="post" action="{{ url_for('invoice_validate', id=invoice.id) }}" onsubmit="return confirm('Validar esta venta?');">
+                                                <button type="submit" class="btn btn-outline-success" title="Validar">
+                                                    <i class="bi bi-check2-circle"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                            {% if invoice.status != 'validated' %}
+                                            <button type="button" class="btn btn-outline-danger" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#deleteModal" 
+                                                    data-id="{{ invoice.id }}"
+                                                    data-number="{{ invoice.number }}" title="Eliminar">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </td>

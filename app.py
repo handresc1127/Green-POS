@@ -311,19 +311,31 @@ def invoice_view(id):
     setting = Setting.get()
     return render_template('invoices/view.html', invoice=invoice, setting=setting)
 
+@app.route('/invoices/validate/<int:id>', methods=['POST'])
+@role_required('admin')
+def invoice_validate(id):
+    invoice = Invoice.query.get_or_404(id)
+    if invoice.status != 'pending':
+        flash('Solo ventas en estado pendiente pueden validarse', 'warning')
+    else:
+        invoice.status = 'validated'
+        db.session.commit()
+        flash('Venta validada exitosamente', 'success')
+    return redirect(url_for('invoice_list'))
+
 @app.route('/invoices/delete/<int:id>', methods=['POST'])
 def invoice_delete(id):
     invoice = Invoice.query.get_or_404(id)
-    
+    if invoice.status == 'validated':
+        flash('No se puede eliminar una venta validada', 'danger')
+        return redirect(url_for('invoice_list'))
     # Restore product stock
     for item in invoice.items:
         product = item.product
         if product:
             product.stock += item.quantity
-    
     db.session.delete(invoice)
     db.session.commit()
-    
     flash('Venta eliminada exitosamente', 'success')
     return redirect(url_for('invoice_list'))
 

@@ -33,8 +33,8 @@
                 <p class="mb-1"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
                 <p class="mb-1">
                     <strong>Estado:</strong> 
-                    <span class="badge bg-{{ 'success' if invoice.status == 'paid' else ('warning' if invoice.status == 'pending' else 'danger') }}">
-                        {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada'}.get(invoice.status, invoice.status) }}
+                    <span class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
+                        {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada', 'validated': 'Validada'}.get(invoice.status, invoice.status) }}
                     </span>
                 </p>
                 <p class="mb-1">
