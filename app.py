@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
 from models.models import db, Product, Customer, Invoice, InvoiceItem
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 app = Flask(__name__)
@@ -10,6 +10,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
+
+# Nuevo context processor (timezone-aware)
+@app.context_processor
+def inject_now():
+    return {"now": datetime.now(timezone.utc)}
 
 # Create DB tables if they don't exist
 with app.app_context():
