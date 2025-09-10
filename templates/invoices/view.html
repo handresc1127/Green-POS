@@ -1,8 +1,8 @@
 {% extends 'layout.html' %}
 
-{% block title %}Factura {{ invoice.number }} - {{ setting.business_name or 'Factura' }}{% endblock %}
+{% block title %}Venta {{ invoice.number }} - {{ setting.business_name or 'Venta' }}{% endblock %}
 
-{% block page_title %}Factura #{{ invoice.number }}{% endblock %}
+{% block page_title %}Venta #{{ invoice.number }} ({{ setting.document_label }}){% endblock %}
 
 {% block page_actions %}
 <div class="btn-group">
@@ -28,7 +28,7 @@
                 <p class="mb-1">Regimen IVA: {{ 'Responsable' if setting.iva_responsable else 'No responsable' }}</p>
             </div>
             <div class="col-md-6 text-md-end">
-                <h4 class="mb-3">Factura #{{ invoice.number }}</h4>
+                <h4 class="mb-3">{{ setting.document_label }} #{{ invoice.number }}</h4>
                 <p class="mb-1"><strong>Fecha:</strong> <span class="utc-datetime" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></p>
                 <p class="mb-1"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
                 <p class="mb-1">
@@ -124,7 +124,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>¿Estás seguro de que deseas eliminar la factura #{{ invoice.number }}?</p>
+                <p>¿Estás seguro de que deseas eliminar la venta #{{ invoice.number }}?</p>
                 <p>Esta acción devolverá los productos al inventario.</p>
                 <p class="text-danger">Esta acción no se deshace.</p>
             </div>

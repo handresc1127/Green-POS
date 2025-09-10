@@ -18,6 +18,7 @@ class Setting(db.Model):
     next_invoice_number = db.Column(db.Integer, default=1)
     iva_responsable = db.Column(db.Boolean, default=True)
     tax_rate = db.Column(db.Float, default=0.19)  # usado si es responsable IVA
+    document_type = db.Column(db.String(20), default='invoice')  # invoice | pos
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -29,6 +30,10 @@ class Setting(db.Model):
             db.session.add(setting)
             db.session.commit()
         return setting
+
+    @property
+    def document_label(self):
+        return 'Factura' if self.document_type == 'invoice' else 'Documento Equivalente POS'
 
 class Product(db.Model):
     __tablename__ = 'product'

@@ -1,0 +1,40 @@
+{% extends 'layout.html' %}
+{% block title %}Perfil - Green-POS{% endblock %}
+{% block page_title %}Mi Perfil{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-header bg-light"><strong>Información</strong></div>
+      <div class="card-body">
+        <p><strong>Usuario:</strong> {{ current_user.username }}</p>
+        <p><strong>Rol:</strong> {{ current_user.role }}</p>
+        <p><strong>Activo:</strong> {{ 'Sí' if current_user.active else 'No' }}</p>
+        <p><strong>Creado:</strong> {{ current_user.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-header bg-light"><strong>Cambiar Contraseña</strong></div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label">Contraseña Actual</label>
+            <input type="password" name="current_password" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nueva Contraseña</label>
+            <input type="password" name="new_password" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirmar Nueva Contraseña</label>
+            <input type="password" name="confirm_password" class="form-control" required>
+          </div>
+          <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> Guardar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

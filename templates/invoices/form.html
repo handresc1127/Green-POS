@@ -1,8 +1,8 @@
 {% extends 'layout.html' %}
 
-{% block title %}Nueva Factura - Green-POS{% endblock %}
+{% block title %}Nueva Venta - Green-POS{% endblock %}
 
-{% block page_title %}Nueva Factura{% endblock %}
+{% block page_title %}Nueva Venta ({{ setting.document_label }}){% endblock %}
 
 {% block content %}
 <form id="invoiceForm" method="post">
@@ -102,7 +102,7 @@
                     
                     <!-- No items message -->
                     <div id="noItemsMessage" class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Agregue productos a la factura usando el botón "Agregar Producto".
+                        <i class="bi bi-info-circle"></i> Agregue productos a la venta usando el botón "Agregar Producto".
                     </div>
                     
                     <!-- Hidden field to store JSON of items -->
@@ -116,7 +116,7 @@
                     <i class="bi bi-arrow-left"></i> Cancelar
                 </a>
                 <button type="submit" id="submitBtn" class="btn btn-primary" disabled>
-                    <i class="bi bi-save"></i> Guardar Factura
+                    <i class="bi bi-save"></i> Guardar Venta
                 </button>
             </div>
         </div>

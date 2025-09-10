@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timezone
 import json
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from functools import wraps
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'green-pos-secret-key'
@@ -18,7 +19,7 @@ db.init_app(app)
 # Nuevo context processor (timezone-aware)
 @app.context_processor
 def inject_now():
-    return {"now": datetime.now(timezone.utc)}
+    return {"now": datetime.now(timezone.utc), "setting": Setting.get() }
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -75,8 +76,22 @@ def index():
                            recent_invoices=recent_invoices,
                            low_stock_products=low_stock_products)
 
+# Decorador para requerir roles
+def role_required(*roles):
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def wrapped(*args, **kwargs):
+            if current_user.role not in roles:
+                flash('Acceso no autorizado', 'danger')
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
+
 # Product routes
 @app.route('/products')
+@role_required('admin')
 def product_list():
     query = request.args.get('query', '')
     
@@ -88,6 +103,7 @@ def product_list():
     return render_template('products/list.html', products=products, query=query)
 
 @app.route('/products/new', methods=['GET', 'POST'])
+@role_required('admin')
 def product_new():
     if request.method == 'POST':
         code = request.form['code']
@@ -123,6 +139,7 @@ def product_new():
     return render_template('products/form.html')
 
 @app.route('/products/edit/<int:id>', methods=['GET', 'POST'])
+@role_required('admin')
 def product_edit(id):
     product = Product.query.get_or_404(id)
     
@@ -143,12 +160,13 @@ def product_edit(id):
     return render_template('products/form.html', product=product)
 
 @app.route('/products/delete/<int:id>', methods=['POST'])
+@role_required('admin')
 def product_delete(id):
     product = Product.query.get_or_404(id)
     
     # Check if product is being used in any invoice
     if InvoiceItem.query.filter_by(product_id=id).first():
-        flash('No se puede eliminar este producto porque está siendo usado en facturas', 'danger')
+        flash('No se puede eliminar este producto porque está siendo usado en ventas', 'danger')
         return redirect(url_for('product_list'))
     
     db.session.delete(product)
@@ -228,7 +246,7 @@ def customer_delete(id):
     
     # Check if customer has invoices
     if customer.invoices:
-        flash('No se puede eliminar este cliente porque tiene facturas asociadas', 'danger')
+        flash('No se puede eliminar este cliente porque tiene ventas asociadas', 'danger')
         return redirect(url_for('customer_list'))
     
     db.session.delete(customer)
@@ -279,7 +297,7 @@ def invoice_new():
                 product.stock -= quantity
         invoice.calculate_totals()
         db.session.commit()
-        flash('Factura creada exitosamente', 'success')
+        flash('Venta registrada exitosamente', 'success')
         return redirect(url_for('invoice_view', id=invoice.id))
     customers = Customer.query.all()
     products = Product.query.all()
@@ -306,11 +324,12 @@ def invoice_delete(id):
     db.session.delete(invoice)
     db.session.commit()
     
-    flash('Factura eliminada exitosamente', 'success')
+    flash('Venta eliminada exitosamente', 'success')
     return redirect(url_for('invoice_list'))
 
 # Settings route
 @app.route('/settings', methods=['GET', 'POST'])
+@role_required('admin')
 def settings_view():
     setting = Setting.get()
     if request.method == 'POST':
@@ -322,6 +341,7 @@ def settings_view():
         setting.invoice_prefix = request.form.get('invoice_prefix', setting.invoice_prefix)
         setting.next_invoice_number = int(request.form.get('next_invoice_number', setting.next_invoice_number))
         setting.iva_responsable = True if request.form.get('iva_responsable') == 'on' else False
+        setting.document_type = request.form.get('document_type', setting.document_type)
         tax_rate_input = request.form.get('tax_rate', '')
         try:
             setting.tax_rate = float(tax_rate_input) / 100.0
@@ -342,6 +362,27 @@ def api_product_details(id):
         'price': product.sale_price,
         'stock': product.stock
     })
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        if new_password:
+            if not current_user.check_password(current_password):
+                flash('Contraseña actual incorrecta', 'danger')
+            elif new_password != confirm_password:
+                flash('La confirmación no coincide', 'danger')
+            elif len(new_password) < 4:
+                flash('La nueva contraseña es muy corta', 'danger')
+            else:
+                current_user.set_password(new_password)
+                db.session.commit()
+                flash('Contraseña actualizada', 'success')
+                return redirect(url_for('profile'))
+    return render_template('auth/profile.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

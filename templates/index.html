@@ -46,7 +46,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h5 class="card-title">Facturas</h5>
+                        <h5 class="card-title">Ventas</h5>
                         <h2 class="mb-0">{{ invoice_count }}</h2>
                     </div>
                     <div>
@@ -64,7 +64,7 @@
     <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header bg-light">
-                <h5 class="mb-0">Facturas Recientes</h5>
+                <h5 class="mb-0">Ventas Recientes</h5>
             </div>
             <div class="card-body">
                 {% if recent_invoices %}
@@ -97,12 +97,12 @@
                         </table>
                     </div>
                 {% else %}
-                    <p class="text-muted">No hay facturas recientes.</p>
+                    <p class="text-muted">No hay ventas recientes.</p>
                 {% endif %}
             </div>
             <div class="card-footer bg-light">
                 <a href="{{ url_for('invoice_list') }}" class="btn btn-sm btn-outline-secondary">Ver todas</a>
-                <a href="{{ url_for('invoice_new') }}" class="btn btn-sm btn-primary float-end">Nueva Factura</a>
+                <a href="{{ url_for('invoice_new') }}" class="btn btn-sm btn-primary float-end">Nueva Venta</a>
             </div>
         </div>
     </div>

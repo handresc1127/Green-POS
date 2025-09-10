@@ -35,11 +35,11 @@
     </div>
     <div class="col-md-6">
       <div class="card mb-4">
-        <div class="card-header bg-light"><h5 class="mb-0">Facturación</h5></div>
+        <div class="card-header bg-light"><h5 class="mb-0">Facturación / Ventas</h5></div>
         <div class="card-body">
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Prefijo Factura</label>
+              <label class="form-label">Prefijo Documento / Factura</label>
               <input type="text" name="invoice_prefix" class="form-control" value="{{ setting.invoice_prefix }}" required>
             </div>
             <div class="col-md-6 mb-3">
@@ -55,6 +55,14 @@
             <label class="form-label">Tasa IVA (%)</label>
             <input type="number" step="0.01" name="tax_rate" class="form-control" value="{{ (setting.tax_rate * 100)|round(2) }}">
             <small class="text-muted">Ej: 19 para 19%</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tipo de Documento</label>
+            <select name="document_type" class="form-select">
+              <option value="invoice" {% if setting.document_type == 'invoice' %}selected{% endif %}>Factura</option>
+              <option value="pos" {% if setting.document_type == 'pos' %}selected{% endif %}>Documento Equivalente POS</option>
+            </select>
+            <small class="text-muted">Define el encabezado y etiquetas al emitir.</small>
           </div>
         </div>
       </div>

@@ -1,12 +1,12 @@
 {% extends 'layout.html' %}
 
-{% block title %}Facturas - Green-POS{% endblock %}
+{% block title %}Ventas ({{ setting.document_label }}s) - Green-POS{% endblock %}
 
-{% block page_title %}Facturas{% endblock %}
+{% block page_title %}Ventas ({{ setting.document_label }}s){% endblock %}
 
 {% block page_actions %}
 <a href="{{ url_for('invoice_new') }}" class="btn btn-primary">
-    <i class="bi bi-plus-circle"></i> Nueva Factura
+    <i class="bi bi-plus-circle"></i> Nueva Venta
 </a>
 {% endblock %}
 
@@ -63,6 +63,7 @@
                                         <a href="{{ url_for('invoice_view', id=invoice.id) }}" class="btn btn-outline-primary">
                                             <i class="bi bi-eye"></i>
                                         </a>
+                                        {% if current_user.role == 'admin' %}
                                         <button type="button" class="btn btn-outline-danger" 
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#deleteModal" 
@@ -70,6 +71,7 @@
                                                 data-number="{{ invoice.number }}">
                                             <i class="bi bi-trash"></i>
                                         </button>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -80,9 +82,9 @@
         {% else %}
             <div class="alert alert-info">
                 {% if query %}
-                    No se encontraron facturas para "{{ query }}".
+                    No se encontraron ventas para "{{ query }}".
                 {% else %}
-                    No hay facturas registradas. <a href="{{ url_for('invoice_new') }}">Crear la primera factura</a>.
+                    No hay ventas registradas. <a href="{{ url_for('invoice_new') }}">Crear la primera</a>.
                 {% endif %}
             </div>
         {% endif %}
@@ -98,7 +100,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>¿Estás seguro de que deseas eliminar la factura <strong id="invoiceNumber"></strong>?</p>
+                <p>¿Estás seguro de que deseas eliminar la venta <strong id="invoiceNumber"></strong>?</p>
                 <p>Esta acción devolverá los productos al inventario.</p>
                 <p class="text-danger">Esta acción no se puede deshacer.</p>
             </div>
