@@ -46,6 +46,11 @@
                             <i class="bi bi-receipt"></i> Facturas
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if '/settings' in request.path %}active{% endif %}" href="{{ url_for('settings_view') }}">
+                            <i class="bi bi-gear"></i> Configuración
+                        </a>
+                    </li>
                 </ul>
                 <div class="d-flex">
                     <a href="{{ url_for('invoice_new') }}" class="btn btn-light">

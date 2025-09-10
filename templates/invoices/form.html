@@ -87,7 +87,7 @@
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colspan="3" class="text-end fw-bold">IVA (19%):</td>
+                                    <td colspan="3" class="text-end fw-bold">IVA {% if setting.iva_responsable %}(<span id="taxRateLabel">{{ (setting.tax_rate * 100)|round(2) }}</span>%) {% else %}(0%) - No responsable{% endif %}:</td>
                                     <td class="fw-bold">$<span id="tax">0.00</span></td>
                                     <td></td>
                                 </tr>
@@ -263,10 +263,14 @@
         // Array to store items
         let items = [];
         
+        // IVA settings
+        const ivaResponsable = JSON.parse('{{ setting.iva_responsable|tojson|safe }}');
+        const taxRate = JSON.parse('{{ (setting.tax_rate if setting.iva_responsable else 0)|tojson|safe }}'); // decimal (e.g. 0.19)
+        
         // Update totals
         function updateTotals() {
             const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-            const tax = subtotal * 0.19;
+            const tax = ivaResponsable ? subtotal * taxRate : 0;
             const total = subtotal + tax;
             
             subtotalElement.textContent = subtotal.toFixed(2);

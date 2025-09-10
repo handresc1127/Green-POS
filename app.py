@@ -1,5 +1,5 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
-from models.models import db, Product, Customer, Invoice, InvoiceItem
+from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting
 import os
 from datetime import datetime, timezone
 import json
@@ -224,70 +224,37 @@ def invoice_new():
         customer_id = request.form['customer_id']
         payment_method = request.form['payment_method']
         notes = request.form.get('notes', '')
-        
-        # Generate invoice number (format: INV-YYYYMMDD-XXXX)
-        date_str = datetime.now().strftime('%Y%m%d')
-        last_invoice = Invoice.query.filter(Invoice.number.like(f'INV-{date_str}-%')).order_by(Invoice.number.desc()).first()
-        
-        if last_invoice:
-            last_num = int(last_invoice.number.split('-')[2])
-            new_num = last_num + 1
-        else:
-            new_num = 1
-        
-        invoice_number = f'INV-{date_str}-{new_num:04d}'
-        
-        # Create the invoice
-        invoice = Invoice(
-            number=invoice_number,
-            customer_id=customer_id,
-            payment_method=payment_method,
-            notes=notes,
-            status='pending'
-        )
-        
+        setting = Setting.get()
+        number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
+        setting.next_invoice_number += 1
+        invoice = Invoice(number=number, customer_id=customer_id, payment_method=payment_method, notes=notes, status='pending')
         db.session.add(invoice)
-        db.session.flush()  # Get the invoice ID without committing
-        
-        # Process items
+        db.session.flush()
         items_json = request.form['items_json']
         items_data = json.loads(items_json)
-        
         for item_data in items_data:
             product_id = item_data['product_id']
             quantity = int(item_data['quantity'])
             price = float(item_data['price'])
-            
-            # Create invoice item
-            invoice_item = InvoiceItem(
-                invoice_id=invoice.id,
-                product_id=product_id,
-                quantity=quantity,
-                price=price
-            )
-            
+            invoice_item = InvoiceItem(invoice_id=invoice.id, product_id=product_id, quantity=quantity, price=price)
             db.session.add(invoice_item)
-            
-            # Update product stock
-            product = Product.query.get(product_id)
+            product = db.session.get(Product, product_id)
             if product:
                 product.stock -= quantity
-        
-        # Calculate invoice totals
         invoice.calculate_totals()
-        
         db.session.commit()
         flash('Factura creada exitosamente', 'success')
         return redirect(url_for('invoice_view', id=invoice.id))
     customers = Customer.query.all()
-    # Mostrar todos los productos (permitir inventario negativo)
     products = Product.query.all()
-    return render_template('invoices/form.html', customers=customers, products=products)
+    setting = Setting.get()
+    return render_template('invoices/form.html', customers=customers, products=products, setting=setting)
 
 @app.route('/invoices/<int:id>')
 def invoice_view(id):
     invoice = Invoice.query.get_or_404(id)
-    return render_template('invoices/view.html', invoice=invoice)
+    setting = Setting.get()
+    return render_template('invoices/view.html', invoice=invoice, setting=setting)
 
 @app.route('/invoices/delete/<int:id>', methods=['POST'])
 def invoice_delete(id):
@@ -304,6 +271,29 @@ def invoice_delete(id):
     
     flash('Factura eliminada exitosamente', 'success')
     return redirect(url_for('invoice_list'))
+
+# Settings route
+@app.route('/settings', methods=['GET', 'POST'])
+def settings_view():
+    setting = Setting.get()
+    if request.method == 'POST':
+        setting.business_name = request.form.get('business_name', setting.business_name)
+        setting.nit = request.form.get('nit', setting.nit)
+        setting.address = request.form.get('address', setting.address)
+        setting.phone = request.form.get('phone', setting.phone)
+        setting.email = request.form.get('email', setting.email)
+        setting.invoice_prefix = request.form.get('invoice_prefix', setting.invoice_prefix)
+        setting.next_invoice_number = int(request.form.get('next_invoice_number', setting.next_invoice_number))
+        setting.iva_responsable = True if request.form.get('iva_responsable') == 'on' else False
+        tax_rate_input = request.form.get('tax_rate', '')
+        try:
+            setting.tax_rate = float(tax_rate_input) / 100.0
+        except ValueError:
+            pass
+        db.session.commit()
+        flash('Configuración guardada', 'success')
+        return redirect(url_for('settings_view'))
+    return render_template('settings/form.html', setting=setting)
 
 # API routes for dynamic data
 @app.route('/api/products/<int:id>')

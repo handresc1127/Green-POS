@@ -1,6 +1,6 @@
 {% extends 'layout.html' %}
 
-{% block title %}Factura {{ invoice.number }} - Green-POS{% endblock %}
+{% block title %}Factura {{ invoice.number }} - {{ setting.business_name or 'Factura' }}{% endblock %}
 
 {% block page_title %}Factura #{{ invoice.number }}{% endblock %}
 
@@ -20,12 +20,12 @@
     <div class="card-body">
         <div class="row">
             <div class="col-md-6">
-                <h4 class="mb-3">Green-POS</h4>
-                <p class="mb-1">Pet Verde</p>
-                <p class="mb-1">NIT: 12345678-9</p>
-                <p class="mb-1">Dirección: Calle Principal #123</p>
-                <p class="mb-1">Teléfono: (123) 456-7890</p>
-                <p class="mb-1">Email: contacto@petverde.com</p>
+                <h4 class="mb-3">{{ setting.business_name or 'Nombre de la Empresa' }}</h4>
+                {% if setting.nit %}<p class="mb-1">NIT: {{ setting.nit }}</p>{% endif %}
+                {% if setting.address %}<p class="mb-1">Dirección: {{ setting.address }}</p>{% endif %}
+                {% if setting.phone %}<p class="mb-1">Teléfono: {{ setting.phone }}</p>{% endif %}
+                {% if setting.email %}<p class="mb-1">Email: {{ setting.email }}</p>{% endif %}
+                <p class="mb-1">Regimen IVA: {{ 'Responsable' if setting.iva_responsable else 'No responsable' }}</p>
             </div>
             <div class="col-md-6 text-md-end">
                 <h4 class="mb-3">Factura #{{ invoice.number }}</h4>
@@ -90,7 +90,7 @@
                         <td class="text-end">${{ "%.2f"|format(invoice.subtotal) }}</td>
                     </tr>
                     <tr>
-                        <td colspan="4" class="text-end"><strong>IVA (19%):</strong></td>
+                        <td colspan="4" class="text-end"><strong>IVA {% if setting.iva_responsable %}({{ (setting.tax_rate * 100)|round(2) }}%){% else %}(0%) - No responsable{% endif %}:</strong></td>
                         <td class="text-end">${{ "%.2f"|format(invoice.tax) }}</td>
                     </tr>
                     <tr>
@@ -125,7 +125,7 @@
             <div class="modal-body">
                 <p>¿Estás seguro de que deseas eliminar la factura #{{ invoice.number }}?</p>
                 <p>Esta acción devolverá los productos al inventario.</p>
-                <p class="text-danger">Esta acción no se puede deshacer.</p>
+                <p class="text-danger">Esta acción no se deshace.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>

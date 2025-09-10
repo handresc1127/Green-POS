@@ -3,7 +3,34 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
+class Setting(db.Model):
+    __tablename__ = 'setting'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    business_name = db.Column(db.String(150), default='Green-POS')
+    nit = db.Column(db.String(30), default='')
+    address = db.Column(db.String(255), default='')
+    phone = db.Column(db.String(50), default='')
+    email = db.Column(db.String(120), default='')
+    invoice_prefix = db.Column(db.String(10), default='INV')
+    next_invoice_number = db.Column(db.Integer, default=1)
+    iva_responsable = db.Column(db.Boolean, default=True)
+    tax_rate = db.Column(db.Float, default=0.19)  # usado si es responsable IVA
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @staticmethod
+    def get():
+        setting = Setting.query.first()
+        if not setting:
+            setting = Setting()
+            db.session.add(setting)
+            db.session.commit()
+        return setting
+
 class Product(db.Model):
+    __tablename__ = 'product'
+    
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(100), nullable=False)
@@ -19,6 +46,8 @@ class Product(db.Model):
         return f"<Product {self.name}>"
 
 class Customer(db.Model):
+    __tablename__ = 'customer'
+    
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     document = db.Column(db.String(20), unique=True, nullable=False)
@@ -34,8 +63,10 @@ class Customer(db.Model):
         return f"<Customer {self.name}>"
 
 class Invoice(db.Model):
+    __tablename__ = 'invoice'
+    
     id = db.Column(db.Integer, primary_key=True)
-    number = db.Column(db.String(20), unique=True, nullable=False)
+    number = db.Column(db.String(30), unique=True, nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     date = db.Column(db.DateTime, default=datetime.utcnow)
     subtotal = db.Column(db.Float, default=0.0)
@@ -54,10 +85,16 @@ class Invoice(db.Model):
 
     def calculate_totals(self):
         self.subtotal = sum(item.quantity * item.price for item in self.items)
-        self.tax = self.subtotal * 0.19  # 19% IVA en Colombia
+        setting = Setting.query.first()
+        rate = 0.0
+        if setting and setting.iva_responsable:
+            rate = setting.tax_rate or 0.0
+        self.tax = self.subtotal * rate
         self.total = self.subtotal + self.tax
 
 class InvoiceItem(db.Model):
+    __tablename__ = 'invoice_item'
+    
     id = db.Column(db.Integer, primary_key=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
