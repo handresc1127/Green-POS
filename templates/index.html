@@ -115,36 +115,40 @@
             </div>
             <div class="card-body">
                 {% if low_stock_products %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Producto</th>
-                                    <th>Stock</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for product in low_stock_products %}
-                                <tr>
-                                    <td>{{ product.code }}</td>
-                                    <td>{{ product.name }}</td>
-                                    <td>
-                                        <span class="badge bg-{{ 'danger' if product.stock == 0 else 'warning' }}">
-                                            {{ product.stock }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <a href="{{ url_for('product_edit', id=product.id) }}" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Stock</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in low_stock_products %}
+                            <tr>
+                                <td>{{ product.code }}</td>
+                                <td>{{ product.name }}</td>
+                                <td>
+                                    {% set badge_class = 'success' %}
+                                    {% if product.stock <= 0 %}
+                                        {% set badge_class = 'danger' %}
+                                    {% elif product.stock <= 5 %}
+                                        {% set badge_class = 'warning' %}
+                                    {% endif %}
+                                    <span class="badge bg-{{ badge_class }}">{{ product.stock }}</span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('product_edit', id=product.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
                 {% else %}
                     <p class="text-muted">No hay productos con poco stock.</p>
                 {% endif %}

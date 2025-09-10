@@ -277,13 +277,11 @@ def invoice_new():
         invoice.calculate_totals()
         
         db.session.commit()
-        
         flash('Factura creada exitosamente', 'success')
         return redirect(url_for('invoice_view', id=invoice.id))
-    
     customers = Customer.query.all()
-    products = Product.query.filter(Product.stock > 0).all()
-    
+    # Mostrar todos los productos (permitir inventario negativo)
+    products = Product.query.all()
     return render_template('invoices/form.html', customers=customers, products=products)
 
 @app.route('/invoices/<int:id>')

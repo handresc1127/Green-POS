@@ -56,9 +56,13 @@
                                 <td>${{ "%.2f"|format(product.purchase_price) }}</td>
                                 <td>${{ "%.2f"|format(product.sale_price) }}</td>
                                 <td>
-                                    <span class="badge bg-{{ 'danger' if product.stock == 0 else 'success' }}">
-                                        {{ product.stock }}
-                                    </span>
+                                    {% set badge_class = 'success' %}
+                                    {% if product.stock < 0 %}
+                                        {% set badge_class = 'danger' %}
+                                    {% elif product.stock == 0 %}
+                                        {% set badge_class = 'warning' %}
+                                    {% endif %}
+                                    <span class="badge bg-{{ badge_class }}">{{ product.stock }}</span>
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
