@@ -254,6 +254,7 @@ def invoice_list():
     return render_template('invoices/list.html', invoices=invoices, query=query)
 
 @app.route('/invoices/new', methods=['GET', 'POST'])
+@login_required
 def invoice_new():
     if request.method == 'POST':
         customer_id = request.form['customer_id']
@@ -262,7 +263,7 @@ def invoice_new():
         setting = Setting.get()
         number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
         setting.next_invoice_number += 1
-        invoice = Invoice(number=number, customer_id=customer_id, payment_method=payment_method, notes=notes, status='pending')
+        invoice = Invoice(number=number, customer_id=customer_id, payment_method=payment_method, notes=notes, status='pending', user_id=current_user.id)
         db.session.add(invoice)
         db.session.flush()
         items_json = request.form['items_json']
@@ -286,6 +287,7 @@ def invoice_new():
     return render_template('invoices/form.html', customers=customers, products=products, setting=setting)
 
 @app.route('/invoices/<int:id>')
+@login_required
 def invoice_view(id):
     invoice = Invoice.query.get_or_404(id)
     setting = Setting.get()

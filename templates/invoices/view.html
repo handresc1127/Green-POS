@@ -30,6 +30,7 @@
             <div class="col-md-6 text-md-end">
                 <h4 class="mb-3">Factura #{{ invoice.number }}</h4>
                 <p class="mb-1"><strong>Fecha:</strong> {{ invoice.date.strftime('%d/%m/%Y %H:%M') }}</p>
+                <p class="mb-1"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
                 <p class="mb-1">
                     <strong>Estado:</strong> 
                     <span class="badge bg-{{ 'success' if invoice.status == 'paid' else ('warning' if invoice.status == 'pending' else 'danger') }}">

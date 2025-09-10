@@ -70,6 +70,7 @@ class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.String(30), unique=True, nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))  # usuario que creó la factura
     date = db.Column(db.DateTime, default=datetime.utcnow)
     subtotal = db.Column(db.Float, default=0.0)
     tax = db.Column(db.Float, default=0.0)
@@ -81,6 +82,7 @@ class Invoice(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade="all, delete-orphan")
+    user = db.relationship('User')
 
     def __repr__(self):
         return f"<Invoice {self.number}>"
