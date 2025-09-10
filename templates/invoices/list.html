@@ -51,7 +51,7 @@
                             <tr>
                                 <td>{{ invoice.number }}</td>
                                 <td>{{ invoice.customer.name }}</td>
-                                <td>{{ invoice.date.strftime('%d/%m/%Y') }}</td>
+                                <td><span class="utc-date" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></td>
                                 <td>${{ "%.2f"|format(invoice.total) }}</td>
                                 <td>
                                     <span class="badge bg-{{ 'success' if invoice.status == 'paid' else ('warning' if invoice.status == 'pending' else 'danger') }}">
@@ -115,17 +115,25 @@
 
 {% block extra_js %}
 <script>
-    // Set up delete modal
-    document.addEventListener('DOMContentLoaded', function() {
-        const deleteModal = document.getElementById('deleteModal');
-        deleteModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const id = button.dataset.id;
-            const number = button.dataset.number;
-            
-            document.getElementById('invoiceNumber').textContent = number;
-            document.getElementById('deleteForm').action = "{{ url_for('invoice_delete', id=0) }}".replace('0', id);
-        });
+  document.addEventListener('DOMContentLoaded', () => {
+    const formatDate = d => d.toLocaleDateString(undefined,{day:'2-digit',month:'2-digit',year:'numeric'});
+    document.querySelectorAll('.utc-date').forEach(el => {
+      const iso = el.getAttribute('data-utc');
+      if(!iso) return;
+      const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+      el.textContent = formatDate(d);
     });
+  });
+  // Set up delete modal
+  document.addEventListener('DOMContentLoaded', function() {
+      const deleteModal = document.getElementById('deleteModal');
+      deleteModal.addEventListener('show.bs.modal', function(event) {
+          const button = event.relatedTarget;
+          const id = button.dataset.id;
+          const number = button.dataset.number;
+          document.getElementById('invoiceNumber').textContent = number;
+          document.getElementById('deleteForm').action = "{{ url_for('invoice_delete', id=0) }}".replace('0', id);
+      });
+  });
 </script>
 {% endblock %}

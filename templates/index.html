@@ -84,7 +84,7 @@
                                 <tr>
                                     <td>{{ invoice.number }}</td>
                                     <td>{{ invoice.customer.name }}</td>
-                                    <td>{{ invoice.date.strftime('%d/%m/%Y') }}</td>
+                                    <td><span class="utc-date" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></td>
                                     <td>${{ "%.2f"|format(invoice.total) }}</td>
                                     <td>
                                         <a href="{{ url_for('invoice_view', id=invoice.id) }}" class="btn btn-sm btn-outline-primary">
@@ -160,4 +160,18 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const dateEls = document.querySelectorAll('.utc-date');
+    dateEls.forEach(el => {
+      const iso = el.getAttribute('data-utc');
+      if(!iso) return;
+      const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+      el.textContent = d.toLocaleDateString(undefined,{day:'2-digit',month:'2-digit',year:'numeric'});
+    });
+  });
+</script>
 {% endblock %}

@@ -29,7 +29,7 @@
             </div>
             <div class="col-md-6 text-md-end">
                 <h4 class="mb-3">Factura #{{ invoice.number }}</h4>
-                <p class="mb-1"><strong>Fecha:</strong> {{ invoice.date.strftime('%d/%m/%Y %H:%M') }}</p>
+                <p class="mb-1"><strong>Fecha:</strong> <span class="utc-datetime" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></p>
                 <p class="mb-1"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
                 <p class="mb-1">
                     <strong>Estado:</strong> 
@@ -137,4 +137,18 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.utc-datetime').forEach(el => {
+      const iso = el.getAttribute('data-utc');
+      if(!iso) return;
+      const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+      const opts = { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' };
+      el.textContent = d.toLocaleString(undefined, opts);
+    });
+  });
+</script>
 {% endblock %}
