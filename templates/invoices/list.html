@@ -1,0 +1,131 @@
+{% extends 'layout.html' %}
+
+{% block title %}Facturas - Green-POS{% endblock %}
+
+{% block page_title %}Facturas{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('invoice_new') }}" class="btn btn-primary">
+    <i class="bi bi-plus-circle"></i> Nueva Factura
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Search Bar -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form action="{{ url_for('invoice_list') }}" method="get">
+            <div class="input-group">
+                <input type="text" name="query" class="form-control" placeholder="Buscar por número, cliente o documento..." value="{{ query }}">
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-search"></i> Buscar
+                </button>
+                {% if query %}
+                    <a href="{{ url_for('invoice_list') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Limpiar
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Invoices Table -->
+<div class="card">
+    <div class="card-body">
+        {% if invoices %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Número</th>
+                            <th>Cliente</th>
+                            <th>Fecha</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in invoices %}
+                            <tr>
+                                <td>{{ invoice.number }}</td>
+                                <td>{{ invoice.customer.name }}</td>
+                                <td>{{ invoice.date.strftime('%d/%m/%Y') }}</td>
+                                <td>${{ "%.2f"|format(invoice.total) }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if invoice.status == 'paid' else ('warning' if invoice.status == 'pending' else 'danger') }}">
+                                        {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada'}.get(invoice.status, invoice.status) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}" class="btn btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deleteModal" 
+                                                data-id="{{ invoice.id }}"
+                                                data-number="{{ invoice.number }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                {% if query %}
+                    No se encontraron facturas para "{{ query }}".
+                {% else %}
+                    No hay facturas registradas. <a href="{{ url_for('invoice_new') }}">Crear la primera factura</a>.
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar la factura <strong id="invoiceNumber"></strong>?</p>
+                <p>Esta acción devolverá los productos al inventario.</p>
+                <p class="text-danger">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" action="" method="post">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Set up delete modal
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteModal = document.getElementById('deleteModal');
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const id = button.dataset.id;
+            const number = button.dataset.number;
+            
+            document.getElementById('invoiceNumber').textContent = number;
+            document.getElementById('deleteForm').action = "{{ url_for('invoice_delete', id=0) }}".replace('0', id);
+        });
+    });
+</script>
+{% endblock %}

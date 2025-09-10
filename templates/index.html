@@ -1,0 +1,159 @@
+{% extends 'layout.html' %}
+
+{% block title %}Inicio - Green-POS{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-md-4 mb-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Productos</h5>
+                        <h2 class="mb-0">{{ product_count }}</h2>
+                    </div>
+                    <div>
+                        <i class="bi bi-box-seam fs-1"></i>
+                    </div>
+                </div>
+                <a href="{{ url_for('product_list') }}" class="text-white">Ver todos <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Clientes</h5>
+                        <h2 class="mb-0">{{ customer_count }}</h2>
+                    </div>
+                    <div>
+                        <i class="bi bi-people fs-1"></i>
+                    </div>
+                </div>
+                <a href="{{ url_for('customer_list') }}" class="text-white">Ver todos <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Facturas</h5>
+                        <h2 class="mb-0">{{ invoice_count }}</h2>
+                    </div>
+                    <div>
+                        <i class="bi bi-receipt fs-1"></i>
+                    </div>
+                </div>
+                <a href="{{ url_for('invoice_list') }}" class="text-white">Ver todas <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Invoices -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Facturas Recientes</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_invoices %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Cliente</th>
+                                    <th>Fecha</th>
+                                    <th>Total</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in recent_invoices %}
+                                <tr>
+                                    <td>{{ invoice.number }}</td>
+                                    <td>{{ invoice.customer.name }}</td>
+                                    <td>{{ invoice.date.strftime('%d/%m/%Y') }}</td>
+                                    <td>${{ "%.2f"|format(invoice.total) }}</td>
+                                    <td>
+                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No hay facturas recientes.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-light">
+                <a href="{{ url_for('invoice_list') }}" class="btn btn-sm btn-outline-secondary">Ver todas</a>
+                <a href="{{ url_for('invoice_new') }}" class="btn btn-sm btn-primary float-end">Nueva Factura</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Low Stock Products -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Productos con Poco Stock</h5>
+            </div>
+            <div class="card-body">
+                {% if low_stock_products %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th>Stock</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in low_stock_products %}
+                                <tr>
+                                    <td>{{ product.code }}</td>
+                                    <td>{{ product.name }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if product.stock == 0 else 'warning' }}">
+                                            {{ product.stock }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('product_edit', id=product.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No hay productos con poco stock.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-light">
+                <a href="{{ url_for('product_list') }}" class="btn btn-sm btn-outline-secondary">Ver todos</a>
+                <a href="{{ url_for('product_new') }}" class="btn btn-sm btn-primary float-end">Nuevo Producto</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'layout.html' %}
+
+{% block title %}{{ 'Editar Cliente' if customer else 'Nuevo Cliente' }} - Green-POS{% endblock %}
+
+{% block page_title %}{{ 'Editar Cliente' if customer else 'Nuevo Cliente' }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="name" class="form-label">Nombre Completo *</label>
+                    <input type="text" id="name" name="name" class="form-control" 
+                           value="{{ customer.name if customer else '' }}" required>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label for="document" class="form-label">Documento (NIT/CC) *</label>
+                    <input type="text" id="document" name="document" class="form-control" 
+                           value="{{ customer.document if customer else '' }}" required>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" id="email" name="email" class="form-control" 
+                           value="{{ customer.email if customer else '' }}">
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label for="phone" class="form-label">Teléfono</label>
+                    <input type="tel" id="phone" name="phone" class="form-control" 
+                           value="{{ customer.phone if customer else '' }}">
+                </div>
+                
+                <div class="col-md-12 mb-3">
+                    <label for="address" class="form-label">Dirección</label>
+                    <input type="text" id="address" name="address" class="form-control" 
+                           value="{{ customer.address if customer else '' }}">
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{{ url_for('customer_list') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver a la lista
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> {{ 'Actualizar Cliente' if customer else 'Crear Cliente' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

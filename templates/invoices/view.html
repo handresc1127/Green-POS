@@ -1,0 +1,139 @@
+{% extends 'layout.html' %}
+
+{% block title %}Factura {{ invoice.number }} - Green-POS{% endblock %}
+
+{% block page_title %}Factura #{{ invoice.number }}{% endblock %}
+
+{% block page_actions %}
+<div class="btn-group">
+    <button class="btn btn-outline-primary" onclick="window.print()">
+        <i class="bi bi-printer"></i> Imprimir
+    </button>
+    <a href="{{ url_for('invoice_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h4 class="mb-3">Green-POS</h4>
+                <p class="mb-1">Pet Verde</p>
+                <p class="mb-1">NIT: 12345678-9</p>
+                <p class="mb-1">Dirección: Calle Principal #123</p>
+                <p class="mb-1">Teléfono: (123) 456-7890</p>
+                <p class="mb-1">Email: contacto@petverde.com</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <h4 class="mb-3">Factura #{{ invoice.number }}</h4>
+                <p class="mb-1"><strong>Fecha:</strong> {{ invoice.date.strftime('%d/%m/%Y %H:%M') }}</p>
+                <p class="mb-1">
+                    <strong>Estado:</strong> 
+                    <span class="badge bg-{{ 'success' if invoice.status == 'paid' else ('warning' if invoice.status == 'pending' else 'danger') }}">
+                        {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada'}.get(invoice.status, invoice.status) }}
+                    </span>
+                </p>
+                <p class="mb-1">
+                    <strong>Método de Pago:</strong> 
+                    {{ {'cash': 'Efectivo', 'credit_card': 'Tarjeta de Crédito', 'debit_card': 'Tarjeta de Débito', 'transfer': 'Transferencia Bancaria'}.get(invoice.payment_method, invoice.payment_method) }}
+                </p>
+            </div>
+        </div>
+        
+        <hr>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h5 class="mb-2">Cliente</h5>
+                <p class="mb-1"><strong>{{ invoice.customer.name }}</strong></p>
+                <p class="mb-1">{{ invoice.customer.document }}</p>
+                {% if invoice.customer.phone %}
+                    <p class="mb-1">{{ invoice.customer.phone }}</p>
+                {% endif %}
+                {% if invoice.customer.email %}
+                    <p class="mb-1">{{ invoice.customer.email }}</p>
+                {% endif %}
+                {% if invoice.customer.address %}
+                    <p class="mb-1">{{ invoice.customer.address }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Producto</th>
+                        <th class="text-center">Cantidad</th>
+                        <th class="text-end">Precio Unitario</th>
+                        <th class="text-end">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in invoice.items %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ item.product.name }}</td>
+                            <td class="text-center">{{ item.quantity }}</td>
+                            <td class="text-end">${{ "%.2f"|format(item.price) }}</td>
+                            <td class="text-end">${{ "%.2f"|format(item.quantity * item.price) }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
+                        <td class="text-end">${{ "%.2f"|format(invoice.subtotal) }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="4" class="text-end"><strong>IVA (19%):</strong></td>
+                        <td class="text-end">${{ "%.2f"|format(invoice.tax) }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                        <td class="text-end"><strong>${{ "%.2f"|format(invoice.total) }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        {% if invoice.notes %}
+            <div class="mt-4">
+                <h5>Notas</h5>
+                <p>{{ invoice.notes }}</p>
+            </div>
+        {% endif %}
+        
+        <div class="mt-4 text-center">
+            <p>¡Gracias por su compra!</p>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar la factura #{{ invoice.number }}?</p>
+                <p>Esta acción devolverá los productos al inventario.</p>
+                <p class="text-danger">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form action="{{ url_for('invoice_delete', id=invoice.id) }}" method="post">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

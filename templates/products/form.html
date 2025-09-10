@@ -1,0 +1,77 @@
+{% extends 'layout.html' %}
+
+{% block title %}{{ 'Editar Producto' if product else 'Nuevo Producto' }} - Green-POS{% endblock %}
+
+{% block page_title %}{{ 'Editar Producto' if product else 'Nuevo Producto' }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="code" class="form-label">Código *</label>
+                    <input type="text" id="code" name="code" class="form-control" 
+                           value="{{ product.code if product else '' }}" required>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label for="name" class="form-label">Nombre *</label>
+                    <input type="text" id="name" name="name" class="form-control" 
+                           value="{{ product.name if product else '' }}" required>
+                </div>
+                
+                <div class="col-md-12 mb-3">
+                    <label for="description" class="form-label">Descripción</label>
+                    <textarea id="description" name="description" class="form-control" rows="3">{{ product.description if product else '' }}</textarea>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <label for="purchase_price" class="form-label">Precio de Compra</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" id="purchase_price" name="purchase_price" class="form-control" step="0.01" min="0" 
+                               value="{{ product.purchase_price if product else 0 }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <label for="sale_price" class="form-label">Precio de Venta *</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" id="sale_price" name="sale_price" class="form-control" step="0.01" min="0" 
+                               value="{{ product.sale_price if product else 0 }}" required>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <label for="stock" class="form-label">Existencias</label>
+                    <input type="number" id="stock" name="stock" class="form-control" min="0" 
+                           value="{{ product.stock if product else 0 }}">
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label for="category" class="form-label">Categoría</label>
+                    <input type="text" id="category" name="category" class="form-control" list="categoryOptions"
+                           value="{{ product.category if product else '' }}">
+                    <datalist id="categoryOptions">
+                        <option value="Alimento">
+                        <option value="Medicamento">
+                        <option value="Accesorios">
+                        <option value="Higiene">
+                    </datalist>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{{ url_for('product_list') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver a la lista
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> {{ 'Actualizar Producto' if product else 'Crear Producto' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
