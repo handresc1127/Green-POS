@@ -35,28 +35,22 @@ body {
 }
 
 /* Print styles */
+@page {
+    size: auto;
+    margin: 10mm; /* Ajusta según necesidad; 0 elimina casi todo el espacio */
+}
 @media print {
-    .navbar, .footer, .btn, .no-print {
+    .navbar, .footer, .btn, .no-print, .d-print-none {
         display: none !important;
     }
-    
-    .card {
-        border: none;
-        box-shadow: none;
-    }
-    
     body {
         margin: 0;
         padding: 0;
         background: #fff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
-    
-    .container {
-        width: 100%;
-        max-width: 100%;
-    }
-    
-    h1, h2, h3, h4, h5, h6 {
-        margin-top: 0;
-    }
+    .card { border: none; box-shadow: none; }
+    .container { width: 100%; max-width: 100%; }
+    h1, h2, h3, h4, h5, h6 { margin-top: 0; }
 }

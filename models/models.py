@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, date
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
@@ -19,6 +19,7 @@ class Setting(db.Model):
     iva_responsable = db.Column(db.Boolean, default=True)
     tax_rate = db.Column(db.Float, default=0.19)  # usado si es responsable IVA
     document_type = db.Column(db.String(20), default='invoice')  # invoice | pos
+    logo_path = db.Column(db.String(255))  # ruta archivo logo cuadrado
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -65,9 +66,38 @@ class Customer(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     invoices = db.relationship('Invoice', backref='customer', lazy=True)
+    pets = db.relationship('Pet', backref='customer', lazy=True, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Customer {self.name}>"
+
+class Pet(db.Model):
+    __tablename__ = 'pet'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    name = db.Column(db.String(80), nullable=False)
+    species = db.Column(db.String(40), default='Perro')  # Perro, Gato, etc.
+    breed = db.Column(db.String(80))
+    color = db.Column(db.String(60))
+    sex = db.Column(db.String(10))  # Macho / Hembra
+    age_years = db.Column(db.Integer)  # deprecado, se mantiene por compatibilidad
+    birth_date = db.Column(db.Date)    # nueva fecha de nacimiento
+    weight_kg = db.Column(db.Float)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Pet {self.name}>"
+    
+    @property
+    def computed_age(self):
+        if self.birth_date:
+            today = datetime.utcnow().date()
+            years = today.year - self.birth_date.year - ((today.month, today.day) < (self.birth_date.month, self.birth_date.day))
+            return years
+        return None
 
 class Invoice(db.Model):
     __tablename__ = 'invoice'
@@ -116,6 +146,30 @@ class InvoiceItem(db.Model):
     def __repr__(self):
         return f"<InvoiceItem {self.id}>"
     
+class PetService(db.Model):
+    __tablename__ = 'pet_service'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    pet_id = db.Column(db.Integer, db.ForeignKey('pet.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'))  # factura generada opcional
+    service_type = db.Column(db.String(30), default='bath')  # bath, grooming, both, other
+    description = db.Column(db.Text)
+    price = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default='pending')  # pending, done, cancelled
+    consent_text = db.Column(db.Text)
+    consent_signed = db.Column(db.Boolean, default=False)
+    consent_signed_at = db.Column(db.DateTime)
+    technician = db.Column(db.String(80))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    pet = db.relationship('Pet')
+    invoice = db.relationship('Invoice')
+
+    def __repr__(self):
+        return f"<PetService {self.id} {self.service_type}>"
+
 class User(UserMixin, db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)

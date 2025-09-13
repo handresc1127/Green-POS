@@ -1,0 +1,131 @@
+{% extends 'layout.html' %}
+{% block title %}Nuevo Servicio{% endblock %}
+{% block page_title %}Nuevo Servicio{% endblock %}
+{% block extra_js %}
+<script>
+function loadPets() {
+  const cid = document.getElementById('customer_id').value;
+  const sel = document.getElementById('pet_id');
+  sel.innerHTML = '<option value="">Cargando...</option>';
+  if(!cid){ sel.innerHTML='<option value="">-- Seleccione Cliente --</option>'; return; }
+  fetch(`/api/pets/by_customer/${cid}`)
+    .then(r=>r.json())
+    .then(data=>{
+      sel.innerHTML = '<option value="">-- Seleccione Mascota --</option>';
+      data.forEach(p=>{
+        const opt=document.createElement('option');
+        opt.value=p.id; opt.textContent=p.name + (p.breed? ' ('+p.breed+')':'');
+        sel.appendChild(opt);
+      });
+      fillConsent();
+    });
+}
+function fillConsent() {
+  const template = document.getElementById('consent_template').value;
+  const display = document.getElementById('customerDisplay');
+  const customerName = display.dataset.name || display.textContent.replace('(Sin seleccionar)','').trim();
+  const customerDoc = display.dataset.document || '';
+  const petSelect = document.getElementById('pet_id');
+  let petName = '';
+  if (petSelect && typeof petSelect.selectedIndex === 'number' && petSelect.selectedIndex >= 0) {
+    var opt = petSelect.options[petSelect.selectedIndex];
+    if (opt && opt.text) {
+      petName = opt.text.split(' (')[0];
+    }
+  }
+  const serviceType = document.getElementById('service_type').value;
+  const labels = {bath:'Baño', grooming:'Grooming / Estética', both:'Baño y Grooming', other:'Servicio Especial'};
+  let txt = template
+    .replace(/{{customer_name}}/g, customerName)
+    .replace(/{{customer_document}}/g, customerDoc)
+    .replace(/{{pet_name}}/g, petName)
+    .replace(/{{service_type_label}}/g, labels[serviceType]||serviceType);
+  document.getElementById('consent_text').value = txt;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  // Si ya viene un cliente precargado (hidden input con valor) cargar mascotas
+  const hidden = document.getElementById('customer_id');
+  if(hidden && hidden.value){
+    loadPets();
+  }
+  window.addEventListener('customer:selected', (e)=>{
+    const {id, name, document: doc} = e.detail;
+    const hidden = document.getElementById('customer_id');
+    const display = document.getElementById('customerDisplay');
+    hidden.value = id;
+    display.textContent = name + (doc? ' ('+doc+')':'');
+    display.dataset.name = name;
+    display.dataset.document = doc || '';
+    loadPets();
+  });
+  ['service_type','pet_id'].forEach(id=>{
+    const el = document.getElementById(id);
+    el && el.addEventListener('change', fillConsent);
+  });
+});
+</script>
+{% endblock %}
+{% block content %}
+<form method="post" class="row g-3">
+  <div class="col-md-4">
+    <label class="form-label d-block">Cliente</label>
+    <div class="input-group">
+      <span id="customerDisplay" data-customer-field="display" class="form-control bg-light {% if not default_customer %}text-muted{% endif %}" data-name="{% if default_customer %}{{ default_customer.name|e }}{% endif %}" data-document="{% if default_customer and default_customer.document %}{{ default_customer.document|e }}{% endif %}">
+        {% if default_customer %}
+          {{ default_customer.name }}{% if default_customer.document %} ({{ default_customer.document }}){% endif %}
+        {% else %}
+          (Sin seleccionar)
+        {% endif %}
+      </span>
+      <button type="button" class="btn btn-outline-primary" data-open="customer-modal">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+    <input type="hidden" name="customer_id" id="customer_id" data-customer-field="id" value="{% if default_customer %}{{ default_customer.id }}{% endif %}" required>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Mascota</label>
+    <select name="pet_id" id="pet_id" class="form-select" required onchange="fillConsent()">
+      <option value="">-- Seleccione Cliente --</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Tipo Servicio</label>
+    <select name="service_type" id="service_type" class="form-select" onchange="fillConsent()">
+      <option value="bath">Baño</option>
+      <option value="grooming">Grooming / Estética</option>
+      <option value="both">Baño y Grooming</option>
+      <option value="other">Especial</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Precio</label>
+    <input type="number" step="0.01" name="price" class="form-control" required value="0">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Técnico / Estilista</label>
+    <input type="text" name="technician" class="form-control">
+  </div>
+  <div class="col-12">
+    <label class="form-label">Descripción</label>
+    <textarea name="description" class="form-control" rows="2"></textarea>
+  </div>
+  <div class="col-12">
+    <div class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" role="switch" id="generate_invoice" name="generate_invoice">
+      <label class="form-check-label" for="generate_invoice">Generar Factura / Documento</label>
+    </div>
+  </div>
+  <div class="col-12">
+    <label class="form-label">Consentimiento Informado</label>
+    <textarea name="consent_text" id="consent_text" class="form-control" rows="5" placeholder="Genera el texto usando el botón 'Rellenar' o escribe manualmente"></textarea>
+    <input type="hidden" id="consent_template" value="{{ consent_template }}">
+    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="fillConsent()">Rellenar</button>
+  </div>
+  <div class="col-12">
+    <button class="btn btn-primary">Guardar</button>
+    <a href="{{ url_for('service_list') }}" class="btn btn-secondary">Cancelar</a>
+  </div>
+</form>
+{% include 'partials/customer_modal.html' %}
+{% endblock %}

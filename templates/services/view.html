@@ -1,0 +1,62 @@
+{% extends 'layout.html' %}
+{% block title %}Servicio #{{ service.id }}{% endblock %}
+{% block page_title %}Servicio #{{ service.id }}{% endblock %}
+{% block page_actions %}
+<a href="{{ url_for('service_list') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+{% if service.status=='pending' %}
+<form action="{{ url_for('service_finish', id=service.id) }}" method="post" class="d-inline">
+  <button class="btn btn-outline-success"><i class="bi bi-check2"></i> Finalizar</button>
+</form>
+{% endif %}
+{% if current_user.role=='admin' and service.status!='cancelled' %}
+<form action="{{ url_for('service_cancel', id=service.id) }}" method="post" class="d-inline" onsubmit="return confirm('Cancelar servicio?')">
+  <button class="btn btn-outline-warning"><i class="bi bi-x-circle"></i> Cancelar</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <h5>Datos Servicio</h5>
+        <p class="mb-1"><strong>Tipo:</strong> {{ SERVICE_TYPE_LABELS.get(service.service_type, service.service_type) }}</p>
+        <p class="mb-1"><strong>Precio:</strong> ${{ '%.2f'|format(service.price) }}</p>
+        <p class="mb-1"><strong>Estado:</strong> <span class="badge bg-{% if service.status=='pending' %}warning{% elif service.status=='done' %}success{% else %}secondary{% endif %}">{{ service.status }}</span></p>
+        {% if service.technician %}<p class="mb-1"><strong>Técnico:</strong> {{ service.technician }}</p>{% endif %}
+        <p class="mb-1"><strong>Creado:</strong> {{ service.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+        {% if service.invoice_id %}
+          <p class="mb-1"><strong>Factura:</strong> <a href="{{ url_for('invoice_view', id=service.invoice_id) }}">Ver</a></p>
+        {% endif %}
+      </div>
+      <div class="col-md-6">
+        <h5>Mascota</h5>
+        <p class="mb-1"><strong>Nombre:</strong> {{ service.pet.name }}</p>
+        <p class="mb-1"><strong>Cliente:</strong> {{ service.customer.name }}</p>
+        {% if service.pet.species %}<p class="mb-1"><strong>Especie:</strong> {{ service.pet.species }}</p>{% endif %}
+        {% if service.pet.breed %}<p class="mb-1"><strong>Raza:</strong> {{ service.pet.breed }}</p>{% endif %}
+        {% if service.pet.age_years is not none %}<p class="mb-1"><strong>Edad:</strong> {{ service.pet.age_years }} años</p>{% endif %}
+        {% if service.pet.weight_kg is not none %}<p class="mb-1"><strong>Peso:</strong> {{ service.pet.weight_kg }} kg</p>{% endif %}
+      </div>
+    </div>
+    {% if service.description %}
+      <hr>
+      <h5>Descripción</h5>
+      <p>{{ service.description }}</p>
+    {% endif %}
+    <hr>
+    <h5>Consentimiento Informado</h5>
+    <div class="border rounded p-3 bg-light">
+      <p style="white-space:pre-line">{{ service.consent_text or 'No registrado' }}</p>
+      <p class="mt-2">
+        Estado: {% if service.consent_signed %}<span class="badge bg-success">Firmado</span> ({{ service.consent_signed_at.strftime('%d/%m/%Y %H:%M') if service.consent_signed_at else '' }}){% else %}<span class="badge bg-secondary">No firmado</span>{% endif %}
+      </p>
+      {% if not service.consent_signed %}
+      <form action="{{ url_for('service_consent_sign', id=service.id) }}" method="post" onsubmit="return confirm('Confirmar firma del consentimiento?')">
+        <button class="btn btn-sm btn-outline-primary">Marcar como Firmado</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

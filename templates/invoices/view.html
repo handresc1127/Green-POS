@@ -2,10 +2,18 @@
 
 {% block title %}Venta {{ invoice.number }} - {{ setting.business_name or 'Venta' }}{% endblock %}
 
-{% block page_title %}Venta #{{ invoice.number }} ({{ setting.document_label }}){% endblock %}
+{% block page_title %}<span class="d-print-none">Venta #{{ invoice.number }} ({{ setting.document_label }})</span>{% endblock %}
+
+{% block page_info %}
+<div class="d-print-none mb-3">
+  <span class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
+    Estado: {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada', 'validated': 'Validada'}.get(invoice.status, invoice.status) }}
+  </span>
+</div>
+{% endblock %}
 
 {% block page_actions %}
-<div class="btn-group">
+<div class="btn-group d-print-none">
     <button class="btn btn-outline-primary" onclick="window.print()">
         <i class="bi bi-printer"></i> Imprimir
     </button>
@@ -16,103 +24,116 @@
 {% endblock %}
 
 {% block content %}
+{# --- Watermark styles dinámicos sólo si hay logo --- #}
+{% if setting.logo_path %}
+<style>
+  .invoice-watermark-wrapper { position: relative; }
+  .invoice-watermark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:0; }
+  .invoice-watermark img { max-width:60%; height:auto; opacity:0.07; filter:grayscale(20%); }
+  .invoice-content-layer { position:relative; z-index:1; }
+  @media print { .invoice-watermark img { opacity:0.10; } }
+</style>
+{% endif %}
 <div class="card mb-4">
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <h4 class="mb-3">{{ setting.business_name or 'Nombre de la Empresa' }}</h4>
-                {% if setting.nit %}<p class="mb-1">NIT: {{ setting.nit }}</p>{% endif %}
-                {% if setting.address %}<p class="mb-1">Dirección: {{ setting.address }}</p>{% endif %}
-                {% if setting.phone %}<p class="mb-1">Teléfono: {{ setting.phone }}</p>{% endif %}
-                {% if setting.email %}<p class="mb-1">Email: {{ setting.email }}</p>{% endif %}
-                <p class="mb-1">Regimen IVA: {{ 'Responsable' if setting.iva_responsable else 'No responsable' }}</p>
-            </div>
-            <div class="col-md-6 text-md-end">
-                <h4 class="mb-3">{{ setting.document_label }} #{{ invoice.number }}</h4>
-                <p class="mb-1"><strong>Fecha:</strong> <span class="utc-datetime" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></p>
-                <p class="mb-1"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
-                <p class="mb-1">
-                    <strong>Estado:</strong> 
-                    <span class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
-                        {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada', 'validated': 'Validada'}.get(invoice.status, invoice.status) }}
-                    </span>
-                </p>
-                <p class="mb-1">
-                    <strong>Método de Pago:</strong> 
-                    {{ {'cash': 'Efectivo', 'credit_card': 'Tarjeta de Crédito', 'debit_card': 'Tarjeta de Débito', 'transfer': 'Transferencia Bancaria'}.get(invoice.payment_method, invoice.payment_method) }}
-                </p>
-            </div>
+    <div class="card-body invoice-watermark-wrapper">
+        {% if setting.logo_path %}
+        <div class="invoice-watermark">
+            <img src="{{ url_for('static', filename=setting.logo_path) }}" alt="Logo">
         </div>
-        
-        <hr>
-        
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <h5 class="mb-2">Cliente</h5>
-                <p class="mb-1"><strong>{{ invoice.customer.name }}</strong></p>
-                <p class="mb-1">{{ invoice.customer.document }}</p>
-                {% if invoice.customer.phone %}
-                    <p class="mb-1">{{ invoice.customer.phone }}</p>
-                {% endif %}
-                {% if invoice.customer.email %}
-                    <p class="mb-1">{{ invoice.customer.email }}</p>
-                {% endif %}
-                {% if invoice.customer.address %}
-                    <p class="mb-1">{{ invoice.customer.address }}</p>
-                {% endif %}
-            </div>
-        </div>
-        
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Producto</th>
-                        <th class="text-center">Cantidad</th>
-                        <th class="text-end">Precio Unitario</th>
-                        <th class="text-end">Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in invoice.items %}
-                        <tr>
-                            <td>{{ loop.index }}</td>
-                            <td>{{ item.product.name }}</td>
-                            <td class="text-center">{{ item.quantity }}</td>
-                            <td class="text-end">${{ "%.2f"|format(item.price) }}</td>
-                            <td class="text-end">${{ "%.2f"|format(item.quantity * item.price) }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
-                        <td class="text-end">${{ "%.2f"|format(invoice.subtotal) }}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="4" class="text-end"><strong>IVA {% if setting.iva_responsable %}({{ (setting.tax_rate * 100)|round(2) }}%){% else %}(0%) - No responsable{% endif %}:</strong></td>
-                        <td class="text-end">${{ "%.2f"|format(invoice.tax) }}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="4" class="text-end"><strong>Total:</strong></td>
-                        <td class="text-end"><strong>${{ "%.2f"|format(invoice.total) }}</strong></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-        
-        {% if invoice.notes %}
-            <div class="mt-4">
-                <h5>Notas</h5>
-                <p>{{ invoice.notes }}</p>
-            </div>
         {% endif %}
-        
-        <div class="mt-4 text-center">
-            <p>¡Gracias por su compra!</p>
-        </div>
-    </div>
+        <div class="invoice-content-layer">
+            <div class="row">
+                <div class="col-6 col-md-6">
+                    <h4 class="mb-3">{{ setting.business_name or 'Nombre de la Empresa' }}</h4>
+                    {% if setting.nit %}<p class="mb-1">NIT: {{ setting.nit }}</p>{% endif %}
+                    {% if setting.address %}<p class="mb-1">Dirección: {{ setting.address }}</p>{% endif %}
+                    {% if setting.phone %}<p class="mb-1">Teléfono: {{ setting.phone }}</p>{% endif %}
+                    {% if setting.email %}<p class="mb-1">Email: {{ setting.email }}</p>{% endif %}
+                    <p class="mb-1">Regimen IVA: {{ 'Responsable' if setting.iva_responsable else 'No responsable' }}</p>
+                </div>
+                <div class="col-6 col-md-6 text-end">
+                    <h4 class="mb-3">{{ setting.document_label }} #{{ invoice.number }}</h4>
+                    <p class="mb-1"><strong>Fecha:</strong> <span class="utc-datetime" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></p>
+                    <p class="mb-1"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
+                    <p class="mb-1">
+                        <strong>Método de Pago:</strong> 
+                        {{ {'cash': 'Efectivo', 'credit_card': 'Tarjeta de Crédito', 'debit_card': 'Tarjeta de Débito', 'transfer': 'Transferencia Bancaria'}.get(invoice.payment_method, invoice.payment_method) }}
+                    </p>
+                </div>
+            </div>
+            
+            <hr>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5 class="mb-2">Cliente</h5>
+                    <p class="mb-1"><strong>{{ invoice.customer.name }}</strong></p>
+                    <p class="mb-1">{{ invoice.customer.document }}</p>
+                    {% if invoice.customer.phone %}
+                        <p class="mb-1">{{ invoice.customer.phone }}</p>
+                    {% endif %}
+                    {% if invoice.customer.email %}
+                        <p class="mb-1">{{ invoice.customer.email }}</p>
+                    {% endif %}
+                    {% if invoice.customer.address %}
+                        <p class="mb-1">{{ invoice.customer.address }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Producto</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-end">Precio Unitario</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in invoice.items %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ item.product.name }}</td>
+                                <td class="text-center">{{ item.quantity }}</td>
+                                <td class="text-end">${{ "%.2f"|format(item.price) }}</td>
+                                <td class="text-end">${{ "%.2f"|format(item.quantity * item.price) }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        {% if setting.iva_responsable %}
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
+                            <td class="text-end">${{ "%.2f"|format(invoice.subtotal) }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>IVA ({{ (setting.tax_rate * 100)|round(2) }}%):</strong></td>
+                            <td class="text-end">${{ "%.2f"|format(invoice.tax) }}</td>
+                        </tr>
+                         {% endif %}
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                            <td class="text-end"><strong>${{ "%.2f"|format(invoice.total) }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            {% if invoice.notes %}
+                <div class="mt-4">
+                    <h5>Notas</h5>
+                    <p>{{ invoice.notes }}</p>
+                </div>
+            {% endif %}
+            
+            <div class="mt-4 text-center">
+                <p>¡Gracias por su compra!</p>
+            </div>
+        </div> {# invoice-content-layer #}
+    </div> {# card-body #}
 </div>
 
 <!-- Delete Confirmation Modal -->

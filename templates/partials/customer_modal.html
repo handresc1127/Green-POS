@@ -1,0 +1,135 @@
+{# Modal reutilizable de selección de cliente #}
+<div class="modal fade" id="customerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Seleccionar Cliente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="customerSearch" placeholder="Buscar por nombre o documento">
+          </div>
+        </div>
+        <div class="table-responsive" style="max-height:320px; overflow-y:auto;">
+          <table class="table table-hover table-sm">
+            <thead>
+              <tr><th>Nombre</th><th>Documento</th><th>Email / Teléfono</th><th></th></tr>
+            </thead>
+            <tbody id="customersList">
+              {% for c in customers %}
+              <tr class="customer-row" style="cursor:pointer" data-id="{{ c.id }}" data-name="{{ c.name }}" data-document="{{ c.document }}">
+                <td>{{ c.name }}</td>
+                <td>{{ c.document }}</td>
+                <td>{{ c.email or c.phone or '' }}</td>
+                <td class="text-end">
+                  <button type="button" class="btn btn-sm btn-outline-primary select-customer-btn" data-id="{{ c.id }}" data-name="{{ c.name }}" data-document="{{ c.document }}">
+                    <i class="bi bi-check2"></i>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Script reutilizable (solo define comportamiento si no se ha inicializado) #}
+<script>
+ (function(){
+  if(window.__customerModalInit) return; // evitar doble binding si se incluye dos veces
+  window.__customerModalInit = true;
+  document.addEventListener('DOMContentLoaded', () => {
+    const modalEl = document.getElementById('customerModal');
+    if(!modalEl) return;
+    let customerModal = null;
+    let lastOpener = null;
+    if (window.bootstrap && bootstrap.Modal) {
+      customerModal = new bootstrap.Modal(modalEl);
+    } else {
+      // Fallback simple si Bootstrap JS no está disponible
+      customerModal = {
+        show(){
+          modalEl.style.display='block';
+          modalEl.classList.add('show');
+          modalEl.removeAttribute('aria-hidden');
+        },
+        hide(){
+          // Mover foco fuera antes de ocultar para evitar warning aria-hidden
+          if (modalEl.contains(document.activeElement)) {
+            document.activeElement.blur();
+          }
+          // devolver foco al botón que abrió si existe
+          if (lastOpener) {
+            try { lastOpener.focus(); } catch(_) {}
+          }
+          modalEl.classList.remove('show');
+          // retrasar aria-hidden hasta después del frame para asegurar blur aplicado
+          requestAnimationFrame(()=>{
+            modalEl.setAttribute('aria-hidden','true');
+            setTimeout(()=>modalEl.style.display='none',150);
+          });
+        }
+      };
+    }
+    const searchInput = document.getElementById('customerSearch');
+    const rowsContainer = document.getElementById('customersList');
+    const openButtons = document.querySelectorAll('[data-open="customer-modal"]');
+
+    openButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        lastOpener = btn;
+        if(searchInput){
+          searchInput.value='';
+          rowsContainer.querySelectorAll('tr').forEach(r=>r.style.display='');
+        }
+        customerModal.show();
+        setTimeout(()=>{ if(searchInput) searchInput.focus(); }, 200);
+      });
+    });
+
+    if (searchInput) {
+      searchInput.addEventListener('input', function(){
+        const term = this.value.toLowerCase();
+        rowsContainer.querySelectorAll('tr').forEach(tr => {
+          const name = tr.cells[0].textContent.toLowerCase();
+          const doc = tr.cells[1].textContent.toLowerCase();
+          tr.style.display = (name.includes(term) || doc.includes(term)) ? '' : 'none';
+        });
+      });
+    }
+
+    function selectCustomer(id, name, documentId){
+      const hiddenInput = document.querySelector('[data-customer-field="id"]');
+      const display = document.querySelector('[data-customer-field="display"]');
+      if(hiddenInput) hiddenInput.value = id;
+      if(display){
+        display.textContent = name + ' (' + documentId + ')';
+        display.classList.remove('text-muted');
+      }
+  customerModal.hide();
+      window.dispatchEvent(new CustomEvent('customer:selected', { detail:{ id, name, document: documentId }}));
+    }
+
+    rowsContainer.addEventListener('click', e => {
+      const btn = e.target.closest('.select-customer-btn');
+      if(btn){
+        selectCustomer(btn.dataset.id, btn.dataset.name, btn.dataset.document);
+        return;
+      }
+      const tr = e.target.closest('tr.customer-row');
+      if(tr){
+        selectCustomer(tr.dataset.id, tr.dataset.name, tr.dataset.document);
+      }
+    });
+  });
+ })();
+</script>

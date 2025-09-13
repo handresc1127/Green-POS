@@ -1,0 +1,58 @@
+{% extends 'layout.html' %}
+{% block title %}Servicios{% endblock %}
+{% block page_title %}Servicios{% endblock %}
+{% block page_actions %}
+<a href="{{ url_for('service_new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nuevo Servicio</a>
+{% endblock %}
+{% block content %}
+<form class="row g-2 mb-3">
+  <div class="col-auto">
+    <select name="status" class="form-select" onchange="this.form.submit()">
+      <option value="">-- Estado --</option>
+      <option value="pending" {% if status=='pending' %}selected{% endif %}>Pendiente</option>
+      <option value="done" {% if status=='done' %}selected{% endif %}>Finalizado</option>
+      <option value="cancelled" {% if status=='cancelled' %}selected{% endif %}>Cancelado</option>
+    </select>
+  </div>
+</form>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>#</th><th>Fecha</th><th>Mascota</th><th>Cliente</th><th>Tipo</th><th>Precio</th><th>Estado</th><th>Factura</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in services %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ s.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+      <td>{{ s.pet.name }}</td>
+      <td>{{ s.customer.name }}</td>
+      <td>{{ SERVICE_TYPE_LABELS.get(s.service_type, s.service_type) }}</td>
+      <td>${{ '%.2f'|format(s.price) }}</td>
+      <td>
+        <span class="badge bg-{% if s.status=='pending' %}warning{% elif s.status=='done' %}success{% else %}secondary{% endif %}">
+          {{ s.status }}
+        </span>
+      </td>
+      <td>
+        {% if s.invoice_id %}
+        <a href="{{ url_for('invoice_view', id=s.invoice_id) }}" class="text-decoration-none"><i class="bi bi-receipt"></i></a>
+        {% else %}-{% endif %}
+      </td>
+      <td class="text-end">
+        <a href="{{ url_for('service_view', id=s.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+        {% if current_user.role=='admin' %}
+        <form action="{{ url_for('service_delete', id=s.id) }}" method="post" class="d-inline" onsubmit="return confirm('Eliminar servicio?')">
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    {% if services|length == 0 %}
+      <tr><td colspan="9" class="text-center text-muted">Sin servicios</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}

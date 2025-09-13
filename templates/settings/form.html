@@ -2,7 +2,7 @@
 {% block title %}Configuración - Green-POS{% endblock %}
 {% block page_title %}Configuración{% endblock %}
 {% block content %}
-<form method="post" class="mb-4">
+<form method="post" class="mb-4" enctype="multipart/form-data">
   <div class="row">
     <div class="col-md-6">
       <div class="card mb-4">
@@ -28,6 +28,22 @@
             <div class="col-md-6 mb-3">
               <label class="form-label">Correo</label>
               <input type="email" name="email" class="form-control" value="{{ setting.email }}">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Logo (imagen cuadrada)</label>
+            <div class="d-flex align-items-center gap-3">
+              <div style="width:100px;height:100px;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;">
+                {% if setting.logo_path %}
+                  <img src="{{ url_for('static', filename=setting.logo_path) }}" alt="Logo" style="max-width:100%;max-height:100%;object-fit:cover;">
+                {% else %}
+                  <span class="text-muted small">Sin logo</span>
+                {% endif %}
+              </div>
+              <div>
+                <input type="file" name="logo_file" accept="image/*" class="form-control">
+                <small class="text-muted">Se recortará al centro y se ajustará a 100x100. Formatos: jpg, png, gif, svg, webp.</small>
+              </div>
             </div>
           </div>
         </div>

@@ -1,10 +1,11 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
-from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting, User
+from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting, User, Pet, PetService
 import os
 from datetime import datetime, timezone
 import json
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from functools import wraps
+from PIL import Image
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'green-pos-secret-key'
@@ -359,6 +360,37 @@ def settings_view():
             setting.tax_rate = float(tax_rate_input) / 100.0
         except ValueError:
             pass
+        # Manejo de logo
+        file = request.files.get('logo_file')
+        if file and file.filename:
+            ext = os.path.splitext(file.filename.lower())[1]
+            if ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp']:
+                upload_dir = os.path.join(app.root_path, 'static', 'uploads')
+                os.makedirs(upload_dir, exist_ok=True)
+                # Guardar temporal
+                temp_path = os.path.join(upload_dir, 'temp_logo'+ext)
+                file.save(temp_path)
+                final_name = 'logo'+ext if ext != '.svg' else 'logo.svg'
+                final_path = os.path.join(upload_dir, final_name)
+                if ext == '.svg':
+                    # SVG se copia directamente
+                    os.replace(temp_path, final_path)
+                else:
+                    # Raster: recortar a cuadrado y redimensionar 100x100
+                    try:
+                        img = Image.open(temp_path)
+                        w, h = img.size
+                        side = min(w, h)
+                        left = (w - side) // 2
+                        top = (h - side) // 2
+                        img = img.crop((left, top, left+side, top+side)).resize((100, 100))
+                        img.save(final_path, quality=90)
+                        os.remove(temp_path)
+                    except Exception:
+                        flash('Error procesando la imagen del logo', 'danger')
+                setting.logo_path = f'uploads/{final_name}'
+            else:
+                flash('Formato de imagen no soportado', 'danger')
         db.session.commit()
         flash('Configuración guardada', 'success')
         return redirect(url_for('settings_view'))
@@ -375,6 +407,216 @@ def api_product_details(id):
         'stock': product.stock
     })
 
+# --------- API Pets por Cliente ---------
+@app.route('/api/pets/by_customer/<int:customer_id>')
+@login_required
+def api_pets_by_customer(customer_id):
+    pets = Pet.query.filter_by(customer_id=customer_id).all()
+    return jsonify([
+        {'id': p.id, 'name': p.name, 'species': p.species, 'breed': p.breed} for p in pets
+    ])
+
+# --------- MASCOTAS ---------
+@app.route('/pets')
+@login_required
+def pet_list():
+    customer_id = request.args.get('customer_id')
+    query = Pet.query
+    if customer_id:
+        query = query.filter_by(customer_id=customer_id)
+    pets = query.order_by(Pet.created_at.desc()).all()
+    customers = Customer.query.order_by(Customer.name).all()
+    return render_template('pets/list.html', pets=pets, customers=customers, customer_id=customer_id)
+
+@app.route('/pets/new', methods=['GET','POST'])
+@login_required
+def pet_new():
+    customers = Customer.query.order_by(Customer.name).all()
+    if request.method == 'POST':
+        customer_id = request.form['customer_id']
+        name = request.form['name']
+        species = request.form.get('species','')
+        breed = request.form.get('breed','')
+        color = request.form.get('color','')
+        sex = request.form.get('sex','')
+        birth_date_raw = request.form.get('birth_date')
+        birth_date = None
+        if birth_date_raw:
+            try:
+                birth_date = datetime.strptime(birth_date_raw, '%Y-%m-%d').date()
+            except ValueError:
+                birth_date = None
+        weight_kg = request.form.get('weight_kg') or None
+        notes = request.form.get('notes','')
+        pet = Pet(customer_id=customer_id, name=name, species=species, breed=breed, color=color, sex=sex,
+                  birth_date=birth_date,
+                  weight_kg=float(weight_kg) if weight_kg else None,
+                  notes=notes)
+        db.session.add(pet)
+        db.session.commit()
+        flash('Mascota creada', 'success')
+        return redirect(url_for('pet_list'))
+    # GET
+    # Uso de SQLAlchemy 2.x: reemplaza Query.get() (deprecado) por session.get()
+    default_customer = db.session.get(Customer, 1)
+    return render_template('pets/form.html', customers=customers, default_customer=default_customer)
+
+@app.route('/pets/edit/<int:id>', methods=['GET','POST'])
+@login_required
+def pet_edit(id):
+    pet = Pet.query.get_or_404(id)
+    customers = Customer.query.order_by(Customer.name).all()
+    if request.method == 'POST':
+        pet.customer_id = request.form['customer_id']
+        pet.name = request.form['name']
+        pet.species = request.form.get('species','')
+        pet.breed = request.form.get('breed','')
+        pet.color = request.form.get('color','')
+        pet.sex = request.form.get('sex','')
+        birth_date_raw = request.form.get('birth_date')
+        if birth_date_raw:
+            try:
+                pet.birth_date = datetime.strptime(birth_date_raw, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        else:
+            pet.birth_date = None
+        weight_kg = request.form.get('weight_kg') or None
+        pet.weight_kg = float(weight_kg) if weight_kg else None
+        pet.notes = request.form.get('notes','')
+        db.session.commit()
+        flash('Mascota actualizada', 'success')
+        return redirect(url_for('pet_list'))
+    return render_template('pets/form.html', pet=pet, customers=customers)
+
+@app.route('/pets/delete/<int:id>', methods=['POST'])
+@role_required('admin')
+def pet_delete(id):
+    pet = Pet.query.get_or_404(id)
+    db.session.delete(pet)
+    db.session.commit()
+    flash('Mascota eliminada', 'success')
+    return redirect(url_for('pet_list'))
+
+# --------- SERVICIOS MASCOTAS ---------
+CONSENT_TEMPLATE = ("Yo, {{customer_name}} identificado con {{customer_document}}, autorizo el servicio de {{service_type_label}} "
+                    "para la mascota {{pet_name}}. Reconozco que el procedimiento se realizará con el mayor cuidado.")
+
+SERVICE_TYPE_LABELS = {
+    'bath': 'Baño',
+    'grooming': 'Grooming / Estética',
+    'both': 'Baño y Grooming',
+    'other': 'Servicio Especial'
+}
+
+@app.route('/services')
+@login_required
+def service_list():
+    status = request.args.get('status','')
+    q = PetService.query.order_by(PetService.created_at.desc())
+    if status:
+        q = q.filter_by(status=status)
+    services = q.all()
+    return render_template('services/list.html', services=services, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, status=status)
+
+@app.route('/services/new', methods=['GET','POST'])
+@login_required
+def service_new():
+    customers = Customer.query.order_by(Customer.name).all()
+    pets = []
+    if request.method == 'POST':
+        customer_id = int(request.form['customer_id'])
+        pet_id = int(request.form['pet_id'])
+        service_type = request.form['service_type']
+        description = request.form.get('description','')
+        price = float(request.form.get('price',0))
+        technician = request.form.get('technician','')
+        consent_text = request.form.get('consent_text','')
+        generate_invoice = True if request.form.get('generate_invoice') == 'on' else False
+        # Crear servicio
+        service = PetService(pet_id=pet_id, customer_id=customer_id, service_type=service_type,
+                             description=description, price=price, technician=technician,
+                             consent_text=consent_text or '')
+        db.session.add(service)
+        db.session.flush()
+        invoice_link = None
+        if generate_invoice:
+            setting = Setting.get()
+            number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
+            setting.next_invoice_number += 1
+            invoice = Invoice(number=number, customer_id=customer_id, user_id=current_user.id, payment_method='cash', notes=f'Servicio mascota #{service.id}')
+            db.session.add(invoice)
+            db.session.flush()
+            # Producto de servicio
+            code = f"SERV-{service_type.upper()}"
+            product = Product.query.filter_by(code=code).first()
+            if not product:
+                product = Product(code=code, name=SERVICE_TYPE_LABELS.get(service_type, 'Servicio Mascota'),
+                                  description='Servicio de mascota', sale_price=price, purchase_price=0, stock=0, category='Servicios')
+                db.session.add(product)
+                db.session.flush()
+            item = InvoiceItem(invoice_id=invoice.id, product_id=product.id, quantity=1, price=price)
+            db.session.add(item)
+            invoice.calculate_totals()
+            service.invoice_id = invoice.id
+            invoice_link = url_for('invoice_view', id=invoice.id)
+        db.session.commit()
+        flash('Servicio creado' + (' y factura generada' if invoice_link else ''), 'success')
+        if invoice_link:
+            return redirect(invoice_link)
+        return redirect(url_for('service_view', id=service.id))
+    # GET
+    default_consent = CONSENT_TEMPLATE
+    default_customer = db.session.get(Customer, 1)
+    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=default_customer)
+
+@app.route('/services/<int:id>')
+@login_required
+def service_view(id):
+    service = PetService.query.get_or_404(id)
+    return render_template('services/view.html', service=service, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS)
+
+@app.route('/services/finish/<int:id>', methods=['POST'])
+@login_required
+def service_finish(id):
+    service = PetService.query.get_or_404(id)
+    if service.status != 'done':
+        service.status = 'done'
+        db.session.commit()
+        flash('Servicio marcado como finalizado', 'success')
+    return redirect(url_for('service_view', id=id))
+
+@app.route('/services/cancel/<int:id>', methods=['POST'])
+@role_required('admin')
+def service_cancel(id):
+    service = PetService.query.get_or_404(id)
+    if service.status != 'cancelled':
+        service.status = 'cancelled'
+        db.session.commit()
+        flash('Servicio cancelado', 'success')
+    return redirect(url_for('service_view', id=id))
+
+@app.route('/services/consent/sign/<int:id>', methods=['POST'])
+@login_required
+def service_consent_sign(id):
+    service = PetService.query.get_or_404(id)
+    if not service.consent_signed:
+        service.consent_signed = True
+        service.consent_signed_at = datetime.utcnow()
+        db.session.commit()
+        flash('Consentimiento firmado', 'success')
+    return redirect(url_for('service_view', id=id))
+
+@app.route('/services/delete/<int:id>', methods=['POST'])
+@role_required('admin')
+def service_delete(id):
+    service = PetService.query.get_or_404(id)
+    db.session.delete(service)
+    db.session.commit()
+    flash('Servicio eliminado', 'success')
+    return redirect(url_for('service_list'))
+
+# Profile route
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():

@@ -1,0 +1,56 @@
+{% extends 'layout.html' %}
+{% block title %}Mascotas{% endblock %}
+{% block page_title %}Mascotas{% endblock %}
+{% block page_actions %}
+<a href="{{ url_for('pet_new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nueva Mascota</a>
+{% endblock %}
+{% block content %}
+<form method="get" class="row g-2 mb-3">
+  <div class="col-auto">
+    <select name="customer_id" class="form-select" onchange="this.form.submit()">
+      <option value="">-- Cliente --</option>
+      {% for c in customers %}
+        <option value="{{ c.id }}" {% if customer_id and customer_id|int == c.id %}selected{% endif %}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>#</th><th>Nombre</th><th>Cliente</th><th>Especie</th><th>Raza</th><th>Nacimiento / Edad</th><th>Peso</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in pets %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.customer.name }}</td>
+        <td>{{ p.species }}</td>
+        <td>{{ p.breed or '' }}</td>
+        <td>
+          {% if p.birth_date %}
+            {{ p.birth_date.strftime('%d/%m/%Y') }}<br>
+            <small class="text-muted">{{ p.computed_age }} año{% if p.computed_age != 1 %}s{% endif %}</small>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>{{ p.weight_kg or '' }}</td>
+        <td class="text-end">
+          <a href="{{ url_for('pet_edit', id=p.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+          {% if current_user.role == 'admin' %}
+          <form action="{{ url_for('pet_delete', id=p.id) }}" method="post" class="d-inline" onsubmit="return confirm('Eliminar mascota?')">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    {% if pets|length == 0 %}
+      <tr><td colspan="8" class="text-center text-muted">Sin mascotas</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}
