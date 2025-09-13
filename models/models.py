@@ -166,6 +166,7 @@ class PetService(db.Model):
 
     pet = db.relationship('Pet')
     invoice = db.relationship('Invoice')
+    customer = db.relationship('Customer')  # acceso directo al cliente
 
     def __repr__(self):
         return f"<PetService {self.id} {self.service_type}>"

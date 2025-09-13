@@ -3,108 +3,121 @@
 {% block page_title %}Nuevo Servicio{% endblock %}
 {% block extra_js %}
 <script>
-function loadPets() {
-  const cid = document.getElementById('customer_id').value;
-  const sel = document.getElementById('pet_id');
-  sel.innerHTML = '<option value="">Cargando...</option>';
-  console.debug('[Servicio] loadPets() iniciado para customer_id=', cid);
-  if(!cid){ sel.innerHTML='<option value="">-- Seleccione Mascota --</option>'; return; }
-  fetch(`/api/pets/by_customer/${cid}`)
-    .then(r=>r.json())
-    .then(data=>{
-      sel.innerHTML = '<option value="">-- Seleccione Mascota --</option>';
-      if(!Array.isArray(data) || data.length===0){
-        sel.innerHTML = '<option value="">-- Sin mascotas para este cliente --</option>';
-        console.debug('[Servicio] Cliente sin mascotas');
-        return;
-      }
-      data.forEach(p=>{
-        const opt=document.createElement('option');
-        opt.value=p.id;
-        opt.textContent=p.name + (p.breed? ' ('+p.breed+')':'');
-        sel.appendChild(opt);
-      });
-      console.debug('[Servicio] Mascotas cargadas:', data.length);
-      fillConsent();
-    })
-    .catch(()=>{
-      sel.innerHTML = '<option value="">Error cargando mascotas</option>';
-      console.error('[Servicio] Error cargando mascotas');
-    });
-}
-function fillConsent() {
-  const template = document.getElementById('consent_template').value;
-  const display = document.getElementById('customerDisplay');
-  const customerName = display.dataset.name || display.textContent.replace('(Sin seleccionar)','').trim();
-  const customerDoc = display.dataset.document || '';
-  const petSelect = document.getElementById('pet_id');
-  let petName = '';
-  if (petSelect && typeof petSelect.selectedIndex === 'number' && petSelect.selectedIndex >= 0) {
-    var opt = petSelect.options[petSelect.selectedIndex];
-    if (opt && opt.text) {
-      petName = opt.text.split(' (')[0];
-    }
-  }
-  const serviceType = document.getElementById('service_type').value;
-  const labels = {bath:'Baño', grooming:'Grooming / Estética', both:'Baño y Grooming', other:'Servicio Especial'};
-  let txt = template
-    .replace(/{{customer_name}}/g, customerName)
-    .replace(/{{customer_document}}/g, customerDoc)
-    .replace(/{{pet_name}}/g, petName)
-    .replace(/{{service_type_label}}/g, labels[serviceType]||serviceType);
-  document.getElementById('consent_text').value = txt;
-}
-
-function initServiceForm(){
-  console.debug('[Servicio] initServiceForm ejecutado');
-  const hidden = document.getElementById('customer_id');
-  const display = document.getElementById('customerDisplay');
+// Refactor: módulo aislado para el formulario de servicios
+window.ServiceForm = (function(){
+  const LABELS = {bath:'Baño', grooming:'Grooming / Estética', both:'Baño y Grooming', other:'Servicio Especial'};
   let lastPetsCustomerId = null;
 
-  function triggerLoadPetsIfNeeded(){
-    const cid = hidden && hidden.value;
-    if(cid && cid !== lastPetsCustomerId){
-      console.debug('[Servicio] Cambio detectado en customerDisplay/hidden -> loadPets()');
-      lastPetsCustomerId = cid;
-      loadPets();
+  function qs(id){ return document.getElementById(id); }
+
+  function currentCustomerId(){ const h = qs('customer_id'); return h && h.value ? h.value : null; }
+
+  function buildConsent(){
+    const tplEl = qs('consent_template');
+    const template = tplEl ? tplEl.value : '';
+    if(!template) return '';
+    const display = qs('customerDisplay');
+    const name = (display && (display.dataset.name || display.textContent.replace('(Sin seleccionar)','').trim())) || '';
+    const doc = (display && display.dataset.document) || '';
+    const petSel = qs('pet_id');
+    let petName='';
+    if(petSel && petSel.selectedIndex >=0){
+      const opt = petSel.options[petSel.selectedIndex];
+      if(opt && opt.text){ petName = opt.text.split(' (')[0]; }
+    }
+    const serviceType = (qs('service_type')||{}).value || 'bath';
+    return template
+      .replace(/{{customer_name}}/g, name)
+      .replace(/{{customer_document}}/g, doc)
+      .replace(/{{pet_name}}/g, petName)
+      .replace(/{{service_type_label}}/g, LABELS[serviceType] || serviceType);
+  }
+
+  function fillConsent(){
+    const area = qs('consent_text');
+    if(!area){ console.warn('[Servicio] Falta #consent_text'); return; }
+    const txt = buildConsent();
+    if(txt){ area.value = txt; console.debug('[Servicio] Consentimiento rellenado'); }
+  }
+
+  function loadPets(){
+    const cid = currentCustomerId();
+    const sel = qs('pet_id');
+    if(!sel) return;
+    sel.innerHTML = '<option value="">Cargando...</option>';
+    if(!cid){ sel.innerHTML='<option value="">-- Seleccione Mascota --</option>'; return; }
+    console.debug('[Servicio] loadPets() para', cid);
+    fetch(`/api/pets/by_customer/${cid}`)
+      .then(r=>r.json())
+      .then(data=>{
+        sel.innerHTML = '<option value="">-- Seleccione Mascota --</option>';
+        if(!Array.isArray(data) || data.length===0){
+          sel.innerHTML = '<option value="">-- Sin mascotas para este cliente --</option>';
+          return;
+        }
+        data.forEach(p=>{
+          const opt=document.createElement('option');
+          opt.value=p.id; opt.textContent=p.name + (p.breed? ' ('+p.breed+')':'');
+          sel.appendChild(opt);
+        });
+        fillConsent();
+      })
+      .catch(()=>{ sel.innerHTML='<option value="">Error cargando mascotas</option>'; });
+  }
+
+  // onCustomerSelected ya no se usa; setCustomer centraliza la lógica
+
+  function setCustomer(id, name='', doc='', opts={}){
+    console.debug('[Servicio] setCustomer()', {id, name, doc, opts});
+    const hidden = qs('customer_id');
+    const display = qs('customerDisplay');
+    if(hidden){ hidden.value = id || ''; }
+    if(display){
+      if(id){
+        display.textContent = name + (doc? ' ('+doc+')':'' );
+        display.dataset.name = name || '';
+        display.dataset.document = doc || '';
+        display.classList.remove('text-muted');
+      } else {
+        display.textContent = '(Sin seleccionar)';
+        display.dataset.name='';
+        display.dataset.document='';
+        display.classList.add('text-muted');
+      }
+    }
+    window.dispatchEvent(new CustomEvent('customer:selected', { detail:{ id, name, document: doc }}));
+    if(id){
+      if(opts.force || id === lastPetsCustomerId){
+        console.debug('[Servicio] Forzando recarga de mascotas (force o mismo id)');
+        loadPets();
+      }
     }
   }
-  if(hidden && hidden.value){
-    console.debug('[Servicio] Cliente inicial detectado -> cargando mascotas');
-    lastPetsCustomerId = hidden.value;
-    loadPets();
-  }
-  window.addEventListener('customer:selected', (e)=>{
-    console.debug('[Servicio] Evento customer:selected recibido', e.detail);
-    const {id, name, document: doc} = e.detail;
-    const hidden = document.getElementById('customer_id');
-    const display = document.getElementById('customerDisplay');
-    hidden.value = id;
-    display.textContent = name + (doc? ' ('+doc+')':'');
-    display.dataset.name = name;
-    display.dataset.document = doc || '';
-    triggerLoadPetsIfNeeded();
-  });
-  ['service_type','pet_id'].forEach(id=>{
-    const el = document.getElementById(id);
-    el && el.addEventListener('change', fillConsent);
-  });
 
-  // Observer para detectar cambios manuales en el display (por futuras integraciones)
-  if(display){
-    const observer = new MutationObserver(()=>{
-      triggerLoadPetsIfNeeded();
-    });
-    observer.observe(display, {subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['data-name','data-document']});
+  function bind(){
+    ['service_type','pet_id'].forEach(id=>{ const el=qs(id); el && el.addEventListener('change', fillConsent); });
+    window.addEventListener('customer:selected', e=>{ /* log opcional */ });
+    const fillBtn = document.querySelector('[data-action="fill-consent"]');
+    if(fillBtn){ fillBtn.addEventListener('click', fillConsent); }
   }
-}
 
-if(document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', initServiceForm);
-} else {
-  // DOM ya cargado (scripts al final del body) -> ejecutar ahora
-  initServiceForm();
-}
+  function init(){
+    console.debug('[Servicio] Inicializando módulo ServiceForm');
+  console.debug("[Servicio] Pets renderizados en servidor: count={{ pets|length }} ids={{ pets|map(attribute='id')|list|join(',') }}");
+    bind();
+    const cid = currentCustomerId();
+    if(cid){ lastPetsCustomerId = cid; loadPets(); }
+    else { fillConsent(); }
+
+  // Eliminada lógica de sincronización automática: el modal invoca setCustomer()
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else { init(); }
+
+  return { fillConsent, loadPets, setCustomer };
+})();
 </script>
 {% endblock %}
 {% block content %}
@@ -129,7 +142,7 @@ if(document.readyState === 'loading'){
   </div>
   <div class="col-md-4">
     <label class="form-label">Mascota</label>
-    <select name="pet_id" id="pet_id" class="form-select" required onchange="fillConsent()">
+  <select name="pet_id" id="pet_id" class="form-select" required>
       <option value="">-- Seleccione Mascota --</option>
       {% if pets %}
         {% for p in pets %}
@@ -140,7 +153,7 @@ if(document.readyState === 'loading'){
   </div>
   <div class="col-md-4">
     <label class="form-label">Tipo Servicio</label>
-    <select name="service_type" id="service_type" class="form-select" onchange="fillConsent()">
+  <select name="service_type" id="service_type" class="form-select">
       <option value="bath">Baño</option>
       <option value="grooming">Grooming / Estética</option>
       <option value="both">Baño y Grooming</option>
@@ -167,9 +180,10 @@ if(document.readyState === 'loading'){
   </div>
   <div class="col-12">
     <label class="form-label">Consentimiento Informado</label>
-    <textarea name="consent_text" id="consent_text" class="form-control" rows="5" placeholder="Genera el texto usando el botón 'Rellenar' o escribe manualmente"></textarea>
-    <input type="hidden" id="consent_template" value="{{ consent_template }}">
-    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="fillConsent()">Rellenar</button>
+  <textarea name="consent_text" id="consent_text" class="form-control" rows="5" placeholder="Genera el texto usando el botón 'Rellenar' o escribe manualmente"></textarea>
+  <input type="hidden" id="consent_template" value="{{ consent_template }}">
+  <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-action="fill-consent">Rellenar</button>
+  <small class="text-muted d-block mt-1">Campos: cliente, documento, mascota y tipo servicio se insertan automáticamente.</small>
   </div>
   <div class="col-12">
     <button class="btn btn-primary">Guardar</button>

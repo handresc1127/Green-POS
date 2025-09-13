@@ -32,7 +32,7 @@
       <div class="col-md-6">
         <h5>Mascota</h5>
         <p class="mb-1"><strong>Nombre:</strong> {{ service.pet.name }}</p>
-        <p class="mb-1"><strong>Cliente:</strong> {{ service.customer.name }}</p>
+  <p class="mb-1"><strong>Cliente:</strong> {{ service.customer.name if service.customer else (service.pet.customer.name if service.pet and service.pet.customer else 'N/D') }}</p>
         {% if service.pet.species %}<p class="mb-1"><strong>Especie:</strong> {{ service.pet.species }}</p>{% endif %}
         {% if service.pet.breed %}<p class="mb-1"><strong>Raza:</strong> {{ service.pet.breed }}</p>{% endif %}
         {% if service.pet.age_years is not none %}<p class="mb-1"><strong>Edad:</strong> {{ service.pet.age_years }} años</p>{% endif %}

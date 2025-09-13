@@ -29,42 +29,44 @@
 <style>
   .invoice-watermark-wrapper { position: relative; }
   .invoice-watermark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:0; }
-  .invoice-watermark img { max-width:60%; height:auto; opacity:0.07; filter:grayscale(20%); }
+    /* Forzar blanco y negro (alto contraste) */
+    .invoice-watermark img { width:200px; height:200px; filter:grayscale(100%) contrast(190%) brightness(105%); object-fit:contain; }
   .invoice-content-layer { position:relative; z-index:1; }
-  @media print { .invoice-watermark img { opacity:0.10; } }
+    @media print { .invoice-watermark img { filter:grayscale(100%) contrast(190%) brightness(105%); } }
 </style>
 {% endif %}
 <div class="card mb-4">
-    <div class="card-body invoice-watermark-wrapper">
-        {% if setting.logo_path %}
-        <div class="invoice-watermark">
-            <img src="{{ url_for('static', filename=setting.logo_path) }}" alt="Logo">
-        </div>
-        {% endif %}
-        <div class="invoice-content-layer">
-            <div class="row">
-                <div class="col-6 col-md-6">
-                    <h4 class="mb-3">{{ setting.business_name or 'Nombre de la Empresa' }}</h4>
-                    {% if setting.nit %}<p class="mb-1">NIT: {{ setting.nit }}</p>{% endif %}
-                    {% if setting.address %}<p class="mb-1">Dirección: {{ setting.address }}</p>{% endif %}
-                    {% if setting.phone %}<p class="mb-1">Teléfono: {{ setting.phone }}</p>{% endif %}
-                    {% if setting.email %}<p class="mb-1">Email: {{ setting.email }}</p>{% endif %}
-                    <p class="mb-1">Regimen IVA: {{ 'Responsable' if setting.iva_responsable else 'No responsable' }}</p>
-                </div>
-                <div class="col-6 col-md-6 text-end">
-                    <h4 class="mb-3">{{ setting.document_label }} #{{ invoice.number }}</h4>
-                    <p class="mb-1"><strong>Fecha:</strong> <span class="utc-datetime" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></p>
-                    <p class="mb-1"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
-                    <p class="mb-1">
-                        <strong>Método de Pago:</strong> 
-                        {{ {'cash': 'Efectivo', 'credit_card': 'Tarjeta de Crédito', 'debit_card': 'Tarjeta de Débito', 'transfer': 'Transferencia Bancaria'}.get(invoice.payment_method, invoice.payment_method) }}
-                    </p>
-                </div>
+    <div class="card-body">
+        <div class="invoice-watermark-wrapper mb-3">
+            {% if setting.logo_path %}
+            <div class="invoice-watermark">
+                <img src="{{ url_for('static', filename=setting.logo_path) }}" alt="Logo">
             </div>
-            
-            <hr>
-            
-            <div class="row mb-4">
+            {% endif %}
+            <div class="invoice-content-layer">
+                <div class="row">
+                    <div class="col-6 col-md-6">
+                        <h4 class="mb-3">{{ setting.business_name or 'Nombre de la Empresa' }}</h4>
+                        {% if setting.nit %}<p class="mb-1">NIT: {{ setting.nit }}</p>{% endif %}
+                        {% if setting.address %}<p class="mb-1">Dirección: {{ setting.address }}</p>{% endif %}
+                        {% if setting.phone %}<p class="mb-1">Teléfono: {{ setting.phone }}</p>{% endif %}
+                        {% if setting.email %}<p class="mb-1">Email: {{ setting.email }}</p>{% endif %}
+                        <p class="mb-1">Regimen IVA: {{ 'Responsable' if setting.iva_responsable else 'No responsable' }}</p>
+                    </div>
+                    <div class="col-6 col-md-6 text-end">
+                        <h4 class="mb-3">{{ setting.document_label }} #{{ invoice.number }}</h4>
+                        <p class="mb-1"><strong>Fecha:</strong> <span class="utc-datetime" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></p>
+                        <p class="mb-1"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
+                        <p class="mb-1">
+                            <strong>Método de Pago:</strong> 
+                            {{ {'cash': 'Efectivo', 'credit_card': 'Tarjeta de Crédito', 'debit_card': 'Tarjeta de Débito', 'transfer': 'Transferencia Bancaria'}.get(invoice.payment_method, invoice.payment_method) }}
+                        </p>
+                    </div>
+                </div>
+            </div> {# invoice-content-layer #}
+        </div> {# watermark-wrapper #}
+        <hr>
+        <div class="row mb-4">
                 <div class="col-md-6">
                     <h5 class="mb-2">Cliente</h5>
                     <p class="mb-1"><strong>{{ invoice.customer.name }}</strong></p>

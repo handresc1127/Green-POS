@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 import json
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from functools import wraps
-from PIL import Image
 import logging
 import argparse
 
@@ -362,34 +361,17 @@ def settings_view():
             setting.tax_rate = float(tax_rate_input) / 100.0
         except ValueError:
             pass
-        # Manejo de logo
+        # Manejo de logo (guardar tal cual se sube, sin procesar)
         file = request.files.get('logo_file')
         if file and file.filename:
             ext = os.path.splitext(file.filename.lower())[1]
             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp']:
                 upload_dir = os.path.join(app.root_path, 'static', 'uploads')
                 os.makedirs(upload_dir, exist_ok=True)
-                # Guardar temporal
-                temp_path = os.path.join(upload_dir, 'temp_logo'+ext)
-                file.save(temp_path)
-                final_name = 'logo'+ext if ext != '.svg' else 'logo.svg'
+                # Nombre consistente (conservar extensión)
+                final_name = 'logo' + ext
                 final_path = os.path.join(upload_dir, final_name)
-                if ext == '.svg':
-                    # SVG se copia directamente
-                    os.replace(temp_path, final_path)
-                else:
-                    # Raster: recortar a cuadrado y redimensionar 100x100
-                    try:
-                        img = Image.open(temp_path)
-                        w, h = img.size
-                        side = min(w, h)
-                        left = (w - side) // 2
-                        top = (h - side) // 2
-                        img = img.crop((left, top, left+side, top+side)).resize((100, 100))
-                        img.save(final_path, quality=90)
-                        os.remove(temp_path)
-                    except Exception:
-                        flash('Error procesando la imagen del logo', 'danger')
+                file.save(final_path)
                 setting.logo_path = f'uploads/{final_name}'
             else:
                 flash('Formato de imagen no soportado', 'danger')
@@ -590,14 +572,13 @@ def service_new():
         return redirect(url_for('service_view', id=service.id))
     # GET
     default_consent = CONSENT_TEMPLATE
-    default_customer = db.session.get(Customer, 1)
-    # Si viene customer_id en query lo usamos, sino mantenemos default
     q_customer_id = request.args.get('customer_id', type=int)
-    effective_customer_id = q_customer_id or (default_customer.id if default_customer else None)
+    effective_customer_id = q_customer_id if q_customer_id else None
     if effective_customer_id:
         pets = Pet.query.filter_by(customer_id=effective_customer_id).order_by(Pet.name).all()
     selected_customer = db.session.get(Customer, effective_customer_id) if effective_customer_id else None
-    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=default_customer, selected_customer=selected_customer, selected_customer_id=effective_customer_id)
+    app.logger.debug(f"[Servicio] GET /services/new param_customer_id={q_customer_id} effective_customer_id={effective_customer_id} pets_count={len(pets)}")
+    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=None, selected_customer=selected_customer, selected_customer_id=effective_customer_id)
 
 @app.route('/services/<int:id>')
 @login_required

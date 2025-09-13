@@ -128,15 +128,42 @@
     }
     function selectCustomer(id, name, documentId){
       console.debug('[ClienteModal] Cliente seleccionado', id, name);
-      const hiddenInput = document.querySelector('[data-customer-field="id"]');
-      const display = document.querySelector('[data-customer-field="display"]');
-      if(hiddenInput) hiddenInput.value = id;
-      if(display){
-        display.textContent = name + (documentId ? ' (' + documentId + ')' : '');
-        display.classList.remove('text-muted');
-      }
       customerModal.hide();
-      window.dispatchEvent(new CustomEvent('customer:selected', { detail:{ id, name, document: documentId }}));
+      if(window.ServiceForm && typeof window.ServiceForm.setCustomer === 'function'){
+        window.ServiceForm.setCustomer(id, name, documentId || '');
+      } else {
+        const hiddenInput = document.querySelector('[data-customer-field="id"]');
+        const display = document.querySelector('[data-customer-field="display"]');
+        if(hiddenInput) hiddenInput.value = id;
+        if(display){
+          display.textContent = name + (documentId ? ' (' + documentId + ')' : '');
+          display.dataset.name = name;
+          display.dataset.document = documentId || '';
+          display.classList.remove('text-muted');
+        }
+        window.dispatchEvent(new CustomEvent('customer:selected', { detail:{ id, name, document: documentId }, bubbles:true, composed:true }));
+      }
+      // Fallback: cargar mascotas directamente si existe #pet_id
+      setTimeout(()=>{
+        const petSel = document.getElementById('pet_id');
+        if(petSel && petSel.options.length <= 1){
+          petSel.innerHTML = '<option value="">Cargando...</option>';
+          fetch(`/api/pets/by_customer/${id}`)
+            .then(r=>r.json())
+            .then(data=>{
+              petSel.innerHTML = '<option value="">-- Seleccione Mascota --</option>';
+              if(Array.isArray(data)){
+                data.forEach(p=>{
+                  const opt=document.createElement('option');
+                  opt.value=p.id; opt.textContent=p.name + (p.breed? ' ('+p.breed+')':'');
+                  petSel.appendChild(opt);
+                });
+              }
+              if(window.ServiceForm && window.ServiceForm.fillConsent){ window.ServiceForm.fillConsent(); }
+            })
+            .catch(()=>{ petSel.innerHTML='<option value="">Error cargando mascotas</option>'; });
+        }
+      }, 50);
     }
     rowsContainer.addEventListener('click', e => {
       const btn = e.target.closest('.select-customer-btn');
