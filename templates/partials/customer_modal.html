@@ -47,15 +47,27 @@
  (function(){
   if(window.__customerModalInit) return; // evitar doble binding si se incluye dos veces
   window.__customerModalInit = true;
-  document.addEventListener('DOMContentLoaded', () => {
+  function initCustomerModal(){
+    console.debug('[ClienteModal] Inicializando modal de clientes');
     const modalEl = document.getElementById('customerModal');
-    if(!modalEl) return;
+    if(!modalEl){
+      console.warn('[ClienteModal] No se encontró #customerModal');
+      return;
+    }
+    // A11y baseline
+    modalEl.setAttribute('role','dialog');
+    modalEl.setAttribute('aria-modal','true');
+    modalEl.setAttribute('aria-labelledby','customerModalTitle');
+    const titleEl = modalEl.querySelector('.modal-title');
+    if(titleEl) titleEl.id = 'customerModalTitle';
     let customerModal = null;
     let lastOpener = null;
+    let focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    let firstFocus = null;
+    let lastFocus = null;
     if (window.bootstrap && bootstrap.Modal) {
       customerModal = new bootstrap.Modal(modalEl);
     } else {
-      // Fallback simple si Bootstrap JS no está disponible
       customerModal = {
         show(){
           modalEl.style.display='block';
@@ -63,16 +75,11 @@
           modalEl.removeAttribute('aria-hidden');
         },
         hide(){
-          // Mover foco fuera antes de ocultar para evitar warning aria-hidden
           if (modalEl.contains(document.activeElement)) {
             document.activeElement.blur();
           }
-          // devolver foco al botón que abrió si existe
-          if (lastOpener) {
-            try { lastOpener.focus(); } catch(_) {}
-          }
+            if (lastOpener) { try { lastOpener.focus(); } catch(_) {} }
           modalEl.classList.remove('show');
-          // retrasar aria-hidden hasta después del frame para asegurar blur aplicado
           requestAnimationFrame(()=>{
             modalEl.setAttribute('aria-hidden','true');
             setTimeout(()=>modalEl.style.display='none',150);
@@ -83,7 +90,15 @@
     const searchInput = document.getElementById('customerSearch');
     const rowsContainer = document.getElementById('customersList');
     const openButtons = document.querySelectorAll('[data-open="customer-modal"]');
-
+    if(!rowsContainer){
+      console.warn('[ClienteModal] No se encontró #customersList');
+      return;
+    }
+    function refreshFocusables(){
+      const list = modalEl.querySelectorAll(focusableSelectors);
+      firstFocus = list[0];
+      lastFocus = list[list.length -1];
+    }
     openButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         lastOpener = btn;
@@ -92,33 +107,37 @@
           rowsContainer.querySelectorAll('tr').forEach(r=>r.style.display='');
         }
         customerModal.show();
-        setTimeout(()=>{ if(searchInput) searchInput.focus(); }, 200);
+        setTimeout(()=>{ if(searchInput) searchInput.focus(); refreshFocusables(); }, 200);
       });
     });
-
+    // Debounce búsqueda
     if (searchInput) {
+      let debounceTimer=null;
       searchInput.addEventListener('input', function(){
-        const term = this.value.toLowerCase();
-        rowsContainer.querySelectorAll('tr').forEach(tr => {
-          const name = tr.cells[0].textContent.toLowerCase();
-          const doc = tr.cells[1].textContent.toLowerCase();
-          tr.style.display = (name.includes(term) || doc.includes(term)) ? '' : 'none';
-        });
+        clearTimeout(debounceTimer);
+        const self=this;
+        debounceTimer=setTimeout(()=>{
+          const term = self.value.toLowerCase();
+          rowsContainer.querySelectorAll('tr').forEach(tr => {
+            const name = tr.cells[0].textContent.toLowerCase();
+            const doc = tr.cells[1].textContent.toLowerCase();
+            tr.style.display = (name.includes(term) || doc.includes(term)) ? '' : 'none';
+          });
+        },120);
       });
     }
-
     function selectCustomer(id, name, documentId){
+      console.debug('[ClienteModal] Cliente seleccionado', id, name);
       const hiddenInput = document.querySelector('[data-customer-field="id"]');
       const display = document.querySelector('[data-customer-field="display"]');
       if(hiddenInput) hiddenInput.value = id;
       if(display){
-        display.textContent = name + ' (' + documentId + ')';
+        display.textContent = name + (documentId ? ' (' + documentId + ')' : '');
         display.classList.remove('text-muted');
       }
-  customerModal.hide();
+      customerModal.hide();
       window.dispatchEvent(new CustomEvent('customer:selected', { detail:{ id, name, document: documentId }}));
     }
-
     rowsContainer.addEventListener('click', e => {
       const btn = e.target.closest('.select-customer-btn');
       if(btn){
@@ -130,6 +149,37 @@
         selectCustomer(tr.dataset.id, tr.dataset.name, tr.dataset.document);
       }
     });
-  });
+    // Navegación teclado (flechas + Enter)
+    let activeRowIndex = -1;
+    function visibleRows(){
+      return Array.from(rowsContainer.querySelectorAll('tr.customer-row')).filter(r=>r.style.display!== 'none');
+    }
+    function highlightRow(idx){
+      const rows = visibleRows();
+      rows.forEach(r=>r.classList.remove('table-active'));
+      if(rows[idx]){ rows[idx].classList.add('table-active'); rows[idx].scrollIntoView({block:'nearest'}); }
+    }
+    modalEl.addEventListener('keydown', e => {
+      if(e.key === 'Escape'){ customerModal.hide(); if(lastOpener) { try { lastOpener.focus(); } catch(_){}} }
+      const rows = visibleRows();
+      if(!rows.length) return;
+      if(e.key === 'ArrowDown') { e.preventDefault(); activeRowIndex = (activeRowIndex +1) % rows.length; highlightRow(activeRowIndex); }
+      else if(e.key === 'ArrowUp') { e.preventDefault(); activeRowIndex = (activeRowIndex -1 + rows.length) % rows.length; highlightRow(activeRowIndex); }
+      else if(e.key === 'Enter' && activeRowIndex >=0){ e.preventDefault(); const r=rows[activeRowIndex]; selectCustomer(r.dataset.id, r.dataset.name, r.dataset.document); }
+      else if(e.key === 'Tab'){ // focus trap
+        const focs = Array.from(modalEl.querySelectorAll(focusableSelectors)).filter(el=>!el.disabled && el.offsetParent!==null);
+        if(!focs.length) return;
+        const first = focs[0];
+        const last = focs[focs.length-1];
+        if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+        else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      }
+    });
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initCustomerModal);
+  } else {
+    initCustomerModal();
+  }
  })();
 </script>

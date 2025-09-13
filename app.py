@@ -6,6 +6,8 @@ import json
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from functools import wraps
 from PIL import Image
+import logging
+import argparse
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'green-pos-secret-key'
@@ -411,7 +413,9 @@ def api_product_details(id):
 @app.route('/api/pets/by_customer/<int:customer_id>')
 @login_required
 def api_pets_by_customer(customer_id):
+    app.logger.debug(f"[API] /api/pets/by_customer/{customer_id} llamada")
     pets = Pet.query.filter_by(customer_id=customer_id).all()
+    app.logger.debug(f"[API] Mascotas encontradas: {len(pets)} para cliente {customer_id}")
     return jsonify([
         {'id': p.id, 'name': p.name, 'species': p.species, 'breed': p.breed} for p in pets
     ])
@@ -420,13 +424,32 @@ def api_pets_by_customer(customer_id):
 @app.route('/pets')
 @login_required
 def pet_list():
-    customer_id = request.args.get('customer_id')
-    query = Pet.query
-    if customer_id:
-        query = query.filter_by(customer_id=customer_id)
-    pets = query.order_by(Pet.created_at.desc()).all()
+    customer_id_raw = request.args.get('customer_id')
+    selected_customer = None
+    if customer_id_raw is not None and customer_id_raw != '':
+        try:
+            cid = int(customer_id_raw)
+            selected_customer = db.session.get(Customer, cid)
+            if not selected_customer:
+                flash('Cliente no encontrado para el filtro solicitado', 'warning')
+                app.logger.debug(f"[Mascotas] customer_id inválido recibido: {customer_id_raw}")
+                return redirect(url_for('pet_list'))
+        except ValueError:
+            flash('Identificador de cliente inválido', 'warning')
+            app.logger.debug(f"[Mascotas] customer_id no numérico: {customer_id_raw}")
+            return redirect(url_for('pet_list'))
+        pets_query = Pet.query.filter_by(customer_id=selected_customer.id)
+    else:
+        pets_query = Pet.query
+    # Debug: imprimir selected_customer
+    if selected_customer:
+        app.logger.debug(f"[Mascotas] selected_customer -> id={selected_customer.id}, name={selected_customer.name}")
+    else:
+        app.logger.debug("[Mascotas] selected_customer -> None (modo todos)")
+    pets = pets_query.order_by(Pet.created_at.desc()).all()
     customers = Customer.query.order_by(Customer.name).all()
-    return render_template('pets/list.html', pets=pets, customers=customers, customer_id=customer_id)
+    # customer_id para template (string original o None)
+    return render_template('pets/list.html', pets=pets, customers=customers, customer_id=customer_id_raw, selected_customer=selected_customer)
 
 @app.route('/pets/new', methods=['GET','POST'])
 @login_required
@@ -568,7 +591,13 @@ def service_new():
     # GET
     default_consent = CONSENT_TEMPLATE
     default_customer = db.session.get(Customer, 1)
-    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=default_customer)
+    # Si viene customer_id en query lo usamos, sino mantenemos default
+    q_customer_id = request.args.get('customer_id', type=int)
+    effective_customer_id = q_customer_id or (default_customer.id if default_customer else None)
+    if effective_customer_id:
+        pets = Pet.query.filter_by(customer_id=effective_customer_id).order_by(Pet.name).all()
+    selected_customer = db.session.get(Customer, effective_customer_id) if effective_customer_id else None
+    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=default_customer, selected_customer=selected_customer, selected_customer_id=effective_customer_id)
 
 @app.route('/services/<int:id>')
 @login_required
@@ -639,4 +668,27 @@ def profile():
     return render_template('auth/profile.html')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    parser = argparse.ArgumentParser(description='Run Green-POS Flask app')
+    parser.add_argument('-v', '--verbose', action='count', default=0, help='Incrementa nivel de verbosidad (-v, -vv)')
+    parser.add_argument('--sql', action='store_true', help='Muestra SQL generado (SQLAlchemy echo)')
+    parser.add_argument('--no-reload', action='store_true', help='Desactiva el reloader automático')
+    parser.add_argument('--host', default='127.0.0.1')
+    parser.add_argument('--port', type=int, default=5000)
+    args = parser.parse_args()
+
+    # Config logging
+    base_level = logging.WARNING
+    if args.verbose == 1:
+        base_level = logging.INFO
+    elif args.verbose >= 2:
+        base_level = logging.DEBUG
+    logging.basicConfig(level=base_level, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
+    app.logger.setLevel(base_level)
+    logging.getLogger('werkzeug').setLevel(base_level)
+    # SQL echo (se aplica antes de inicializar engine, pero aquí sirve para sesiones nuevas)
+    if args.sql:
+        app.config['SQLALCHEMY_ECHO'] = True
+        logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO if base_level < logging.DEBUG else logging.DEBUG)
+
+    # Ejecutar
+    app.run(debug=True, use_reloader=not args.no_reload, host=args.host, port=args.port)

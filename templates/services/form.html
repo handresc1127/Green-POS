@@ -7,17 +7,29 @@ function loadPets() {
   const cid = document.getElementById('customer_id').value;
   const sel = document.getElementById('pet_id');
   sel.innerHTML = '<option value="">Cargando...</option>';
-  if(!cid){ sel.innerHTML='<option value="">-- Seleccione Cliente --</option>'; return; }
+  console.debug('[Servicio] loadPets() iniciado para customer_id=', cid);
+  if(!cid){ sel.innerHTML='<option value="">-- Seleccione Mascota --</option>'; return; }
   fetch(`/api/pets/by_customer/${cid}`)
     .then(r=>r.json())
     .then(data=>{
       sel.innerHTML = '<option value="">-- Seleccione Mascota --</option>';
+      if(!Array.isArray(data) || data.length===0){
+        sel.innerHTML = '<option value="">-- Sin mascotas para este cliente --</option>';
+        console.debug('[Servicio] Cliente sin mascotas');
+        return;
+      }
       data.forEach(p=>{
         const opt=document.createElement('option');
-        opt.value=p.id; opt.textContent=p.name + (p.breed? ' ('+p.breed+')':'');
+        opt.value=p.id;
+        opt.textContent=p.name + (p.breed? ' ('+p.breed+')':'');
         sel.appendChild(opt);
       });
+      console.debug('[Servicio] Mascotas cargadas:', data.length);
       fillConsent();
+    })
+    .catch(()=>{
+      sel.innerHTML = '<option value="">Error cargando mascotas</option>';
+      console.error('[Servicio] Error cargando mascotas');
     });
 }
 function fillConsent() {
@@ -42,13 +54,28 @@ function fillConsent() {
     .replace(/{{service_type_label}}/g, labels[serviceType]||serviceType);
   document.getElementById('consent_text').value = txt;
 }
-document.addEventListener('DOMContentLoaded', () => {
-  // Si ya viene un cliente precargado (hidden input con valor) cargar mascotas
+
+function initServiceForm(){
+  console.debug('[Servicio] initServiceForm ejecutado');
   const hidden = document.getElementById('customer_id');
+  const display = document.getElementById('customerDisplay');
+  let lastPetsCustomerId = null;
+
+  function triggerLoadPetsIfNeeded(){
+    const cid = hidden && hidden.value;
+    if(cid && cid !== lastPetsCustomerId){
+      console.debug('[Servicio] Cambio detectado en customerDisplay/hidden -> loadPets()');
+      lastPetsCustomerId = cid;
+      loadPets();
+    }
+  }
   if(hidden && hidden.value){
+    console.debug('[Servicio] Cliente inicial detectado -> cargando mascotas');
+    lastPetsCustomerId = hidden.value;
     loadPets();
   }
   window.addEventListener('customer:selected', (e)=>{
+    console.debug('[Servicio] Evento customer:selected recibido', e.detail);
     const {id, name, document: doc} = e.detail;
     const hidden = document.getElementById('customer_id');
     const display = document.getElementById('customerDisplay');
@@ -56,22 +83,39 @@ document.addEventListener('DOMContentLoaded', () => {
     display.textContent = name + (doc? ' ('+doc+')':'');
     display.dataset.name = name;
     display.dataset.document = doc || '';
-    loadPets();
+    triggerLoadPetsIfNeeded();
   });
   ['service_type','pet_id'].forEach(id=>{
     const el = document.getElementById(id);
     el && el.addEventListener('change', fillConsent);
   });
-});
+
+  // Observer para detectar cambios manuales en el display (por futuras integraciones)
+  if(display){
+    const observer = new MutationObserver(()=>{
+      triggerLoadPetsIfNeeded();
+    });
+    observer.observe(display, {subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['data-name','data-document']});
+  }
+}
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', initServiceForm);
+} else {
+  // DOM ya cargado (scripts al final del body) -> ejecutar ahora
+  initServiceForm();
+}
 </script>
 {% endblock %}
 {% block content %}
 <form method="post" class="row g-3">
   <div class="col-md-4">
-    <label class="form-label d-block">Cliente</label>
+    <label class="form-label d-block">Cliente / Tutor</label>
     <div class="input-group">
-      <span id="customerDisplay" data-customer-field="display" class="form-control bg-light {% if not default_customer %}text-muted{% endif %}" data-name="{% if default_customer %}{{ default_customer.name|e }}{% endif %}" data-document="{% if default_customer and default_customer.document %}{{ default_customer.document|e }}{% endif %}">
-        {% if default_customer %}
+      <span id="customerDisplay" data-customer-field="display" class="form-control bg-light {% if not (selected_customer or default_customer) %}text-muted{% endif %}" data-name="{% if selected_customer %}{{ selected_customer.name|e }}{% elif default_customer %}{{ default_customer.name|e }}{% endif %}" data-document="{% if (selected_customer and selected_customer.document) %}{{ selected_customer.document|e }}{% elif (default_customer and default_customer.document) %}{{ default_customer.document|e }}{% endif %}">
+        {% if selected_customer %}
+          {{ selected_customer.name }}{% if selected_customer.document %} ({{ selected_customer.document }}){% endif %}
+        {% elif default_customer %}
           {{ default_customer.name }}{% if default_customer.document %} ({{ default_customer.document }}){% endif %}
         {% else %}
           (Sin seleccionar)
@@ -81,12 +125,17 @@ document.addEventListener('DOMContentLoaded', () => {
         <i class="bi bi-search"></i>
       </button>
     </div>
-    <input type="hidden" name="customer_id" id="customer_id" data-customer-field="id" value="{% if default_customer %}{{ default_customer.id }}{% endif %}" required>
+  <input type="hidden" name="customer_id" id="customer_id" data-customer-field="id" value="{% if selected_customer %}{{ selected_customer.id }}{% elif default_customer %}{{ default_customer.id }}{% endif %}" required>
   </div>
   <div class="col-md-4">
     <label class="form-label">Mascota</label>
     <select name="pet_id" id="pet_id" class="form-select" required onchange="fillConsent()">
-      <option value="">-- Seleccione Cliente --</option>
+      <option value="">-- Seleccione Mascota --</option>
+      {% if pets %}
+        {% for p in pets %}
+          <option value="{{ p.id }}">{{ p.name }}{% if p.breed %} ({{ p.breed }}){% endif %}</option>
+        {% endfor %}
+      {% endif %}
     </select>
   </div>
   <div class="col-md-4">

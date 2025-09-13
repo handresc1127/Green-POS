@@ -5,16 +5,32 @@
 <a href="{{ url_for('pet_new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nueva Mascota</a>
 {% endblock %}
 {% block content %}
-<form method="get" class="row g-2 mb-3">
-  <div class="col-auto">
-    <select name="customer_id" class="form-select" onchange="this.form.submit()">
-      <option value="">-- Cliente --</option>
-      {% for c in customers %}
-        <option value="{{ c.id }}" {% if customer_id and customer_id|int == c.id %}selected{% endif %}>{{ c.name }}</option>
-      {% endfor %}
-    </select>
+<div class="row g-3 mb-3 align-items-end">
+  <div class="col-md-4">
+    <label class="form-label d-block">Filtro Cliente</label>
+    <div class="input-group">
+  <span id="customerFilterDisplay" data-lock-display="1" class="form-control bg-light {% if not selected_customer %}text-muted{% endif %}">
+        {% if selected_customer %}
+          {{ selected_customer.name }}{% if selected_customer.document %} ({{ selected_customer.document }}){% endif %}
+        {% else %}
+          (Todos los clientes)
+        {% endif %}
+      </span>
+      <button type="button" class="btn btn-outline-primary" data-open="customer-modal"><i class="bi bi-search"></i></button>
+      {% if selected_customer %}
+      <button type="button" id="clearCustomerFilter" class="btn btn-outline-secondary" title="Limpiar filtro"><i class="bi bi-x"></i></button>
+      {% endif %}
+    </div>
+  <input type="hidden" id="customerFilterId" data-customer-field="id" value="{% if selected_customer %}{{ selected_customer.id }}{% endif %}">
   </div>
-</form>
+  <div class="col-md-8 text-end">
+    {% if selected_customer %}
+      <small class="text-muted">Mostrando mascotas de <strong>{{ selected_customer.name }}</strong>. Total: {{ pets|length }}</small>
+    {% else %}
+      <small class="text-muted">Mostrando todas las mascotas. Total: {{ pets|length }}</small>
+    {% endif %}
+  </div>
+</div>
 <table class="table table-striped">
   <thead>
     <tr>
@@ -53,4 +69,21 @@
     {% endif %}
   </tbody>
 </table>
+{% include 'partials/customer_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function go(customerId){
+    const base = "{{ url_for('pet_list') }}";
+    const url = customerId ? base + '?customer_id=' + encodeURIComponent(customerId) : base;
+    window.location.href = url;
+  }
+  window.addEventListener('customer:selected', e => {
+    const {id} = e.detail; // sólo redirigir; la vista volverá renderizada fija desde servidor
+    go(id);
+  });
+  const clearBtn = document.getElementById('clearCustomerFilter');
+  if(clearBtn){ clearBtn.addEventListener('click', ()=> go(null)); }
+</script>
 {% endblock %}

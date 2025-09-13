@@ -4,6 +4,15 @@ body {
     background-color: #f8f9fa;
 }
 
+/* Customer filter display: flex so buttons don't wrap, allow ellipsis */
+#customerFilterDisplay {
+    flex: 1 1 auto;
+    min-width: 0; /* allow shrinking inside input-group */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Dashboard cards */
 .card {
     border-radius: 0.5rem;
