@@ -5,7 +5,8 @@
 <script>
 // Refactor: módulo aislado para el formulario de servicios
 window.ServiceForm = (function(){
-  const LABELS = {bath:'Baño', grooming:'Grooming / Estética', both:'Baño y Grooming', other:'Servicio Especial'};
+  // Fallback labels solo para códigos legacy; normalmente usamos el texto de la opción seleccionada
+  const FALLBACK_LABELS = {bath:'Baño', grooming:'Grooming / Estética', both:'Baño y Grooming', other:'Servicio Especial'};
   let lastPetsCustomerId = null;
 
   function qs(id){ return document.getElementById(id); }
@@ -25,12 +26,20 @@ window.ServiceForm = (function(){
       const opt = petSel.options[petSel.selectedIndex];
       if(opt && opt.text){ petName = opt.text.split(' (')[0]; }
     }
-    const serviceType = (qs('service_type')||{}).value || 'bath';
+    const serviceTypeSelect = qs('service_type');
+    let serviceType = 'bath';
+    let serviceTypeLabel = '';
+    if(serviceTypeSelect){
+      serviceType = serviceTypeSelect.value || 'bath';
+      const opt = serviceTypeSelect.options[serviceTypeSelect.selectedIndex];
+      if(opt){ serviceTypeLabel = opt.textContent.trim(); }
+    }
+    if(!serviceTypeLabel){ serviceTypeLabel = FALLBACK_LABELS[serviceType] || serviceType; }
     return template
       .replace(/{{customer_name}}/g, name)
       .replace(/{{customer_document}}/g, doc)
       .replace(/{{pet_name}}/g, petName)
-      .replace(/{{service_type_label}}/g, LABELS[serviceType] || serviceType);
+      .replace(/{{service_type_label}}/g, serviceTypeLabel);
   }
 
   function fillConsent(){
@@ -99,6 +108,29 @@ window.ServiceForm = (function(){
     window.addEventListener('customer:selected', e=>{ /* log opcional */ });
     const fillBtn = document.querySelector('[data-action="fill-consent"]');
     if(fillBtn){ fillBtn.addEventListener('click', fillConsent); }
+    // Auto precio según tipo
+    const serviceTypeSelect = qs('service_type');
+    const priceInput = document.querySelector('input[name="price"]');
+    if(serviceTypeSelect && priceInput){
+      const applyPrice = () => {
+        const opt = serviceTypeSelect.options[serviceTypeSelect.selectedIndex];
+        if(!opt) return;
+        const mode = opt.dataset.mode;
+        const base = parseFloat(opt.dataset.base || '0');
+        if(mode === 'fixed'){
+          priceInput.value = base.toFixed(2);
+          priceInput.readOnly = false; // se podría bloquear si se desea estricto
+        } else {
+          if((!priceInput.value || parseFloat(priceInput.value) === 0) && base>0){
+            priceInput.value = base.toFixed(2);
+          }
+          priceInput.readOnly = false;
+        }
+      };
+      serviceTypeSelect.addEventListener('change', ()=>{ applyPrice(); fillConsent(); });
+      // inicial
+      applyPrice();
+    }
   }
 
   function init(){
@@ -154,10 +186,9 @@ window.ServiceForm = (function(){
   <div class="col-md-4">
     <label class="form-label">Tipo Servicio</label>
   <select name="service_type" id="service_type" class="form-select">
-      <option value="bath">Baño</option>
-      <option value="grooming">Grooming / Estética</option>
-      <option value="both">Baño y Grooming</option>
-      <option value="other">Especial</option>
+      {% for st in service_types %}
+        <option value="{{ st.code }}" data-mode="{{ st.pricing_mode }}" data-base="{{ '%.2f'|format(st.base_price) }}">{{ st.name }}</option>
+      {% endfor %}
     </select>
   </div>
   <div class="col-md-4">
@@ -191,4 +222,28 @@ window.ServiceForm = (function(){
   </div>
 </form>
 {% include 'partials/customer_modal.html' %}
+{% if current_user.role == 'admin' and service_types %}
+<hr>
+<div class="card mt-3">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 text-uppercase small">Resumen Tipos de Servicio</h6>
+    <a href="{{ url_for('service_type_list') }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-tags"></i> Gestionar</a>
+  </div>
+  <div class="card-body">
+    <div class="row g-2">
+      {% for t in service_types %}
+      <div class="col-md-4 col-lg-3">
+        <div class="border rounded p-2 small h-100 d-flex flex-column justify-content-between">
+          <div>
+            <strong>{{ t.name }}</strong><br>
+            <span class="text-muted">{{ 'Fijo' if t.pricing_mode=='fixed' else 'Variable' }}</span>
+          </div>
+          <div class="mt-1"><span class="badge bg-{{ 'primary' if t.pricing_mode=='fixed' else 'warning' }}">{{ '$%.0f'|format(t.base_price) }}</span></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

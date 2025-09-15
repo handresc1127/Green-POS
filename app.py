@@ -1,5 +1,5 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
-from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting, User, Pet, PetService
+from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting, User, Pet, PetService, ServiceType
 import os
 from datetime import datetime, timezone
 import json
@@ -31,6 +31,7 @@ def load_user(user_id):
 with app.app_context():
     db.create_all()
     User.create_defaults()
+    ServiceType.create_defaults()
 
 # Login routes
 @app.route('/login', methods=['GET', 'POST'])
@@ -514,6 +515,79 @@ SERVICE_TYPE_LABELS = {
     'other': 'Servicio Especial'
 }
 
+@app.route('/services/config', methods=['GET','POST'])
+@role_required('admin')
+def services_config():
+    """Vista de configuración de servicios (placeholder para futuras opciones)."""
+    if request.method == 'POST':
+        # Aquí se podrían guardar parámetros futuros de configuración.
+        flash('Configuración de servicios guardada', 'success')
+        return redirect(url_for('services_config'))
+    service_types = ServiceType.query.order_by(ServiceType.name).all()
+    return render_template('services/config.html', service_types=service_types)
+
+# --------- Service Type Management ---------
+@app.route('/services/types')
+@role_required('admin')
+def service_type_list():
+    types = ServiceType.query.order_by(ServiceType.category, ServiceType.name).all()
+    return render_template('services/types/list.html', types=types)
+
+@app.route('/services/types/new', methods=['GET','POST'])
+@role_required('admin')
+def service_type_new():
+    if request.method == 'POST':
+        code = request.form['code'].strip().upper()
+        name = request.form['name'].strip()
+        description = request.form.get('description','')
+        pricing_mode = request.form.get('pricing_mode','fixed')
+        base_price_raw = request.form.get('base_price','0')
+        category = request.form.get('category','general')
+        active = True if request.form.get('active') == 'on' else False
+        try:
+            base_price = float(base_price_raw or 0)
+        except ValueError:
+            base_price = 0.0
+        if ServiceType.query.filter_by(code=code).first():
+            flash('El código ya existe', 'danger')
+        return render_template('services/config.html', st=None)
+        st = ServiceType(code=code, name=name, description=description, pricing_mode=pricing_mode, base_price=base_price, category=category, active=active)
+        db.session.add(st)
+        db.session.commit()
+        flash('Tipo de servicio creado', 'success')
+        return redirect(url_for('service_type_list'))
+    return render_template('services/config.html', st=None)
+
+@app.route('/services/types/edit/<int:id>', methods=['GET','POST'])
+@role_required('admin')
+def service_type_edit(id):
+    st = ServiceType.query.get_or_404(id)
+    if request.method == 'POST':
+        st.code = request.form['code'].strip().upper()
+        st.name = request.form['name'].strip()
+        st.description = request.form.get('description','')
+        st.pricing_mode = request.form.get('pricing_mode','fixed')
+        base_price_raw = request.form.get('base_price','0')
+        try:
+            st.base_price = float(base_price_raw or 0)
+        except ValueError:
+            st.base_price = 0.0
+        st.category = request.form.get('category','general')
+        st.active = True if request.form.get('active') == 'on' else False
+        db.session.commit()
+        flash('Tipo de servicio actualizado', 'success')
+        return redirect(url_for('service_type_list'))
+    return render_template('services/config.html', st=st)
+
+@app.route('/services/types/delete/<int:id>', methods=['POST'])
+@role_required('admin')
+def service_type_delete(id):
+    st = ServiceType.query.get_or_404(id)
+    db.session.delete(st)
+    db.session.commit()
+    flash('Tipo de servicio eliminado', 'success')
+    return redirect(url_for('service_type_list'))
+
 @app.route('/services')
 @login_required
 def service_list():
@@ -522,7 +596,8 @@ def service_list():
     if status:
         q = q.filter_by(status=status)
     services = q.all()
-    return render_template('services/list.html', services=services, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, status=status)
+    st_map = { st.code: st.name for st in ServiceType.query.all() }
+    return render_template('services/list.html', services=services, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, status=status, SERVICE_TYPES_MAP=st_map)
 
 @app.route('/services/new', methods=['GET','POST'])
 @login_required
@@ -578,13 +653,15 @@ def service_new():
         pets = Pet.query.filter_by(customer_id=effective_customer_id).order_by(Pet.name).all()
     selected_customer = db.session.get(Customer, effective_customer_id) if effective_customer_id else None
     app.logger.debug(f"[Servicio] GET /services/new param_customer_id={q_customer_id} effective_customer_id={effective_customer_id} pets_count={len(pets)}")
-    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=None, selected_customer=selected_customer, selected_customer_id=effective_customer_id)
+    service_types = ServiceType.query.filter_by(active=True).order_by(ServiceType.name).all()
+    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=None, selected_customer=selected_customer, selected_customer_id=effective_customer_id, service_types=service_types)
 
 @app.route('/services/<int:id>')
 @login_required
 def service_view(id):
     service = PetService.query.get_or_404(id)
-    return render_template('services/view.html', service=service, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS)
+    st_map = { st.code: st.name for st in ServiceType.query.all() }
+    return render_template('services/view.html', service=service, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, SERVICE_TYPES_MAP=st_map)
 
 @app.route('/services/finish/<int:id>', methods=['POST'])
 @login_required

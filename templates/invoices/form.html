@@ -334,6 +334,25 @@
             productSearch.value = '';
             document.querySelectorAll('#productsList tr').forEach(row => row.style.display = '');
         });
+        // Enfocar el input automáticamente cuando el modal ya se mostró (tras animación)
+        productModalElement.addEventListener('shown.bs.modal', () => {
+            if (productSearch) {
+                productSearch.focus();
+                productSearch.select();
+            }
+        });
+        // Permitir que Enter seleccione el primer producto visible
+        productSearch.addEventListener('keydown', function(e){
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const firstVisibleRow = Array.from(document.querySelectorAll('#productsList tr'))
+                    .find(r => r.style.display !== 'none');
+                if (firstVisibleRow) {
+                    const btn = firstVisibleRow.querySelector('.select-product-btn');
+                    if (btn) btn.click();
+                }
+            }
+        });
         productSearch.addEventListener('input', function() {
             const searchTerm = this.value.toLowerCase();
             const productRows = document.querySelectorAll('#productsList tr');
@@ -393,7 +412,7 @@
                 
                 // Update totals
                 updateTotals();
-            }, { once: true });
+            });
         });
         
         // Customer autoselect

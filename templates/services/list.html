@@ -2,6 +2,9 @@
 {% block title %}Servicios{% endblock %}
 {% block page_title %}Servicios{% endblock %}
 {% block page_actions %}
+{% if current_user.role == 'admin' %}
+<a href="{{ url_for('services_config') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-gear"></i> Configurar</a>
+{% endif %}
 <a href="{{ url_for('service_new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nuevo Servicio</a>
 {% endblock %}
 {% block content %}
@@ -28,7 +31,7 @@
       <td>{{ s.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
       <td>{{ s.pet.name }}</td>
       <td>{{ s.customer.name }}</td>
-      <td>{{ SERVICE_TYPE_LABELS.get(s.service_type, s.service_type) }}</td>
+  <td>{{ (SERVICE_TYPES_MAP.get(s.service_type) if SERVICE_TYPES_MAP else None) or SERVICE_TYPE_LABELS.get(s.service_type, s.service_type) }}</td>
       <td>${{ '%.2f'|format(s.price) }}</td>
       <td>
         <span class="badge bg-{% if s.status=='pending' %}warning{% elif s.status=='done' %}success{% else %}secondary{% endif %}">

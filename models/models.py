@@ -171,6 +171,39 @@ class PetService(db.Model):
     def __repr__(self):
         return f"<PetService {self.id} {self.service_type}>"
 
+class ServiceType(db.Model):
+    __tablename__ = 'service_type'
+
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(40), unique=True, nullable=False)  # ej: BATH, GROOMING, EAR_CLEAN
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text)
+    pricing_mode = db.Column(db.String(20), default='fixed')  # fixed | variable
+    base_price = db.Column(db.Float, default=0.0)  # usado cuando pricing_mode = fixed (o precio sugerido)
+    category = db.Column(db.String(50), default='general')  # grooming, add-on, hygiene, accessories
+    active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ServiceType {self.code}>"
+
+    @staticmethod
+    def create_defaults():
+        if ServiceType.query.count() == 0:
+            defaults = [
+                # code, name, description, pricing_mode, base_price, category
+                ('BATH', 'Baño', 'Servicio de baño básico. Precio puede variar según mascota.', 'variable', 0.0, 'grooming'),
+                ('EAR_CLEAN', 'Limpieza de Oídos', 'Limpieza higiénica estándar.', 'fixed', 15000.0, 'hygiene'),
+                ('COAT_TRIM', 'Corte de Pelaje', 'Corte o grooming según estado del manto.', 'variable', 0.0, 'grooming'),
+                ('COAT_HYDRATE', 'Hidratación del Manto', 'Tratamiento hidratante para el pelaje.', 'variable', 0.0, 'treatment'),
+                ('ACCESSORY', 'Accesorios (Moño / Pañoleta)', 'Accesorios opcionales que pueden no tener costo.', 'variable', 0.0, 'accessory'),
+            ]
+            for code, name, desc, mode, price, cat in defaults:
+                st = ServiceType(code=code, name=name, description=desc, pricing_mode=mode, base_price=price, category=cat)
+                db.session.add(st)
+            db.session.commit()
+
 class User(UserMixin, db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)

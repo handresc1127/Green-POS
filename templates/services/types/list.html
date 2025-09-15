@@ -1,0 +1,37 @@
+{% extends 'layout.html' %}
+{% block title %}Tipos de Servicio{% endblock %}
+{% block page_title %}Tipos de Servicio{% endblock %}
+{% block page_actions %}
+<a href="{{ url_for('service_type_new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nuevo Tipo</a>
+<a href="{{ url_for('services_config') }}" class="btn btn-outline-secondary ms-2"><i class="bi bi-gear"></i> Configuración</a>
+{% endblock %}
+{% block content %}
+<table class="table table-striped table-sm align-middle">
+  <thead>
+    <tr>
+      <th>Código</th><th>Nombre</th><th>Modo Precio</th><th>Precio Base</th><th>Categoría</th><th>Activo</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in types %}
+    <tr class="{% if not t.active %}table-secondary{% endif %}">
+      <td class="fw-monospace">{{ t.code }}</td>
+      <td>{{ t.name }}</td>
+      <td><span class="badge bg-{{ 'primary' if t.pricing_mode=='fixed' else 'warning' }}">{{ 'Fijo' if t.pricing_mode=='fixed' else 'Variable' }}</span></td>
+      <td>${{ '%.2f'|format(t.base_price) }}</td>
+      <td>{{ t.category }}</td>
+      <td>{% if t.active %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}</td>
+      <td class="text-end">
+        <a href="{{ url_for('service_type_edit', id=t.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+        <form action="{{ url_for('service_type_delete', id=t.id) }}" method="post" class="d-inline" onsubmit="return confirm('Eliminar tipo de servicio?')">
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    {% if types|length == 0 %}
+    <tr><td colspan="7" class="text-center text-muted">Sin tipos de servicio</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endblock %}
