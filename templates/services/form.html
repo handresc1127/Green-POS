@@ -26,15 +26,16 @@ window.ServiceForm = (function(){
       const opt = petSel.options[petSel.selectedIndex];
       if(opt && opt.text){ petName = opt.text.split(' (')[0]; }
     }
-    const serviceTypeSelect = qs('service_type');
-    let serviceType = 'bath';
-    let serviceTypeLabel = '';
-    if(serviceTypeSelect){
-      serviceType = serviceTypeSelect.value || 'bath';
-      const opt = serviceTypeSelect.options[serviceTypeSelect.selectedIndex];
-      if(opt){ serviceTypeLabel = opt.textContent.trim(); }
+    // Determinar etiquetas servicio (multi)
+    let serviceTypeLabel = 'Servicio';
+    const selectedCards = document.querySelectorAll('.service-type-card.selected');
+    if(selectedCards.length){
+      const labels = Array.from(selectedCards).map(c=>{
+        const lbl = c.querySelector('[data-label]');
+        return lbl? lbl.textContent.trim():'';
+      }).filter(Boolean);
+      if(labels.length){ serviceTypeLabel = labels.join(', '); }
     }
-    if(!serviceTypeLabel){ serviceTypeLabel = FALLBACK_LABELS[serviceType] || serviceType; }
     return template
       .replace(/{{customer_name}}/g, name)
       .replace(/{{customer_document}}/g, doc)
@@ -43,10 +44,10 @@ window.ServiceForm = (function(){
   }
 
   function fillConsent(){
-    const area = qs('consent_text');
-    if(!area){ console.warn('[Servicio] Falta #consent_text'); return; }
-    const txt = buildConsent();
-    if(txt){ area.value = txt; console.debug('[Servicio] Consentimiento rellenado'); }
+  const area = qs('consent_text');
+  if(!area || area.dataset.dirty==='1'){ return; }
+  const txt = buildConsent();
+  if(txt && area.value.trim()!==txt.trim()){ area.value = txt; }
   }
 
   function loadPets(){
@@ -104,33 +105,126 @@ window.ServiceForm = (function(){
   }
 
   function bind(){
-    ['service_type','pet_id'].forEach(id=>{ const el=qs(id); el && el.addEventListener('change', fillConsent); });
+  // Reaccionar a cambio de mascota
+  ['pet_id'].forEach(id=>{ const el=qs(id); el && el.addEventListener('change', fillConsent); });
     window.addEventListener('customer:selected', e=>{ /* log opcional */ });
-    const fillBtn = document.querySelector('[data-action="fill-consent"]');
-    if(fillBtn){ fillBtn.addEventListener('click', fillConsent); }
-    // Auto precio según tipo
-    const serviceTypeSelect = qs('service_type');
-    const priceInput = document.querySelector('input[name="price"]');
-    if(serviceTypeSelect && priceInput){
-      const applyPrice = () => {
-        const opt = serviceTypeSelect.options[serviceTypeSelect.selectedIndex];
-        if(!opt) return;
-        const mode = opt.dataset.mode;
-        const base = parseFloat(opt.dataset.base || '0');
-        if(mode === 'fixed'){
-          priceInput.value = base.toFixed(2);
-          priceInput.readOnly = false; // se podría bloquear si se desea estricto
-        } else {
-          if((!priceInput.value || parseFloat(priceInput.value) === 0) && base>0){
-            priceInput.value = base.toFixed(2);
-          }
-          priceInput.readOnly = false;
-        }
-      };
-      serviceTypeSelect.addEventListener('change', ()=>{ applyPrice(); fillConsent(); });
-      // inicial
-      applyPrice();
+    // Auto-consentimiento: sin botón, se genera al inicio y al cambiar datos
+    const consentArea = qs('consent_text');
+    if(consentArea){
+      consentArea.addEventListener('input', ()=>{ consentArea.dataset.dirty='1'; });
     }
+  // Binding tarjetas de tipos de servicio (delegación)
+  const cardsContainer = document.getElementById('serviceTypeCards');
+  console.debug('[Servicio] cardsContainer presente?', !!cardsContainer);
+  const totalLabel = qs('serviceTotal');
+  const dynamicHiddenContainer = document.getElementById('serviceHiddenContainer');
+  let debugBoundCount = 0;
+
+    function formatMoney(v){ return '$' + (Number(v)||0).toFixed(2); }
+
+    function rebuildHidden(){
+      if(!dynamicHiddenContainer) return;
+      dynamicHiddenContainer.innerHTML='';
+      const selected = document.querySelectorAll('.service-type-card.selected');
+      selected.forEach(card=>{
+        const code = card.dataset.code;
+        const mode = card.dataset.mode;
+        const base = parseFloat(card.dataset.base||'0');
+        // price input inside card if variable
+        let priceVal = base;
+        const pv = card.querySelector('.variable-price-input');
+        if(pv && pv.value){ priceVal = parseFloat(pv.value)||0; }
+        const inpT = document.createElement('input');
+        inpT.type='hidden'; inpT.name='service_types[]'; inpT.value=code; dynamicHiddenContainer.appendChild(inpT);
+        const inpP = document.createElement('input');
+        inpP.type='hidden'; inpP.name='service_prices[]'; inpP.value=priceVal.toFixed(2); dynamicHiddenContainer.appendChild(inpP);
+        const inpM = document.createElement('input');
+        inpM.type='hidden'; inpM.name='service_modes[]'; inpM.value=mode; dynamicHiddenContainer.appendChild(inpM);
+      });
+    }
+
+    function updateTotal(){
+      const selected = document.querySelectorAll('.service-type-card.selected');
+      let total = 0;
+      selected.forEach(card=>{
+        const base = parseFloat(card.dataset.base||'0');
+        const mode = card.dataset.mode;
+        if(mode === 'variable'){
+          const pv = card.querySelector('.variable-price-input');
+          if(pv && pv.value){
+            total += parseFloat(pv.value)||0;
+          } else {
+            total += base;
+          }
+        } else {
+          total += base;
+        }
+      });
+      if(totalLabel){ totalLabel.textContent = formatMoney(total); }
+    }
+
+    function ensureVariableInput(card){
+      if(card.dataset.mode !== 'variable') return;
+      let input = card.querySelector('.variable-price-input');
+      if(!input){
+        const wrap = document.createElement('div');
+        wrap.className='w-100';
+        wrap.innerHTML = '<input type="number" step="0.01" class="form-control form-control-sm variable-price-input" placeholder="Precio" value="'+ card.dataset.base +'">';
+        card.appendChild(wrap);
+        input = wrap.querySelector('input');
+        input.addEventListener('input', ()=>{ updateTotal(); rebuildHidden(); });
+      }
+      setTimeout(()=>{ input.focus(); input.select(); }, 30);
+    }
+
+    function selectCard(card){
+      if(!card || !card.classList.contains('service-type-card')) { console.debug('[Servicio] selectCard ignorado'); return; }
+      const willSelect = !card.classList.contains('selected');
+      if(willSelect){
+        card.classList.add('selected');
+        ensureVariableInput(card);
+      } else {
+        card.classList.remove('selected');
+      }
+      card.setAttribute('aria-pressed', card.classList.contains('selected') ? 'true':'false');
+      console.debug('[Servicio] Card', card.dataset.code, 'estado seleccionado?', card.classList.contains('selected'));
+      updateTotal();
+      rebuildHidden();
+      fillConsent();
+    }
+
+    if(cardsContainer){
+      cardsContainer.addEventListener('click', (e)=>{
+        const card = e.target.closest('.service-type-card');
+        if(card){ console.debug('[Servicio] click en', card.dataset.code); selectCard(card); }
+      });
+      cardsContainer.addEventListener('keydown', (e)=>{
+        if(e.key==='Enter' || e.key===' '){
+          const card = e.target.closest('.service-type-card');
+          if(card){ e.preventDefault(); selectCard(card); }
+        }
+      });
+      // Fallback: listeners directos en caso de problemas de delegación
+      cardsContainer.querySelectorAll('.service-type-card').forEach(card=>{
+        card.addEventListener('click', ()=> selectCard(card));
+        debugBoundCount++;
+      });
+      console.debug('[Servicio] Listeners directos ligados a', debugBoundCount, 'tarjetas');
+      if(debugBoundCount){
+        const first = cardsContainer.querySelector('.service-type-card');
+        if(first){
+          first.classList.toggle('selected');
+          const testApplied = first.classList.contains('selected');
+          first.classList.toggle('selected'); // revert
+          console.debug('[Servicio] Prueba visual de clase .selected aplicada?', testApplied);
+        }
+      }
+    } else {
+      console.warn('[Servicio] No se encontró #serviceTypeCards');
+    }
+
+  // Inicial
+  updateTotal();
   }
 
   function init(){
@@ -153,9 +247,14 @@ window.ServiceForm = (function(){
 </script>
 {% endblock %}
 {% block content %}
-<form method="post" class="row g-3">
+<style>
+  .service-type-card{cursor:pointer; transition: .15s ease-in-out;}
+  .service-type-card.selected{border:2px solid var(--bs-primary)!important; box-shadow:0 .25rem .5rem rgba(0,0,0,.1); background:#f8f9fa;}
+  .service-type-card:not(.selected):hover{border-color: var(--bs-primary)!important;}
+</style>
+<form id="serviceForm" method="post" class="row g-3">
   <div class="col-md-4">
-    <label class="form-label d-block">Cliente / Tutor</label>
+  <label class="form-label d-block" for="customerDisplay">Cliente / Tutor</label>
     <div class="input-group">
       <span id="customerDisplay" data-customer-field="display" class="form-control bg-light {% if not (selected_customer or default_customer) %}text-muted{% endif %}" data-name="{% if selected_customer %}{{ selected_customer.name|e }}{% elif default_customer %}{{ default_customer.name|e }}{% endif %}" data-document="{% if (selected_customer and selected_customer.document) %}{{ selected_customer.document|e }}{% elif (default_customer and default_customer.document) %}{{ default_customer.document|e }}{% endif %}">
         {% if selected_customer %}
@@ -166,14 +265,14 @@ window.ServiceForm = (function(){
           (Sin seleccionar)
         {% endif %}
       </span>
-      <button type="button" class="btn btn-outline-primary" data-open="customer-modal">
+  <button id="openCustomerModalBtn" type="button" class="btn btn-outline-primary" data-open="customer-modal">
         <i class="bi bi-search"></i>
       </button>
     </div>
   <input type="hidden" name="customer_id" id="customer_id" data-customer-field="id" value="{% if selected_customer %}{{ selected_customer.id }}{% elif default_customer %}{{ default_customer.id }}{% endif %}" required>
   </div>
   <div class="col-md-4">
-    <label class="form-label">Mascota</label>
+  <label class="form-label" for="pet_id">Mascota</label>
   <select name="pet_id" id="pet_id" class="form-select" required>
       <option value="">-- Seleccione Mascota --</option>
       {% if pets %}
@@ -184,66 +283,54 @@ window.ServiceForm = (function(){
     </select>
   </div>
   <div class="col-md-4">
-    <label class="form-label">Tipo Servicio</label>
-  <select name="service_type" id="service_type" class="form-select">
-      {% for st in service_types %}
-        <option value="{{ st.code }}" data-mode="{{ st.pricing_mode }}" data-base="{{ '%.2f'|format(st.base_price) }}">{{ st.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Precio</label>
-    <input type="number" step="0.01" name="price" class="form-control" required value="0">
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Técnico / Estilista</label>
-    <input type="text" name="technician" class="form-control">
+  <label class="form-label" for="technician_input">Técnico / Estilista</label>
+  <input id="technician_input" type="text" name="technician" class="form-control">
   </div>
   <div class="col-12">
-    <label class="form-label">Descripción</label>
-    <textarea name="description" class="form-control" rows="2"></textarea>
-  </div>
-  <div class="col-12">
-    <div class="form-check form-switch">
-      <input class="form-check-input" type="checkbox" role="switch" id="generate_invoice" name="generate_invoice">
-      <label class="form-check-label" for="generate_invoice">Generar Factura / Documento</label>
-    </div>
-  </div>
-  <div class="col-12">
-    <label class="form-label">Consentimiento Informado</label>
-  <textarea name="consent_text" id="consent_text" class="form-control" rows="5" placeholder="Genera el texto usando el botón 'Rellenar' o escribe manualmente"></textarea>
-  <input type="hidden" id="consent_template" value="{{ consent_template }}">
-  <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-action="fill-consent">Rellenar</button>
-  <small class="text-muted d-block mt-1">Campos: cliente, documento, mascota y tipo servicio se insertan automáticamente.</small>
-  </div>
-  <div class="col-12">
-    <button class="btn btn-primary">Guardar</button>
-    <a href="{{ url_for('service_list') }}" class="btn btn-secondary">Cancelar</a>
-  </div>
-</form>
-{% include 'partials/customer_modal.html' %}
-{% if current_user.role == 'admin' and service_types %}
-<hr>
-<div class="card mt-3">
-  <div class="card-header bg-light d-flex justify-content-between align-items-center">
-    <h6 class="mb-0 text-uppercase small">Resumen Tipos de Servicio</h6>
-    <a href="{{ url_for('service_type_list') }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-tags"></i> Gestionar</a>
-  </div>
-  <div class="card-body">
-    <div class="row g-2">
+    <label class="form-label">Servicios</label>
+    <div class="row g-2" id="serviceTypeCards">
       {% for t in service_types %}
       <div class="col-md-4 col-lg-3">
-        <div class="border rounded p-2 small h-100 d-flex flex-column justify-content-between">
-          <div>
-            <strong>{{ t.name }}</strong><br>
-            <span class="text-muted">{{ 'Fijo' if t.pricing_mode=='fixed' else 'Variable' }}</span>
+  <div class="service-type-card border rounded p-2 h-100" tabindex="0" role="button" aria-pressed="false" data-code="{{ t.code }}" data-mode="{{ t.pricing_mode }}" data-base="{{ '%.2f'|format(t.base_price) }}">
+          <div class="d-flex justify-content-between align-items-start">
+            <strong data-label="name" class="me-2">{{ t.name }}</strong>
+            <span class="badge bg-{{ 'primary' if t.pricing_mode=='fixed' else 'warning' }}">{{ '$%.0f'|format(t.base_price) }}</span>
           </div>
-          <div class="mt-1"><span class="badge bg-{{ 'primary' if t.pricing_mode=='fixed' else 'warning' }}">{{ '$%.0f'|format(t.base_price) }}</span></div>
+          <div class="text-muted small mt-1">{{ 'Fijo' if t.pricing_mode=='fixed' else 'Variable' }}</div>
         </div>
       </div>
       {% endfor %}
     </div>
   </div>
-</div>
-{% endif %}
+  <div class="col-12">
+  <label class="form-label" for="description_input">Descripción</label>
+  <textarea id="description_input" name="description" class="form-control" rows="2"></textarea>
+  </div>
+  <div class="col-12">
+    <div class="form-check form-switch">
+  <input class="form-check-input" type="checkbox" role="switch" id="generate_invoice" name="generate_invoice">
+  <label class="form-check-label" for="generate_invoice">Generar Factura / Documento</label>
+    </div>
+  </div>
+  <div class="col-12">
+    <label class="form-label" for="consent_text">Consentimiento Informado</label>
+  <textarea name="consent_text" id="consent_text" class="form-control" rows="5" placeholder="El texto se genera automáticamente al seleccionar datos; puedes editarlo."></textarea>
+  <input type="hidden" id="consent_template" value="{{ consent_template }}">
+  <small class="text-muted d-block mt-1">Este texto se genera automáticamente y puedes editarlo libremente.</small>
+  </div>
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <strong class="me-auto">Total a Pagar: <span id="serviceTotal" class="fs-5">$0.00</span></strong>
+        <small class="text-muted">Seleccione uno o varios servicios.</small>
+      </div>
+    </div>
+    <div id="serviceHiddenContainer"></div>
+  </div>
+  <div class="col-12">
+  <button id="saveServiceBtn" class="btn btn-primary">Guardar</button>
+  <a id="cancelServiceBtn" href="{{ url_for('service_list') }}" class="btn btn-secondary">Cancelar</a>
+  </div>
+</form>
+{% include 'partials/customer_modal.html' %}
 {% endblock %}
