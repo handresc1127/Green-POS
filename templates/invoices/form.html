@@ -200,14 +200,18 @@
         let items = [];
         const ivaResponsable = JSON.parse('{{ setting.iva_responsable|tojson|safe }}');
         const taxRate = JSON.parse('{{ (setting.tax_rate if setting.iva_responsable else 0)|tojson|safe }}'); // decimal (e.g. 0.19)
+        function formatCo(n){
+            n = Math.round(Number(n)||0);
+            return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
         function updateTotals() {
             const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
             const tax = ivaResponsable ? subtotal * taxRate : 0;
             const total = subtotal + tax;
-            
-            subtotalElement.textContent = subtotal.toFixed(2);
-            taxElement.textContent = tax.toFixed(2);
-            totalElement.textContent = total.toFixed(2);
+
+            subtotalElement.textContent = formatCo(subtotal);
+            taxElement.textContent = formatCo(tax);
+            totalElement.textContent = formatCo(total);
             
             // Update hidden input with JSON
             itemsJsonInput.value = JSON.stringify(items);
@@ -236,10 +240,10 @@
                     <div class="input-group input-group-sm">
                         <span class="input-group-text">$</span>
                         <input type="number" class="form-control form-control-sm item-price" 
-                               value="${item.price.toFixed(2)}" step="0.01" min="0">
+                               value="${formatCo(item.price)}" step="100" min="0">
                     </div>
                 </td>
-                <td>$<span class="item-subtotal">${(item.quantity * item.price).toFixed(2)}</span></td>
+                <td>$<span class="item-subtotal">${formatCo(item.quantity * item.price)}</span></td>
                 <td>
                     <button type="button" class="btn btn-sm btn-outline-danger remove-item-btn">
                         <i class="bi bi-trash"></i>
@@ -255,19 +259,21 @@
                 if (itemIndex !== -1) {
                     items[itemIndex].quantity = parseInt(this.value, 10);
                     const subtotal = items[itemIndex].quantity * items[itemIndex].price;
-                    tr.querySelector('.item-subtotal').textContent = subtotal.toFixed(2);
+                    tr.querySelector('.item-subtotal').textContent = formatCo(subtotal);
                     updateTotals();
                 }
             });
             const priceInput = tr.querySelector('.item-price');
             priceInput.addEventListener('change', function() {
-                const newPrice = parseFloat(this.value);
-                if (newPrice < 0) this.value = 0;
+                let newPrice = parseFloat(this.value);
+                if (isNaN(newPrice) || newPrice < 0) newPrice = 0;
+                newPrice = Math.round(newPrice);
+                this.value = newPrice;
                 const itemIndex = items.findIndex(i => i.product_id === item.product_id);
                 if (itemIndex !== -1) {
-                    items[itemIndex].price = parseFloat(this.value);
+                    items[itemIndex].price = newPrice;
                     const subtotal = items[itemIndex].quantity * items[itemIndex].price;
-                    tr.querySelector('.item-subtotal').textContent = subtotal.toFixed(2);
+                    tr.querySelector('.item-subtotal').textContent = formatCo(subtotal);
                     updateTotals();
                 }
             });
@@ -338,13 +344,13 @@
                     const quantityInput = row.querySelector('.item-quantity');
                     quantityInput.value = existingItem.quantity;
                     const subtotal = existingItem.quantity * existingItem.price;
-                    row.querySelector('.item-subtotal').textContent = subtotal.toFixed(2);
+                    row.querySelector('.item-subtotal').textContent = formatCo(subtotal);
                 } else {
                     const newItem = {
                         product_id: productId,
                         name: productName,
                         quantity: 1,
-                        price: productPrice,
+                        price: Math.round(productPrice),
                         stock: productStock
                     };
                     
