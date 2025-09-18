@@ -6,27 +6,27 @@
 
 {% block content %}
 <form id="invoiceForm" method="post">
-    <div class="row">
+    <div class="row" id="invoiceFormRow">
         <!-- Customer Information -->
-        <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Cliente</h5>
-                    <button type="button" data-open="customer-modal" class="btn btn-sm btn-outline-primary">
+        <div class="col-md-4" id="invoiceCustomerCol">
+            <div class="card mb-4" id="invoiceCustomerCard">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center" id="invoiceCustomerHeader">
+                    <h5 class="mb-0" id="invoiceCustomerTitle">Cliente</h5>
+                    <button id="openCustomerModalBtn" type="button" data-open="customer-modal" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-search"></i> Buscar
                     </button>
                 </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">Cliente Seleccionado *</label>
+                <div class="card-body" id="invoiceCustomerBody">
+                    <div class="mb-3" id="invoiceCustomerSelectedGroup">
+                        <label class="form-label" for="customer_id" id="invoiceCustomerSelectedLabel">Cliente Seleccionado *</label>
                         <div class="border rounded p-2 bg-light small" data-customer-field="display" id="customerNameDisplay">
                             <span class="text-muted">(Sin seleccionar)</span>
                         </div>
                         <input type="hidden" id="customer_id" name="customer_id" data-customer-field="id" value="">
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="payment_method" class="form-label">Método de Pago *</label>
+                    <div class="mb-3" id="invoicePaymentMethodGroup">
+                        <label for="payment_method" class="form-label" id="invoicePaymentMethodLabel">Método de Pago *</label>
                         <select id="payment_method" name="payment_method" class="form-select" required>
                             <option value="cash">Efectivo</option>
                             <option value="credit_card">Tarjeta de Crédito</option>
@@ -35,8 +35,8 @@
                         </select>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="notes" class="form-label">Notas</label>
+                    <div class="mb-3" id="invoiceNotesGroup">
+                        <label for="notes" class="form-label" id="invoiceNotesLabel">Notas</label>
                         <textarea id="notes" name="notes" class="form-control" rows="3"></textarea>
                     </div>
                 </div>
@@ -44,45 +44,45 @@
         </div>
         
         <!-- Product Selection -->
-        <div class="col-md-8">
-            <div class="card mb-4">
-                <div class="card-header bg-light">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Productos</h5>
+        <div class="col-md-8" id="invoiceProductsCol">
+            <div class="card mb-4" id="invoiceProductsCard">
+                <div class="card-header bg-light" id="invoiceProductsHeader">
+                    <div class="d-flex justify-content-between align-items-center" id="invoiceProductsHeaderRow">
+                        <h5 class="mb-0" id="invoiceProductsTitle">Productos</h5>
                         <button type="button" id="addItemBtn" class="btn btn-sm btn-success">
                             <i class="bi bi-plus-circle"></i> Agregar Producto
                         </button>
                     </div>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
+                <div class="card-body" id="invoiceProductsBody">
+                    <div class="table-responsive" id="invoiceItemsTableWrapper">
                         <table class="table table-hover" id="itemsTable">
                             <thead>
                                 <tr>
-                                    <th style="width: 40%">Producto</th>
-                                    <th style="width: 15%">Cantidad</th>
-                                    <th style="width: 20%">Precio</th>
-                                    <th style="width: 20%">Subtotal</th>
+                                    <th style="width: 40%" id="invoiceItemHeadProduct">Producto</th>
+                                    <th style="width: 15%" id="invoiceItemHeadQty">Cantidad</th>
+                                    <th style="width: 20%" id="invoiceItemHeadPrice">Precio</th>
+                                    <th style="width: 20%" id="invoiceItemHeadSubtotal">Subtotal</th>
                                     <th style="width: 5%"></th>
                                 </tr>
                             </thead>
                             <tbody id="itemsContainer">
                                 <!-- Items will be added here dynamically -->
                             </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="3" class="text-end fw-bold">Subtotal:</td>
-                                    <td class="fw-bold">$<span id="subtotal">0.00</span></td>
+                            <tfoot id="invoiceItemsFoot">
+                                <tr id="invoiceSubtotalRow">
+                                    <td colspan="3" class="text-end fw-bold" id="invoiceSubtotalLabel">Subtotal:</td>
+                                    <td class="fw-bold" id="invoiceSubtotalValue">$<span id="subtotal">0</span></td>
                                     <td></td>
                                 </tr>
-                                <tr>
-                                    <td colspan="3" class="text-end fw-bold">IVA {% if setting.iva_responsable %}(<span id="taxRateLabel">{{ (setting.tax_rate * 100)|round(2) }}</span>%) {% else %}(0%) - No responsable{% endif %}:</td>
-                                    <td class="fw-bold">$<span id="tax">0.00</span></td>
+                                <tr id="invoiceTaxRow">
+                                    <td colspan="3" class="text-end fw-bold" id="invoiceTaxLabel">IVA {% if setting.iva_responsable %}(<span id="taxRateLabel">{{ (setting.tax_rate * 100)|round(2) }}</span>%) {% else %}(0%) - No responsable{% endif %}:</td>
+                                    <td class="fw-bold" id="invoiceTaxValue">$<span id="tax">0</span></td>
                                     <td></td>
                                 </tr>
-                                <tr>
-                                    <td colspan="3" class="text-end fw-bold">Total:</td>
-                                    <td class="fw-bold fs-5">$<span id="total">0.00</span></td>
+                                <tr id="invoiceTotalRow">
+                                    <td colspan="3" class="text-end fw-bold" id="invoiceTotalLabel">Total:</td>
+                                    <td class="fw-bold fs-5" id="invoiceTotalValue">$<span id="total">0</span></td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -100,7 +100,7 @@
             </div>
             
             <!-- Submit Buttons -->
-            <div class="d-flex justify-content-between">
+            <div class="d-flex justify-content-between" id="invoiceActionsRow">
                 <a href="{{ url_for('invoice_list') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left"></i> Cancelar
                 </a>
@@ -114,32 +114,32 @@
 
 <!-- Product Selection Modal -->
 <div class="modal fade" id="productModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Seleccionar Producto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-lg" id="productModalDialog">
+        <div class="modal-content" id="productModalContent">
+            <div class="modal-header" id="productModalHeader">
+                <h5 class="modal-title" id="productModalTitle">Seleccionar Producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" id="productModalCloseBtn"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" id="productModalBody">
                 <!-- Search Bar -->
-                <div class="mb-3">
-                    <div class="input-group">
+                <div class="mb-3" id="productSearchGroup">
+                    <div class="input-group" id="productSearchInputGroup">
                         <input type="text" id="productSearch" class="form-control" placeholder="Buscar productos...">
-                        <button class="btn btn-primary" type="button">
+                        <button class="btn btn-primary" type="button" id="productSearchBtn">
                             <i class="bi bi-search"></i>
                         </button>
                     </div>
                 </div>
                 
                 <!-- Products Table -->
-                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                    <table class="table table-hover table-sm">
+                <div class="table-responsive" id="productModalTableWrapper" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-hover table-sm" id="productModalTable">
                         <thead>
                             <tr>
-                                <th>Código</th>
-                                <th>Nombre</th>
-                                <th>Precio</th>
-                                <th>Stock</th>
+                                <th id="productModalHeadCode">Código</th>
+                                <th id="productModalHeadName">Nombre</th>
+                                <th id="productModalHeadPrice">Precio</th>
+                                <th id="productModalHeadStock">Stock</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -169,8 +169,8 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <div class="modal-footer" id="productModalFooter">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="productModalCancelBtn">Cancelar</button>
             </div>
         </div>
     </div>
