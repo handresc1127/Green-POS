@@ -52,7 +52,7 @@
                                 <td>{{ invoice.number }}</td>
                                 <td>{{ invoice.customer.name }}</td>
                                 <td><span class="utc-date" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></td>
-                                <td>${{ "%.2f"|format(invoice.total) }}</td>
+                                <td>{{ invoice.total | currency_co }}</td>
                                 <td>
                                     <span class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
                                         {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada', 'validated': 'Validada'}.get(invoice.status, invoice.status) }}

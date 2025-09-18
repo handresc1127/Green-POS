@@ -19,6 +19,25 @@ login_manager.login_view = 'login'
 
 db.init_app(app)
 
+# ------------------ Filtros / Utilidades Jinja ------------------
+def format_currency_co(value):
+    """Formatea un número al formato monetario colombiano sin centavos.
+    Ej: 0 -> $0, 1500 -> $1.500, 1234567.89 -> $1.234.568
+    - Redondea al entero más cercano.
+    - Acepta None o valores no numéricos devolviendo $0.
+    """
+    try:
+        # Redondear al entero más cercano
+        integer_value = int(round(float(value or 0)))
+    except (ValueError, TypeError):
+        integer_value = 0
+    # Formatear con separadores de miles
+    # Usamos format con coma y luego reemplazamos coma por punto
+    formatted = f"{integer_value:,}".replace(',', '.')
+    return f"${formatted}"
+
+app.jinja_env.filters['currency_co'] = format_currency_co
+
 # Nuevo context processor (timezone-aware)
 @app.context_processor
 def inject_now():
@@ -619,7 +638,6 @@ def service_new():
         description = request.form.get('description','')
         technician = request.form.get('technician','')
         consent_text = request.form.get('consent_text','')
-        generate_invoice = True if request.form.get('generate_invoice') == 'on' else False
 
         if not service_codes:
             flash('Debe seleccionar al menos un servicio', 'warning')
@@ -635,17 +653,22 @@ def service_new():
                 prices.append(0.0)
 
         created_services = []
-        invoice = None
         invoice_link = None
         appointment = None
 
-        if generate_invoice:
-            setting = Setting.get()
-            number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
-            setting.next_invoice_number += 1
-            invoice = Invoice(number=number, customer_id=customer_id, user_id=current_user.id, payment_method='cash', notes='Servicios de mascota (cita)')
-            db.session.add(invoice)
-            db.session.flush()
+        # Siempre generar factura
+        setting = Setting.get()
+        number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
+        setting.next_invoice_number += 1
+        # Construir notas de la factura incluyendo consentimiento informado y notas/descripción de la cita
+        composed_notes = 'Servicios de mascota (cita)'
+        if consent_text:
+            composed_notes += f"\nConsentimiento:\n{consent_text.strip()}"
+        if description:
+            composed_notes += f"\nNotas:\n{description.strip()}"
+        invoice = Invoice(number=number, customer_id=customer_id, user_id=current_user.id, payment_method='cash', notes=composed_notes)
+        db.session.add(invoice)
+        db.session.flush()
 
         # Crear la cita que agrupa los sub-servicios
         appointment = Appointment(pet_id=pet_id, customer_id=customer_id, invoice_id=invoice.id if invoice else None,
@@ -680,23 +703,15 @@ def service_new():
             if invoice:
                 db.session.add(InvoiceItem(invoice_id=invoice.id, product_id=product.id, quantity=1, price=price))
 
-        if invoice:
-            invoice.calculate_totals()
-            # Asociar todas a la factura
-            for s in created_services:
-                s.invoice_id = invoice.id
-            # recalcular total cita
-            appointment.recompute_total()
-            invoice_link = url_for('invoice_view', id=invoice.id)
-        else:
-            # calcular total cita sin factura
-            appointment.recompute_total()
+        invoice.calculate_totals()
+        for s in created_services:
+            s.invoice_id = invoice.id
+        appointment.recompute_total()
+        invoice_link = url_for('invoice_view', id=invoice.id)
 
         db.session.commit()
-        flash(f"Cita creada con {len(created_services)} servicio(s)" + (' y factura generada' if invoice_link else ''), 'success')
-        if invoice_link:
-            return redirect(invoice_link)
-        return redirect(url_for('appointment_view', id=appointment.id))
+        flash(f"Cita creada con {len(created_services)} servicio(s) y factura generada", 'success')
+        return redirect(invoice_link)
     # GET
     default_consent = CONSENT_TEMPLATE
     q_customer_id = request.args.get('customer_id', type=int)

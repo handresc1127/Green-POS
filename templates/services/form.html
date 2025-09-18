@@ -304,7 +304,7 @@ window.ServiceForm = (function(){
     <div class="row g-2" id="serviceTypeCards">
       {% for t in service_types %}
       <div class="col-md-4 col-lg-3">
-  <div class="service-type-card border rounded p-2 h-100" tabindex="0" role="button" aria-pressed="false" data-code="{{ t.code }}" data-mode="{{ t.pricing_mode }}" data-base="{{ '%.2f'|format(t.base_price) }}">
+  <div class="service-type-card border rounded p-2 h-100" tabindex="0" role="button" aria-pressed="false" data-code="{{ t.code }}" data-mode="{{ t.pricing_mode }}" data-base="{{ t.base_price }}">
           <div class="d-flex justify-content-between align-items-start">
             <strong data-label="name" class="me-2">{{ t.name }}</strong>
             <span class="badge bg-{{ 'primary' if t.pricing_mode=='fixed' else 'warning' }}">{{ '$%.0f'|format(t.base_price) }}</span>
@@ -318,12 +318,6 @@ window.ServiceForm = (function(){
   <div class="col-12">
   <label class="form-label" for="description_input">Descripción</label>
   <textarea id="description_input" name="description" class="form-control" rows="2"></textarea>
-  </div>
-  <div class="col-12">
-    <div class="form-check form-switch">
-  <input class="form-check-input" type="checkbox" role="switch" id="generate_invoice" name="generate_invoice">
-  <label class="form-check-label" for="generate_invoice">Generar Factura / Documento</label>
-    </div>
   </div>
   <div class="col-12">
     <label class="form-label" for="consent_text">Consentimiento Informado</label>

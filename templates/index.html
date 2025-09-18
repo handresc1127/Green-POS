@@ -85,7 +85,7 @@
                                     <td>{{ invoice.number }}</td>
                                     <td>{{ invoice.customer.name }}</td>
                                     <td><span class="utc-date" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></td>
-                                    <td>${{ "%.2f"|format(invoice.total) }}</td>
+                                    <td>{{ invoice.total | currency_co }}</td>
                                     <td>
                                         <a href="{{ url_for('invoice_view', id=invoice.id) }}" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-eye"></i>

@@ -148,7 +148,7 @@
                                 <tr>
                                     <td>{{ product.code }}</td>
                                     <td>{{ product.name }}</td>
-                                    <td>${{ "%.2f"|format(product.sale_price) }}</td>
+                                    <td>{{ product.sale_price | currency_co }}</td>
                                     <td>
                                         <span class="badge bg-{{ 'success' if product.stock > 0 else 'danger' }}">
                                             {{ product.stock }}

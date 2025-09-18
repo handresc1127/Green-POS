@@ -21,7 +21,7 @@
       <div class="col-md-6">
         <h5>Datos Servicio</h5>
   <p class="mb-1"><strong>Tipo:</strong> {{ (SERVICE_TYPES_MAP.get(service.service_type) if SERVICE_TYPES_MAP else None) or SERVICE_TYPE_LABELS.get(service.service_type, service.service_type) }}</p>
-        <p class="mb-1"><strong>Precio:</strong> ${{ '%.2f'|format(service.price) }}</p>
+  <p class="mb-1"><strong>Precio:</strong> {{ service.price | currency_co }}</p>
         <p class="mb-1"><strong>Estado:</strong> <span class="badge bg-{% if service.status=='pending' %}warning{% elif service.status=='done' %}success{% else %}secondary{% endif %}">{{ service.status }}</span></p>
         {% if service.technician %}<p class="mb-1"><strong>Técnico:</strong> {{ service.technician }}</p>{% endif %}
         <p class="mb-1"><strong>Creado:</strong> {{ service.created_at.strftime('%d/%m/%Y %H:%M') }}</p>

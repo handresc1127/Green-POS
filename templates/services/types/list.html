@@ -18,7 +18,7 @@
       <td class="fw-monospace">{{ t.code }}</td>
       <td>{{ t.name }}</td>
       <td><span class="badge bg-{{ 'primary' if t.pricing_mode=='fixed' else 'warning' }}">{{ 'Fijo' if t.pricing_mode=='fixed' else 'Variable' }}</span></td>
-      <td>${{ '%.2f'|format(t.base_price) }}</td>
+  <td>{{ t.base_price | currency_co }}</td>
       <td>{{ t.category }}</td>
       <td>{% if t.active %}<span class="badge bg-success">Sí</span>{% else %}<span class="badge bg-danger">No</span>{% endif %}</td>
       <td class="text-end">

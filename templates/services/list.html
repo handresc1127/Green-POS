@@ -32,7 +32,7 @@
       <td>{{ s.pet.name }}</td>
       <td>{{ s.customer.name }}</td>
   <td>{{ (SERVICE_TYPES_MAP.get(s.service_type) if SERVICE_TYPES_MAP else None) or SERVICE_TYPE_LABELS.get(s.service_type, s.service_type) }}</td>
-      <td>${{ '%.2f'|format(s.price) }}</td>
+  <td>{{ s.price | currency_co }}</td>
       <td>
         <span class="badge bg-{% if s.status=='pending' %}warning{% elif s.status=='done' %}success{% else %}secondary{% endif %}">
           {{ s.status }}

@@ -53,8 +53,8 @@
                                 <td>{{ product.code }}</td>
                                 <td>{{ product.name }}</td>
                                 <td>{{ product.category }}</td>
-                                <td>${{ "%.2f"|format(product.purchase_price) }}</td>
-                                <td>${{ "%.2f"|format(product.sale_price) }}</td>
+                                <td>{{ product.purchase_price | currency_co }}</td>
+                                <td>{{ product.sale_price | currency_co }}</td>
                                 <td>
                                     {% set badge_class = 'success' %}
                                     {% if product.stock < 0 %}
