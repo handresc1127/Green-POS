@@ -605,46 +605,86 @@ def service_new():
     customers = Customer.query.order_by(Customer.name).all()
     pets = []
     if request.method == 'POST':
-        customer_id = int(request.form['customer_id'])
-        pet_id = int(request.form['pet_id'])
-        service_type = request.form['service_type']
+        try:
+            customer_id = int(request.form['customer_id'])
+            pet_id = int(request.form['pet_id'])
+        except (KeyError, ValueError):
+            flash('Cliente o Mascota inválidos', 'danger')
+            return redirect(url_for('service_new'))
+
+        service_codes = request.form.getlist('service_types[]')
+        service_prices_raw = request.form.getlist('service_prices[]')
+        service_modes = request.form.getlist('service_modes[]')
         description = request.form.get('description','')
-        price = float(request.form.get('price',0))
         technician = request.form.get('technician','')
         consent_text = request.form.get('consent_text','')
         generate_invoice = True if request.form.get('generate_invoice') == 'on' else False
-        # Crear servicio
-        service = PetService(pet_id=pet_id, customer_id=customer_id, service_type=service_type,
-                             description=description, price=price, technician=technician,
-                             consent_text=consent_text or '')
-        db.session.add(service)
-        db.session.flush()
+
+        if not service_codes:
+            flash('Debe seleccionar al menos un servicio', 'warning')
+            return redirect(url_for('service_new'))
+
+        # Normalizar precios (alinear longitud)
+        prices = []
+        for i, code in enumerate(service_codes):
+            try:
+                raw = service_prices_raw[i] if i < len(service_prices_raw) else '0'
+                prices.append(float(raw or '0'))
+            except ValueError:
+                prices.append(0.0)
+
+        created_services = []
+        invoice = None
         invoice_link = None
+
         if generate_invoice:
             setting = Setting.get()
             number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
             setting.next_invoice_number += 1
-            invoice = Invoice(number=number, customer_id=customer_id, user_id=current_user.id, payment_method='cash', notes=f'Servicio mascota #{service.id}')
+            invoice = Invoice(number=number, customer_id=customer_id, user_id=current_user.id, payment_method='cash', notes='Servicios de mascota')
             db.session.add(invoice)
             db.session.flush()
-            # Producto de servicio
-            code = f"SERV-{service_type.upper()}"
-            product = Product.query.filter_by(code=code).first()
+
+        for idx, code in enumerate(service_codes):
+            price = prices[idx] if idx < len(prices) else 0.0
+            mode = service_modes[idx] if idx < len(service_modes) else 'fixed'
+            # Crear / actualizar producto representativo SERV-<CODE>
+            prod_code = f"SERV-{code.upper()}"
+            product = Product.query.filter_by(code=prod_code).first()
             if not product:
-                product = Product(code=code, name=SERVICE_TYPE_LABELS.get(service_type, 'Servicio Mascota'),
-                                  description='Servicio de mascota', sale_price=price, purchase_price=0, stock=0, category='Servicios')
+                # Obtener nombre desde ServiceType si existe
+                st = ServiceType.query.filter_by(code=code).first()
+                prod_name = st.name if st else f'Servicio {code}'
+                product = Product(code=prod_code, name=prod_name, description='Servicio de mascota', sale_price=price or 0, purchase_price=0, stock=0, category='Servicios')
                 db.session.add(product)
                 db.session.flush()
-            item = InvoiceItem(invoice_id=invoice.id, product_id=product.id, quantity=1, price=price)
-            db.session.add(item)
+            # Actualizar sale_price si viene un precio diferente (>0) y modo variable
+            if mode == 'variable' and price and price > 0 and product.sale_price != price:
+                product.sale_price = price
+
+            pet_service = PetService(pet_id=pet_id, customer_id=customer_id, service_type=code.lower(),
+                                     description=description, price=price, technician=technician,
+                                     consent_text=consent_text or '')
+            db.session.add(pet_service)
+            db.session.flush()
+            created_services.append(pet_service)
+
+            if invoice:
+                db.session.add(InvoiceItem(invoice_id=invoice.id, product_id=product.id, quantity=1, price=price))
+
+        if invoice:
             invoice.calculate_totals()
-            service.invoice_id = invoice.id
+            # Asociar primera (o todas) a la factura (guardamos solo la primera para referencia rápida)
+            for s in created_services:
+                s.invoice_id = invoice.id
             invoice_link = url_for('invoice_view', id=invoice.id)
+
         db.session.commit()
-        flash('Servicio creado' + (' y factura generada' if invoice_link else ''), 'success')
+        flash(f"{len(created_services)} servicio(s) creado(s)" + (' y factura generada' if invoice_link else ''), 'success')
         if invoice_link:
             return redirect(invoice_link)
-        return redirect(url_for('service_view', id=service.id))
+        # Redirigir a la lista de servicios (multi)
+        return redirect(url_for('service_list'))
     # GET
     default_consent = CONSENT_TEMPLATE
     q_customer_id = request.args.get('customer_id', type=int)

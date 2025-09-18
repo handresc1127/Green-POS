@@ -37,10 +37,10 @@ window.ServiceForm = (function(){
       if(labels.length){ serviceTypeLabel = labels.join(', '); }
     }
     return template
-      .replace(/{{customer_name}}/g, name)
-      .replace(/{{customer_document}}/g, doc)
-      .replace(/{{pet_name}}/g, petName)
-      .replace(/{{service_type_label}}/g, serviceTypeLabel);
+      .replace(/\{\{customer_name\}\}/g, name)
+      .replace(/\{\{customer_document\}\}/g, doc)
+      .replace(/\{\{pet_name\}\}/g, petName)
+      .replace(/\{\{service_type_label\}\}/g, serviceTypeLabel);
   }
 
   function fillConsent(){
@@ -118,7 +118,6 @@ window.ServiceForm = (function(){
   console.debug('[Servicio] cardsContainer presente?', !!cardsContainer);
   const totalLabel = qs('serviceTotal');
   const dynamicHiddenContainer = document.getElementById('serviceHiddenContainer');
-  let debugBoundCount = 0;
 
     function formatMoney(v){ return '$' + (Number(v)||0).toFixed(2); }
 
@@ -168,26 +167,35 @@ window.ServiceForm = (function(){
       let input = card.querySelector('.variable-price-input');
       if(!input){
         const wrap = document.createElement('div');
-        wrap.className='w-100';
-        wrap.innerHTML = '<input type="number" step="0.01" class="form-control form-control-sm variable-price-input" placeholder="Precio" value="'+ card.dataset.base +'">';
+        wrap.className='w-100 mt-2';
+        wrap.innerHTML = '<input type="number" step="0.01" class="form-control form-control-sm variable-price-input" placeholder="Precio" value="'+ card.dataset.base +'" aria-label="Precio variable">';
         card.appendChild(wrap);
         input = wrap.querySelector('input');
         input.addEventListener('input', ()=>{ updateTotal(); rebuildHidden(); });
+        input.addEventListener('click', (e)=>{ e.stopPropagation(); });
       }
-      setTimeout(()=>{ input.focus(); input.select(); }, 30);
+      // Solo enfocar la primera vez que se crea (si existía no interrumpimos al usuario)
+      if(document.activeElement !== input){
+        setTimeout(()=>{ input.focus(); input.select(); }, 30);
+      }
     }
 
     function selectCard(card){
-      if(!card || !card.classList.contains('service-type-card')) { console.debug('[Servicio] selectCard ignorado'); return; }
+      if(!card || !card.classList.contains('service-type-card')) return;
       const willSelect = !card.classList.contains('selected');
       if(willSelect){
         card.classList.add('selected');
         ensureVariableInput(card);
       } else {
         card.classList.remove('selected');
+        const variableInput = card.querySelector('.variable-price-input');
+        if(variableInput && variableInput.parentElement){
+          variableInput.parentElement.remove();
+        }
       }
-      card.setAttribute('aria-pressed', card.classList.contains('selected') ? 'true':'false');
-      console.debug('[Servicio] Card', card.dataset.code, 'estado seleccionado?', card.classList.contains('selected'));
+      const selected = card.classList.contains('selected');
+      card.setAttribute('aria-pressed', selected? 'true':'false');
+      card.setAttribute('aria-selected', selected? 'true':'false');
       updateTotal();
       rebuildHidden();
       fillConsent();
@@ -195,8 +203,9 @@ window.ServiceForm = (function(){
 
     if(cardsContainer){
       cardsContainer.addEventListener('click', (e)=>{
+        if(e.target.classList.contains('variable-price-input')) return; // no togglear al editar precio
         const card = e.target.closest('.service-type-card');
-        if(card){ console.debug('[Servicio] click en', card.dataset.code); selectCard(card); }
+        if(card) selectCard(card);
       });
       cardsContainer.addEventListener('keydown', (e)=>{
         if(e.key==='Enter' || e.key===' '){
@@ -204,21 +213,7 @@ window.ServiceForm = (function(){
           if(card){ e.preventDefault(); selectCard(card); }
         }
       });
-      // Fallback: listeners directos en caso de problemas de delegación
-      cardsContainer.querySelectorAll('.service-type-card').forEach(card=>{
-        card.addEventListener('click', ()=> selectCard(card));
-        debugBoundCount++;
-      });
-      console.debug('[Servicio] Listeners directos ligados a', debugBoundCount, 'tarjetas');
-      if(debugBoundCount){
-        const first = cardsContainer.querySelector('.service-type-card');
-        if(first){
-          first.classList.toggle('selected');
-          const testApplied = first.classList.contains('selected');
-          first.classList.toggle('selected'); // revert
-          console.debug('[Servicio] Prueba visual de clase .selected aplicada?', testApplied);
-        }
-      }
+      console.debug('[Servicio] Listeners de delegación configurados');
     } else {
       console.warn('[Servicio] No se encontró #serviceTypeCards');
     }
@@ -248,9 +243,27 @@ window.ServiceForm = (function(){
 {% endblock %}
 {% block content %}
 <style>
-  .service-type-card{cursor:pointer; transition: .15s ease-in-out;}
+  .service-type-card{cursor:pointer; transition: .15s ease-in-out; position: relative;}
   .service-type-card.selected{border:2px solid var(--bs-primary)!important; box-shadow:0 .25rem .5rem rgba(0,0,0,.1); background:#f8f9fa;}
   .service-type-card:not(.selected):hover{border-color: var(--bs-primary)!important;}
+  .service-type-card.selected::after{
+    content: '✓';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--bs-success);
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    border: 2px solid white;
+    z-index: 10;
+  }
 </style>
 <form id="serviceForm" method="post" class="row g-3">
   <div class="col-md-4">
