@@ -48,6 +48,8 @@ window.ServiceForm = (function(){
   if(!area || area.dataset.dirty==='1'){ return; }
   const txt = buildConsent();
   if(txt && area.value.trim()!==txt.trim()){ area.value = txt; }
+  // Auto ajustar altura
+  if(area){ autoGrow(area); }
   }
 
   function loadPets(){
@@ -111,7 +113,7 @@ window.ServiceForm = (function(){
     // Auto-consentimiento: sin botón, se genera al inicio y al cambiar datos
     const consentArea = qs('consent_text');
     if(consentArea){
-      consentArea.addEventListener('input', ()=>{ consentArea.dataset.dirty='1'; });
+      consentArea.addEventListener('input', ()=>{ consentArea.dataset.dirty='1'; autoGrow(consentArea); });
     }
   // Binding tarjetas de tipos de servicio (delegación)
   const cardsContainer = document.getElementById('serviceTypeCards');
@@ -230,6 +232,10 @@ window.ServiceForm = (function(){
     if(cid){ lastPetsCustomerId = cid; loadPets(); }
     else { fillConsent(); }
 
+    // Ajustar altura inicial del consentimiento si ya tiene contenido
+    const area = qs('consent_text');
+    if(area){ autoGrow(area); }
+
   // Eliminada lógica de sincronización automática: el modal invoca setCustomer()
   }
 
@@ -239,6 +245,19 @@ window.ServiceForm = (function(){
 
   return { fillConsent, loadPets, setCustomer };
 })();
+</script>
+<script>
+// Auto-crecimiento para consent_text (fuera del módulo por simplicidad de carga temprana)
+function autoGrow(el){
+  if(!el) return;
+  el.style.height = 'auto';
+  // Añadir un pequeño padding adicional para evitar scrollbars intermitentes
+  el.style.height = (el.scrollHeight + 2) + 'px';
+}
+document.addEventListener('DOMContentLoaded', function(){
+  var ct = document.getElementById('consent_text');
+  if(ct){ autoGrow(ct); }
+});
 </script>
 {% endblock %}
 {% block content %}
@@ -264,40 +283,60 @@ window.ServiceForm = (function(){
     border: 2px solid white;
     z-index: 10;
   }
+  /* Evitar que el usuario cambie el tamaño manualmente y que no aparezca scroll vertical */
+  #consent_text{ resize: none; overflow:hidden; }
 </style>
 <form id="serviceForm" method="post" class="row g-3">
-  <div class="col-md-4">
-  <label class="form-label d-block" for="customerDisplay">Cliente / Tutor</label>
-    <div class="input-group">
-      <span id="customerDisplay" data-customer-field="display" class="form-control bg-light {% if not (selected_customer or default_customer) %}text-muted{% endif %}" data-name="{% if selected_customer %}{{ selected_customer.name|e }}{% elif default_customer %}{{ default_customer.name|e }}{% endif %}" data-document="{% if (selected_customer and selected_customer.document) %}{{ selected_customer.document|e }}{% elif (default_customer and default_customer.document) %}{{ default_customer.document|e }}{% endif %}">
-        {% if selected_customer %}
-          {{ selected_customer.name }}{% if selected_customer.document %} ({{ selected_customer.document }}){% endif %}
-        {% elif default_customer %}
-          {{ default_customer.name }}{% if default_customer.document %} ({{ default_customer.document }}){% endif %}
-        {% else %}
-          (Sin seleccionar)
-        {% endif %}
-      </span>
-  <button id="openCustomerModalBtn" type="button" class="btn btn-outline-primary" data-open="customer-modal">
-        <i class="bi bi-search"></i>
-      </button>
+  <!-- Primera fila: Cliente / Mascota -->
+  <div class="col-12">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label d-block" for="customerDisplay">Cliente / Tutor</label>
+        <div class="input-group">
+          <span id="customerDisplay" data-customer-field="display" class="form-control bg-light {% if not (selected_customer or default_customer) %}text-muted{% endif %}" data-name="{% if selected_customer %}{{ selected_customer.name|e }}{% elif default_customer %}{{ default_customer.name|e }}{% endif %}" data-document="{% if (selected_customer and selected_customer.document) %}{{ selected_customer.document|e }}{% elif (default_customer and default_customer.document) %}{{ default_customer.document|e }}{% endif %}">
+            {% if selected_customer %}
+              {{ selected_customer.name }}{% if selected_customer.document %} ({{ selected_customer.document }}){% endif %}
+            {% elif default_customer %}
+              {{ default_customer.name }}{% if default_customer.document %} ({{ default_customer.document }}){% endif %}
+            {% else %}
+              (Sin seleccionar)
+            {% endif %}
+          </span>
+          <button id="openCustomerModalBtn" type="button" class="btn btn-outline-primary" data-open="customer-modal" title="Buscar cliente">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+        <input type="hidden" name="customer_id" id="customer_id" data-customer-field="id" value="{% if selected_customer %}{{ selected_customer.id }}{% elif default_customer %}{{ default_customer.id }}{% endif %}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="pet_id">Mascota</label>
+        <select name="pet_id" id="pet_id" class="form-select" required>
+          <option value="">-- Seleccione Mascota --</option>
+          {% if pets %}
+            {% for p in pets %}
+              <option value="{{ p.id }}">{{ p.name }}{% if p.breed %} ({{ p.breed }}){% endif %}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </div>
     </div>
-  <input type="hidden" name="customer_id" id="customer_id" data-customer-field="id" value="{% if selected_customer %}{{ selected_customer.id }}{% elif default_customer %}{{ default_customer.id }}{% endif %}" required>
   </div>
-  <div class="col-md-4">
-  <label class="form-label" for="pet_id">Mascota</label>
-  <select name="pet_id" id="pet_id" class="form-select" required>
-      <option value="">-- Seleccione Mascota --</option>
-      {% if pets %}
-        {% for p in pets %}
-          <option value="{{ p.id }}">{{ p.name }}{% if p.breed %} ({{ p.breed }}){% endif %}</option>
-        {% endfor %}
-      {% endif %}
-    </select>
-  </div>
-  <div class="col-md-4">
-  <label class="form-label" for="technician_input">Técnico / Estilista</label>
-  <input id="technician_input" type="text" name="technician" class="form-control">
+  <!-- Segunda fila: Fecha / Hora / Técnico -->
+  <div class="col-12">
+    <div class="row g-3">
+      <div class="col-md-3 col-lg-2">
+        <label class="form-label" for="scheduled_date">Fecha Programada</label>
+        <input type="date" name="scheduled_date" id="scheduled_date" class="form-control" value="{{ default_scheduled_date }}">
+      </div>
+      <div class="col-md-3 col-lg-2">
+        <label class="form-label" for="scheduled_time">Hora Programada</label>
+        <input type="time" name="scheduled_time" id="scheduled_time" class="form-control" step="900" value="{{ default_scheduled_time }}">
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <label class="form-label" for="technician_input">Técnico / Estilista</label>
+        <input id="technician_input" type="text" name="technician" class="form-control" placeholder="Nombre del responsable">
+      </div>
+    </div>
   </div>
   <div class="col-12">
   <label class="form-label">Sub-Servicios de la Cita</label>

@@ -148,6 +148,8 @@ class Appointment(db.Model):
     consent_signed_at = db.Column(db.DateTime)
     status = db.Column(db.String(20), default='pending')  # pending, in_progress, done, cancelled
     total_price = db.Column(db.Float, default=0.0)
+    # Nueva fecha/hora programada de la cita (puede diferir de created_at). Opcional.
+    scheduled_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -140,9 +140,11 @@
                                     <span class="badge bg-{{ badge_class }}">{{ product.stock }}</span>
                                 </td>
                                 <td>
-                                    <a href="{{ url_for('product_edit', id=product.id) }}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
+                                                                        {% if current_user.is_authenticated and current_user.role == 'admin' %}
+                                                                            <a href="{{ url_for('product_edit', id=product.id) }}" class="btn btn-sm btn-outline-primary" title="Editar producto">
+                                                                                    <i class="bi bi-pencil"></i>
+                                                                            </a>
+                                                                        {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -153,10 +155,12 @@
                     <p class="text-muted">No hay productos con poco stock.</p>
                 {% endif %}
             </div>
-            <div class="card-footer bg-light">
-                <a href="{{ url_for('product_list') }}" class="btn btn-sm btn-outline-secondary">Ver todos</a>
-                <a href="{{ url_for('product_new') }}" class="btn btn-sm btn-primary float-end">Nuevo Producto</a>
-            </div>
+             {% if current_user.is_authenticated and current_user.role == 'admin' %}
+                <div class="card-footer bg-light">
+                    <a href="{{ url_for('product_list') }}" class="btn btn-sm btn-outline-secondary">Ver todos</a>
+                    <a href="{{ url_for('product_new') }}" class="btn btn-sm btn-primary float-end">Nuevo Producto</a>
+                </div>
+             {% endif %}
         </div>
     </div>
 </div>

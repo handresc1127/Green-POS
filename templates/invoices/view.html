@@ -53,29 +53,30 @@
         h4, h5 { margin:0 0 4px 0; }
     }
 </style>
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="invoice-watermark-wrapper mb-3">
+<div class="card mb-4" id="invoiceCard">
+    <div class="card-body" id="invoiceCardBody">
+        <div class="invoice-watermark-wrapper mb-3" id="invoiceHeaderWrapper">
             {% if setting.logo_path %}
-            <div class="invoice-watermark">
-                <img src="{{ url_for('static', filename=setting.logo_path) }}" alt="Logo">
+            <div class="invoice-watermark" id="invoiceWatermark">
+                <img id="invoiceLogo" src="{{ url_for('static', filename=setting.logo_path) }}" alt="Logo">
             </div>
             {% endif %}
-            <div class="invoice-content-layer">
+            <div class="invoice-content-layer" id="invoiceContentLayer">
                 <div class="row">
-                    <div class="col-6 col-md-6">
-                        <h4 class="mb-3">{{ setting.business_name or 'Nombre de la Empresa' }}</h4>
-                        {% if setting.nit %}<p class="mb-1">NIT: {{ setting.nit }}</p>{% endif %}
-                        {% if setting.address %}<p class="mb-1">Dirección: {{ setting.address }}</p>{% endif %}
-                        {% if setting.phone %}<p class="mb-1">Teléfono: {{ setting.phone }}</p>{% endif %}
-                        {% if setting.email %}<p class="mb-1">Email: {{ setting.email }}</p>{% endif %}
-                        <p class="mb-1">Regimen IVA: {{ 'Responsable' if setting.iva_responsable else 'No responsable' }}</p>
+                    <div class="col-6 col-md-6" id="invoiceBusinessBlock">
+                        <h4 class="mb-3" id="invoiceBusinessName">{{ setting.business_name or 'Nombre de la Empresa' }}</h4>
+                        {% if setting.nit %}<p class="mb-1" id="invoiceNIT">NIT: {{ setting.nit }}</p>{% endif %}
+                        {% if setting.address %}<p class="mb-1" id="invoiceAddress">Dirección: {{ setting.address }}</p>{% endif %}
+                        {% if setting.phone %}<p class="mb-1" id="invoicePhone">Teléfono: {{ setting.phone }}</p>{% endif %}
+                        {% if setting.email %}<p class="mb-1" id="invoiceEmail">Email: {{ setting.email }}</p>{% endif %}
+                        <p class="mb-1" id="invoiceIvaRegimen">Regimen IVA: {{ 'Responsable' if setting.iva_responsable else 'No responsable' }}</p>
                     </div>
-                    <div class="col-6 col-md-6 text-end">
-                        <h4 class="mb-3">{{ setting.document_label }} #{{ invoice.number }}</h4>
-                        <p class="mb-1"><strong>Fecha:</strong> <span class="utc-datetime" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></p>
-                        <p class="mb-1"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
-                        <p class="mb-1">
+                    <div class="col-6 col-md-6 text-end" id="invoiceMetaBlock">
+                        <h5 class="mb-2" id="invoiceDocumentTypeLabel">{{ setting.document_label }}</h4>
+                        <h5 class="mb-1" id="invoiceDocumentNumberLabel">#{{ invoice.number }}</h4>
+                        <p class="mb-1" id="invoiceDate"><strong>Fecha:</strong> <span class="utc-datetime" id="invoiceDateValue" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></p>
+                        <p class="mb-1" id="invoiceSeller"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
+                        <p class="mb-1" id="invoicePaymentMethod">
                             <strong>Método de Pago:</strong> 
                             {{ {'cash': 'Efectivo', 'credit_card': 'Tarjeta de Crédito', 'debit_card': 'Tarjeta de Débito', 'transfer': 'Transferencia Bancaria'}.get(invoice.payment_method, invoice.payment_method) }}
                         </p>
@@ -84,59 +85,59 @@
             </div> {# invoice-content-layer #}
         </div> {# watermark-wrapper #}
         <hr>
-        <div class="row mb-4">
-                <div class="col-md-6">
-                    <h5 class="mb-2">Cliente</h5>
-                    <p class="mb-1"><strong>{{ invoice.customer.name }}</strong></p>
-                    <p class="mb-1">{{ invoice.customer.document }}</p>
-                    {% if invoice.customer.phone %}
-                        <p class="mb-1">{{ invoice.customer.phone }}</p>
-                    {% endif %}
-                    {% if invoice.customer.email %}
-                        <p class="mb-1">{{ invoice.customer.email }}</p>
-                    {% endif %}
-                    {% if invoice.customer.address %}
-                        <p class="mb-1">{{ invoice.customer.address }}</p>
-                    {% endif %}
-                </div>
+        <div class="row mb-4" id="invoiceCustomerRow">
+            <div class="col-md-6" id="invoiceCustomerBlock">
+                <h5 class="mb-2" id="invoiceCustomerTitle">Cliente</h5>
+                <p class="mb-1" id="invoiceCustomerName"><strong>{{ invoice.customer.name }}</strong></p>
+                <p class="mb-1" id="invoiceCustomerDocument">{{ invoice.customer.document }}</p>
+                {% if invoice.customer.phone %}
+                    <p class="mb-1" id="invoiceCustomerPhone">{{ invoice.customer.phone }}</p>
+                {% endif %}
+                {% if invoice.customer.email %}
+                    <p class="mb-1" id="invoiceCustomerEmail">{{ invoice.customer.email }}</p>
+                {% endif %}
+                {% if invoice.customer.address %}
+                    <p class="mb-1" id="invoiceCustomerAddress">{{ invoice.customer.address }}</p>
+                {% endif %}
             </div>
+        </div>
             
-            <div class="table-responsive">
-                <table class="invoice-bw-table">
+            <div class="table-responsive" id="invoiceItemsWrapper">
+                <table class="invoice-bw-table" id="invoiceItemsTable">
                     <thead>
                         <tr>
-                            <th class="text-center" style="width:15%;">Cant.</th>
-                            <th style="width:55%;">Item</th>
-                            <th class="text-end" style="width:30%;">Subtotal</th>
+                            <th class="text-center" style="width:15%;" id="invoiceHeadQty">Cant.</th>
+                            <th style="width:55%;" id="invoiceHeadItem">Item</th>
+                            <th class="text-end" style="width:30%;" id="invoiceHeadSubtotal">Subtotal</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="invoiceItemsBody">
                         {% for item in invoice.items %}
-                            <tr>
-                                <td class="text-center">{{ item.quantity }}</td>
-                                <td>{{ item.product.name }}</td>
-                                <td class="text-end">{{ (item.quantity * item.price) | currency_co }}</td>
+                            <tr id="invoiceItemRow{{ loop.index }}" data-item-id="{{ item.id }}">
+                                <td class="text-center" id="invoiceItemQty{{ loop.index }}">{{ item.quantity }}</td>
+                                <td id="invoiceItemName{{ loop.index }}">{{ item.product.name }}</td>
+                                <td class="text-end" id="invoiceItemSubtotal{{ loop.index }}">{{ (item.quantity * item.price) | currency_co }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="2" class="text-end"><strong>Total:</strong></td>
-                            <td class="text-end"><strong>{{ invoice.total | currency_co }}</strong></td>
+                    <tfoot id="invoiceItemsFoot">
+                        <tr id="invoiceTotalRow">
+                            <td colspan="2" class="text-end" id="invoiceTotalLabel"><strong>Total:</strong></td>
+                            <td class="text-end" id="invoiceTotalValue"><strong>{{ invoice.total | currency_co }}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
             
             {% if invoice.notes %}
-                <div class="mt-4">
-                    <h5>Notas</h5>
-                    <pre class="mb-0 small bg-light p-2 border rounded" style="white-space:pre-wrap; font-family:inherit;">{{ invoice.notes }}</pre>
+                <div class="mt-4" id="invoiceNotesBlock">
+                    <h5 id="invoiceNotesTitle">Notas</h5>
+                        <pre class="mb-0 p-2" id="invoiceNotesContent" style="white-space:pre-wrap; font-family:inherit; background:#fff; color:#000; border:1px solid #000;">{{ invoice.notes }}</pre>
                 </div>
             {% endif %}
             
-            <div class="mt-4 text-center">
-                <p>¡Gracias por su compra!</p>
+            <div class="mt-4 text-center" id="invoiceThanksBlock">
+                <p id="invoiceThanksText">¡Gracias por su compra!</p>
             </div>
         </div> {# invoice-content-layer #}
     </div> {# card-body #}

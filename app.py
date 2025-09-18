@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
 from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting, User, Pet, PetService, ServiceType, Appointment
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from functools import wraps
@@ -90,7 +90,8 @@ def index():
     recent_invoices = Invoice.query.order_by(Invoice.created_at.desc()).limit(5).all()
     
     # Get low stock products
-    low_stock_products = Product.query.filter(Product.stock < 5).limit(5).all()
+    # Excluir productos de categoría 'Servicios' (productos generados para sub-servicios)
+    low_stock_products = Product.query.filter(Product.stock < 5, Product.category != 'Servicios').limit(5).all()
     
     return render_template('index.html', 
                            product_count=product_count, 
@@ -525,8 +526,14 @@ def pet_delete(id):
     return redirect(url_for('pet_list'))
 
 # --------- SERVICIOS MASCOTAS ---------
-CONSENT_TEMPLATE = ("Yo, {{customer_name}} identificado con {{customer_document}}, autorizo el servicio de {{service_type_label}} "
-                    "para la mascota {{pet_name}}. Reconozco que el procedimiento se realizará con el mayor cuidado.")
+CONSENT_TEMPLATE = (
+    "Yo, {{customer_name}} identificado con el documento No. {{customer_document}}, responsable de {{pet_name}},"
+    " autorizo a PET VERDE a realizar el servicio de {{service_type_label}} con fines estéticos/higiénicos priorizando su bienestar. "
+    "\nReconozco riesgos (estrés, alergias, irritaciones, movimientos bruscos) y autorizo suspender si es necesario. "
+    "Declaro haber informado condiciones médicas y conductas especiales. El centro actúa con personal capacitado y bioseguridad; "
+    "no responde por antecedentes no informados. \nAcepto y firmo."
+    "\n\n\n\n_________________________\n \t Firma"
+)
 
 SERVICE_TYPE_LABELS = {
     'bath': 'Baño',
@@ -638,6 +645,18 @@ def service_new():
         description = request.form.get('description','')
         technician = request.form.get('technician','')
         consent_text = request.form.get('consent_text','')
+        # Nueva fecha y hora programada (opcionales)
+        scheduled_date_raw = request.form.get('scheduled_date','').strip()
+        scheduled_time_raw = request.form.get('scheduled_time','').strip()
+        scheduled_at = None
+        if scheduled_date_raw:
+            try:
+                if scheduled_time_raw:
+                    scheduled_at = datetime.strptime(f"{scheduled_date_raw} {scheduled_time_raw}", '%Y-%m-%d %H:%M')
+                else:
+                    scheduled_at = datetime.strptime(scheduled_date_raw, '%Y-%m-%d')
+            except ValueError:
+                scheduled_at = None
 
         if not service_codes:
             flash('Debe seleccionar al menos un servicio', 'warning')
@@ -660,19 +679,26 @@ def service_new():
         setting = Setting.get()
         number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
         setting.next_invoice_number += 1
-        # Construir notas de la factura incluyendo consentimiento informado y notas/descripción de la cita
-        composed_notes = 'Servicios de mascota (cita)'
-        if consent_text:
-            composed_notes += f"\nConsentimiento:\n{consent_text.strip()}"
+        # Construir notas de la factura incluyendo fecha/hora programada, notas y consentimiento
+        if scheduled_at:
+            fecha_cita = scheduled_at.strftime('%Y-%m-%d')
+            hora_cita = scheduled_at.strftime('%H:%M')
+            composed_notes = f"Servicios de mascota - Cita {fecha_cita}   {hora_cita}"
+        else:
+            composed_notes = 'Servicios de mascota - Cita'
         if description:
             composed_notes += f"\nNotas:\n{description.strip()}"
+        if consent_text:
+            composed_notes += f"\nConsentimiento:\n{consent_text.strip()}"
+        
         invoice = Invoice(number=number, customer_id=customer_id, user_id=current_user.id, payment_method='cash', notes=composed_notes)
         db.session.add(invoice)
         db.session.flush()
 
         # Crear la cita que agrupa los sub-servicios
         appointment = Appointment(pet_id=pet_id, customer_id=customer_id, invoice_id=invoice.id if invoice else None,
-                                  description=description, technician=technician, consent_text=consent_text or '')
+                                  description=description, technician=technician, consent_text=consent_text or '',
+                                  scheduled_at=scheduled_at)
         db.session.add(appointment)
         db.session.flush()
 
@@ -721,7 +747,16 @@ def service_new():
     selected_customer = db.session.get(Customer, effective_customer_id) if effective_customer_id else None
     app.logger.debug(f"[Servicio] GET /services/new param_customer_id={q_customer_id} effective_customer_id={effective_customer_id} pets_count={len(pets)}")
     service_types = ServiceType.query.filter_by(active=True).order_by(ServiceType.name).all()
-    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=None, selected_customer=selected_customer, selected_customer_id=effective_customer_id, service_types=service_types)
+    # Defaults fecha/hora programada (hoy y siguiente múltiplo de 15 minutos)
+    scheduled_base = datetime.now()  # asumiendo hora local del servidor
+    minute = (scheduled_base.minute + 14) // 15 * 15
+    if minute == 60:
+        scheduled_base = scheduled_base.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    else:
+        scheduled_base = scheduled_base.replace(minute=minute, second=0, microsecond=0)
+    default_date_str = scheduled_base.strftime('%Y-%m-%d')
+    default_time_str = scheduled_base.strftime('%H:%M')
+    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=None, selected_customer=selected_customer, selected_customer_id=effective_customer_id, service_types=service_types, default_scheduled_date=default_date_str, default_scheduled_time=default_time_str)
 
 @app.route('/services/<int:id>')
 @login_required

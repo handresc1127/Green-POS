@@ -25,8 +25,9 @@
         {% elif appointment.status=='cancelled' %}<span class="badge bg-danger">Cancelada</span>
         {% else %}<span class="badge bg-secondary">Pendiente</span>{% endif %}
       </div>
-      <div class="col-md-2"><strong>Total:</strong><br>${{ '%.0f'|format(appointment.total_price or 0) }}</div>
-      <div class="col-md-2"><strong>Creada:</strong><br>{{ appointment.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+  <div class="col-md-2"><strong>Total:</strong><br>{{ (appointment.total_price or 0)|currency_co }}</div>
+  <div class="col-md-2"><strong>Programada:</strong><br>{% if appointment.scheduled_at %}{{ appointment.scheduled_at.strftime('%Y-%m-%d %H:%M') }}{% else %}<span class="text-muted">(No)</span>{% endif %}</div>
+  <div class="col-md-2"><strong>Creada:</strong><br>{{ appointment.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
     </div>
   </div>
 </div>
@@ -45,7 +46,7 @@
     <tr>
       <td>{{ s.id }}</td>
       <td>{{ s.service_type }}</td>
-      <td>${{ '%.0f'|format(s.price or 0) }}</td>
+  <td>{{ (s.price or 0)|currency_co }}</td>
       <td>
         {% if s.status=='done' %}<span class="badge bg-success">Finalizado</span>
         {% elif s.status=='cancelled' %}<span class="badge bg-danger">Cancelado</span>
