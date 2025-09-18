@@ -131,6 +131,37 @@ class Invoice(db.Model):
         self.tax = self.subtotal * rate
         self.total = self.subtotal + self.tax
 
+class Appointment(db.Model):
+    """Cita que agrupa múltiples servicios (sub-servicios) realizados a una mascota.
+    Sirve como contenedor lógico para: consentimiento, técnico, factura y estado global.
+    """
+    __tablename__ = 'appointment'
+
+    id = db.Column(db.Integer, primary_key=True)
+    pet_id = db.Column(db.Integer, db.ForeignKey('pet.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'))  # factura asociada (opcional)
+    description = db.Column(db.Text)
+    technician = db.Column(db.String(80))
+    consent_text = db.Column(db.Text)
+    consent_signed = db.Column(db.Boolean, default=False)
+    consent_signed_at = db.Column(db.DateTime)
+    status = db.Column(db.String(20), default='pending')  # pending, in_progress, done, cancelled
+    total_price = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    pet = db.relationship('Pet')
+    customer = db.relationship('Customer')
+    invoice = db.relationship('Invoice')
+    services = db.relationship('PetService', backref='appointment', lazy=True)
+
+    def __repr__(self):
+        return f"<Appointment {self.id} pet={self.pet_id} services={len(self.services) if self.services else 0}>"
+
+    def recompute_total(self):
+        self.total_price = sum(s.price for s in self.services)
+
 class InvoiceItem(db.Model):
     __tablename__ = 'invoice_item'
     
@@ -153,6 +184,7 @@ class PetService(db.Model):
     pet_id = db.Column(db.Integer, db.ForeignKey('pet.id'), nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'))  # factura generada opcional
+    appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'))  # nueva referencia a cita
     service_type = db.Column(db.String(30), default='bath')  # bath, grooming, both, other
     description = db.Column(db.Text)
     price = db.Column(db.Float, default=0.0)

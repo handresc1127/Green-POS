@@ -1,5 +1,5 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
-from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting, User, Pet, PetService, ServiceType
+from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting, User, Pet, PetService, ServiceType, Appointment
 import os
 from datetime import datetime, timezone
 import json
@@ -7,6 +7,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from functools import wraps
 import logging
 import argparse
+from sqlalchemy import func
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'green-pos-secret-key'
@@ -636,14 +637,21 @@ def service_new():
         created_services = []
         invoice = None
         invoice_link = None
+        appointment = None
 
         if generate_invoice:
             setting = Setting.get()
             number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
             setting.next_invoice_number += 1
-            invoice = Invoice(number=number, customer_id=customer_id, user_id=current_user.id, payment_method='cash', notes='Servicios de mascota')
+            invoice = Invoice(number=number, customer_id=customer_id, user_id=current_user.id, payment_method='cash', notes='Servicios de mascota (cita)')
             db.session.add(invoice)
             db.session.flush()
+
+        # Crear la cita que agrupa los sub-servicios
+        appointment = Appointment(pet_id=pet_id, customer_id=customer_id, invoice_id=invoice.id if invoice else None,
+                                  description=description, technician=technician, consent_text=consent_text or '')
+        db.session.add(appointment)
+        db.session.flush()
 
         for idx, code in enumerate(service_codes):
             price = prices[idx] if idx < len(prices) else 0.0
@@ -664,7 +672,7 @@ def service_new():
 
             pet_service = PetService(pet_id=pet_id, customer_id=customer_id, service_type=code.lower(),
                                      description=description, price=price, technician=technician,
-                                     consent_text=consent_text or '')
+                                     consent_text=consent_text or '', appointment_id=appointment.id)
             db.session.add(pet_service)
             db.session.flush()
             created_services.append(pet_service)
@@ -674,17 +682,21 @@ def service_new():
 
         if invoice:
             invoice.calculate_totals()
-            # Asociar primera (o todas) a la factura (guardamos solo la primera para referencia rápida)
+            # Asociar todas a la factura
             for s in created_services:
                 s.invoice_id = invoice.id
+            # recalcular total cita
+            appointment.recompute_total()
             invoice_link = url_for('invoice_view', id=invoice.id)
+        else:
+            # calcular total cita sin factura
+            appointment.recompute_total()
 
         db.session.commit()
-        flash(f"{len(created_services)} servicio(s) creado(s)" + (' y factura generada' if invoice_link else ''), 'success')
+        flash(f"Cita creada con {len(created_services)} servicio(s)" + (' y factura generada' if invoice_link else ''), 'success')
         if invoice_link:
             return redirect(invoice_link)
-        # Redirigir a la lista de servicios (multi)
-        return redirect(url_for('service_list'))
+        return redirect(url_for('appointment_view', id=appointment.id))
     # GET
     default_consent = CONSENT_TEMPLATE
     q_customer_id = request.args.get('customer_id', type=int)
@@ -719,6 +731,9 @@ def service_cancel(id):
     service = PetService.query.get_or_404(id)
     if service.status != 'cancelled':
         service.status = 'cancelled'
+        # actualizar estado cita si corresponde
+        if service.appointment:
+            _refresh_appointment_status(service.appointment)
         db.session.commit()
         flash('Servicio cancelado', 'success')
     return redirect(url_for('service_view', id=id))
@@ -733,6 +748,84 @@ def service_consent_sign(id):
         db.session.commit()
         flash('Consentimiento firmado', 'success')
     return redirect(url_for('service_view', id=id))
+
+# --------------------- CITAS (APPOINTMENTS) ---------------------
+
+def _refresh_appointment_status(appointment: Appointment):
+    """Recalcula el estado global de la cita basado en sub-servicios."""
+    if not appointment.services:
+        appointment.status = 'pending'
+        return
+    statuses = {s.status for s in appointment.services}
+    if statuses == {'done'}:
+        appointment.status = 'done'
+    elif statuses == {'cancelled'}:
+        appointment.status = 'cancelled'
+    else:
+        # mezcla -> si hay al menos uno done o en progreso mantenemos pending (simple)
+        if 'done' in statuses:
+            # podríamos marcar in_progress, pero mantenemos pending hasta completar
+            appointment.status = 'pending'
+        else:
+            appointment.status = 'pending'
+    appointment.recompute_total()
+
+@app.route('/appointments')
+@login_required
+def appointment_list():
+    status = request.args.get('status','')
+    q = Appointment.query.order_by(Appointment.created_at.desc())
+    if status:
+        q = q.filter_by(status=status)
+    appointments = q.all()
+    # sincronizar totales en memoria (sin cometer para evitar side-effects en listado)
+    for a in appointments:
+        calc = sum(s.price for s in a.services)
+        if abs((a.total_price or 0) - calc) > 0.01:
+            a.total_price = calc
+    return render_template('appointments/list.html', appointments=appointments, status=status)
+
+@app.route('/appointments/<int:id>')
+@login_required
+def appointment_view(id):
+    appointment = Appointment.query.get_or_404(id)
+    _refresh_appointment_status(appointment)
+    db.session.commit()
+    return render_template('appointments/view.html', appointment=appointment)
+
+@app.route('/appointments/finish/<int:id>', methods=['POST'])
+@login_required
+def appointment_finish(id):
+    appointment = Appointment.query.get_or_404(id)
+    changed = False
+    for s in appointment.services:
+        if s.status != 'done':
+            s.status = 'done'
+            changed = True
+    _refresh_appointment_status(appointment)
+    if changed:
+        db.session.commit()
+        flash('Cita finalizada', 'success')
+    else:
+        flash('La cita ya estaba finalizada', 'info')
+    return redirect(url_for('appointment_view', id=id))
+
+@app.route('/appointments/cancel/<int:id>', methods=['POST'])
+@role_required('admin')
+def appointment_cancel(id):
+    appointment = Appointment.query.get_or_404(id)
+    changed = False
+    for s in appointment.services:
+        if s.status != 'cancelled':
+            s.status = 'cancelled'
+            changed = True
+    _refresh_appointment_status(appointment)
+    if changed:
+        db.session.commit()
+        flash('Cita cancelada', 'success')
+    else:
+        flash('La cita ya estaba cancelada', 'info')
+    return redirect(url_for('appointment_view', id=id))
 
 @app.route('/services/delete/<int:id>', methods=['POST'])
 @role_required('admin')

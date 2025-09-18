@@ -1,0 +1,52 @@
+{% extends 'layout.html' %}
+{% block title %}Citas{% endblock %}
+{% block content %}
+<h1 class="h4">Citas</h1>
+<div class="mb-3">
+  <a href="{{ url_for('service_new') }}" class="btn btn-sm btn-primary">Nueva Cita</a>
+</div>
+<form method="get" class="row g-2 mb-3">
+  <div class="col-auto">
+    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">-- Estado --</option>
+      <option value="pending" {{ 'selected' if status=='pending' else '' }}>Pendiente</option>
+      <option value="done" {{ 'selected' if status=='done' else '' }}>Finalizada</option>
+      <option value="cancelled" {{ 'selected' if status=='cancelled' else '' }}>Cancelada</option>
+    </select>
+  </div>
+</form>
+<table class="table table-sm align-middle table-hover">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Mascota</th>
+      <th>Cliente</th>
+      <th>Servicios</th>
+      <th>Total</th>
+      <th>Estado</th>
+      <th>Creada</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for a in appointments %}
+    <tr>
+      <td>{{ a.id }}</td>
+      <td>{{ a.pet.name if a.pet else '' }}</td>
+      <td>{{ a.customer.name if a.customer else '' }}</td>
+      <td>{{ a.services|length }}</td>
+      <td>${{ '%.0f'|format(a.total_price or 0) }}</td>
+      <td>
+        {% if a.status=='done' %}<span class="badge bg-success">Finalizada</span>
+        {% elif a.status=='cancelled' %}<span class="badge bg-danger">Cancelada</span>
+        {% else %}<span class="badge bg-secondary">Pendiente</span>{% endif %}
+      </td>
+      <td>{{ a.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td><a href="{{ url_for('appointment_view', id=a.id) }}" class="btn btn-sm btn-outline-primary">Ver</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="text-center text-muted">Sin citas</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
