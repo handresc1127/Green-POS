@@ -183,7 +183,6 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Initialize variables
         const itemsContainer = document.getElementById('itemsContainer');
         const noItemsMessage = document.getElementById('noItemsMessage');
         const subtotalElement = document.getElementById('subtotal');
@@ -196,20 +195,11 @@
         const productModal = new bootstrap.Modal(productModalElement);
         const customerIdInput = document.getElementById('customer_id');
         const customerNameDisplay = document.getElementById('customerNameDisplay');
-        const openCustomerModalBtn = document.getElementById('openCustomerModalBtn');
-        const customerModalElement = document.getElementById('customerModal');
-        const customerModal = new bootstrap.Modal(customerModalElement);
         const customerSearch = document.getElementById('customerSearch');
         const customersList = document.getElementById('customersList');
-        
-        // Array to store items
         let items = [];
-        
-        // IVA settings
         const ivaResponsable = JSON.parse('{{ setting.iva_responsable|tojson|safe }}');
         const taxRate = JSON.parse('{{ (setting.tax_rate if setting.iva_responsable else 0)|tojson|safe }}'); // decimal (e.g. 0.19)
-        
-        // Update totals
         function updateTotals() {
             const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
             const tax = ivaResponsable ? subtotal * taxRate : 0;
@@ -232,7 +222,6 @@
             }
         }
         
-        // Add item to the table
         function addItemToTable(item) {
             const tr = document.createElement('tr');
             tr.dataset.id = item.product_id;
@@ -258,90 +247,54 @@
                 </td>
             `;
             
-            // Handle quantity change
             const quantityInput = tr.querySelector('.item-quantity');
             quantityInput.addEventListener('change', function() {
                 const newQuantity = parseInt(this.value, 10);
                 if (newQuantity < 1) this.value = 1;
-                // if (newQuantity > item.stock) this.value = item.stock;
-                
-                // Update item in array
                 const itemIndex = items.findIndex(i => i.product_id === item.product_id);
                 if (itemIndex !== -1) {
                     items[itemIndex].quantity = parseInt(this.value, 10);
-                    
-                    // Update subtotal in row
                     const subtotal = items[itemIndex].quantity * items[itemIndex].price;
                     tr.querySelector('.item-subtotal').textContent = subtotal.toFixed(2);
-                    
-                    // Update totals
                     updateTotals();
                 }
             });
-            
-            // Handle price change
             const priceInput = tr.querySelector('.item-price');
             priceInput.addEventListener('change', function() {
                 const newPrice = parseFloat(this.value);
                 if (newPrice < 0) this.value = 0;
-                
-                // Update item in array
                 const itemIndex = items.findIndex(i => i.product_id === item.product_id);
                 if (itemIndex !== -1) {
                     items[itemIndex].price = parseFloat(this.value);
-                    
-                    // Update subtotal in row
                     const subtotal = items[itemIndex].quantity * items[itemIndex].price;
                     tr.querySelector('.item-subtotal').textContent = subtotal.toFixed(2);
-                    
-                    // Update totals
                     updateTotals();
                 }
             });
-            
-            // Handle remove button
             const removeBtn = tr.querySelector('.remove-item-btn');
             removeBtn.addEventListener('click', function() {
-                // Remove item from array
                 items = items.filter(i => i.product_id !== item.product_id);
-                
-                // Remove row
                 tr.remove();
-                
-                // Update totals
                 updateTotals();
             });
-            
-            // Add row to table
             itemsContainer.appendChild(tr);
         }
-        
-        // Handle Add Item button click
-        addItemBtn.addEventListener('click', function() {
-            productModal.show();
-        });
-        
-        // Handle product search
         const productSearch = document.getElementById('productSearch');
-        // NUEVO: limpiar búsqueda y restaurar filas al abrir el modal
         addItemBtn.addEventListener('click', function() {
             productSearch.value = '';
             document.querySelectorAll('#productsList tr').forEach(row => row.style.display = '');
             productModal.show();
         });
-        // Alternativamente también por evento bootstrap (redundante pero seguro)
         productModalElement.addEventListener('show.bs.modal', () => {
             productSearch.value = '';
             document.querySelectorAll('#productsList tr').forEach(row => row.style.display = '');
         });
-        // Enfocar el input automáticamente cuando el modal ya se mostró (tras animación)
         productModalElement.addEventListener('shown.bs.modal', () => {
             if (productSearch) {
                 productSearch.focus();
                 productSearch.select();
             }
         });
-        // Permitir que Enter seleccione el primer producto visible
         productSearch.addEventListener('keydown', function(e){
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -369,7 +322,6 @@
             });
         });
         
-        // Handle product selection
         const selectProductBtns = document.querySelectorAll('.select-product-btn');
         selectProductBtns.forEach(btn => {
             btn.addEventListener('click', function() {
@@ -378,23 +330,16 @@
                 const productPrice = parseFloat(this.dataset.price);
                 const productStock = parseInt(this.dataset.stock, 10); // puede ser 0
                 
-                // Check if product is already in items
                 const existingItem = items.find(item => item.product_id === productId);
                 
                 if (existingItem) {
-                    // Increment quantity if there's enough stock
                     existingItem.quantity++;
-                    
-                    // Update quantity in the UI
                     const row = itemsContainer.querySelector(`tr[data-id="${productId}"]`);
                     const quantityInput = row.querySelector('.item-quantity');
                     quantityInput.value = existingItem.quantity;
-                    
-                    // Update subtotal in row
                     const subtotal = existingItem.quantity * existingItem.price;
                     row.querySelector('.item-subtotal').textContent = subtotal.toFixed(2);
                 } else {
-                    // Add new item
                     const newItem = {
                         product_id: productId,
                         name: productName,
@@ -406,16 +351,10 @@
                     items.push(newItem);
                     addItemToTable(newItem);
                 }
-                
-                // Hide modal
                 productModal.hide();
-                
-                // Update totals
                 updateTotals();
             });
         });
-        
-        // Customer autoselect
         const firstCustomerBtn = customersList ? customersList.querySelector('.select-customer-btn') : null;
         if (firstCustomerBtn && !customerIdInput.value) {
             customerIdInput.value = firstCustomerBtn.dataset.id;
@@ -424,18 +363,6 @@
                 customerNameDisplay.classList.remove('text-muted');
             }
         }
-
-        if (openCustomerModalBtn) {
-            openCustomerModalBtn.addEventListener('click', () => {
-                if (customerSearch) {
-                    customerSearch.value='';
-                    document.querySelectorAll('#customersList tr').forEach(r=>r.style.display='');
-                }
-                customerModal.show();
-            });
-        }
-
-        // Customer search
         if (customerSearch) {
             customerSearch.addEventListener('input', function(){
                 const term = this.value.toLowerCase();
@@ -446,20 +373,6 @@
                 });
             });
         }
-
-        // Select customer
-        document.querySelectorAll('.select-customer-btn').forEach(btn => {
-            btn.addEventListener('click', function(){
-                customerIdInput.value = this.dataset.id;
-                if (customerNameDisplay) {
-                    customerNameDisplay.textContent = this.dataset.name + ' (' + this.dataset.document + ')';
-                    customerNameDisplay.classList.remove('text-muted');
-                }
-                customerModal.hide();
-            });
-        });
-        
-        // Form validation extends existing
         const originalSubmitHandler = document.getElementById('invoiceForm').onsubmit;
         document.getElementById('invoiceForm').addEventListener('submit', function(e){
             if (!customerIdInput.value) {
@@ -468,8 +381,6 @@
                 return;
             }
         }, true);
-        
-        // Initialize
         updateTotals();
     });
 </script>
