@@ -226,6 +226,13 @@
             }
         }
         
+        function sanitizeInt(raw){
+            if(typeof raw !== 'string') raw = String(raw ?? '');
+            // Quitar todo lo que no sea dígito
+            const digits = raw.replace(/[^0-9]/g,'');
+            if(digits === '') return 0;
+            return parseInt(digits,10);
+        }
         function addItemToTable(item) {
             const tr = document.createElement('tr');
             tr.dataset.id = item.product_id;
@@ -239,8 +246,8 @@
                 <td>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text">$</span>
-                        <input type="number" class="form-control form-control-sm item-price" 
-                               value="${formatCo(item.price)}" step="100" min="0">
+               <input type="number" class="form-control form-control-sm item-price" 
+                   value="${item.price}" step="1" min="0" inputmode="numeric" pattern="[0-9]*">
                     </div>
                 </td>
                 <td>$<span class="item-subtotal">${formatCo(item.quantity * item.price)}</span></td>
@@ -264,19 +271,18 @@
                 }
             });
             const priceInput = tr.querySelector('.item-price');
-            priceInput.addEventListener('change', function() {
-                let newPrice = parseFloat(this.value);
-                if (isNaN(newPrice) || newPrice < 0) newPrice = 0;
-                newPrice = Math.round(newPrice);
-                this.value = newPrice;
+            function handlePriceUpdate(){
+                let newPrice = sanitizeInt(priceInput.value);
+                priceInput.value = newPrice; // valor limpio sin separadores
                 const itemIndex = items.findIndex(i => i.product_id === item.product_id);
                 if (itemIndex !== -1) {
                     items[itemIndex].price = newPrice;
-                    const subtotal = items[itemIndex].quantity * items[itemIndex].price;
-                    tr.querySelector('.item-subtotal').textContent = formatCo(subtotal);
+                    tr.querySelector('.item-subtotal').textContent = formatCo(items[itemIndex].quantity * newPrice);
                     updateTotals();
                 }
-            });
+            }
+            priceInput.addEventListener('input', handlePriceUpdate);
+            priceInput.addEventListener('change', handlePriceUpdate);
             const removeBtn = tr.querySelector('.remove-item-btn');
             removeBtn.addEventListener('click', function() {
                 items = items.filter(i => i.product_id !== item.product_id);
@@ -350,7 +356,7 @@
                         product_id: productId,
                         name: productName,
                         quantity: 1,
-                        price: Math.round(productPrice),
+                        price: sanitizeInt(productPrice),
                         stock: productStock
                     };
                     
