@@ -16,14 +16,15 @@
     <div class="card-body">
         <form action="{{ url_for('invoice_list') }}" method="get">
             <div class="input-group">
-                <input type="text" name="query" class="form-control" placeholder="Buscar por número, cliente o documento..." value="{{ query }}">
+                <input type="text" name="query" class="form-control"
+                    placeholder="Buscar por número, cliente o documento..." value="{{ query }}">
                 <button class="btn btn-primary" type="submit">
                     <i class="bi bi-search"></i> Buscar
                 </button>
                 {% if query %}
-                    <a href="{{ url_for('invoice_list') }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-x-circle"></i> Limpiar
-                    </a>
+                <a href="{{ url_for('invoice_list') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Limpiar
+                </a>
                 {% endif %}
             </div>
         </form>
@@ -33,69 +34,91 @@
 <!-- Invoices Table -->
 <div class="card">
     <div class="card-body">
-        {% if invoices %}
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Número</th>
-                            <th>Cliente</th>
-                            <th>Fecha</th>
-                            <th>Total</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for invoice in invoices %}
+        {% if invoices_by_date %}
+        {% for date, invoices in invoices_by_date.items() %}
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <span class="formatted-date" data-date="{{ date }}">{{ date }}</span>
+                    <small class="text-muted ms-2">
+                        ({{ invoices|length }} venta{{ 's' if invoices|length != 1 }})
+                        <span class="ms-2">Total: {{ invoices|sum(attribute='total')|currency_co }}</span>
+                    </small>
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Cliente</th>
+                                <th>Hora</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in invoices %}
                             <tr>
                                 <td>{{ invoice.number }}</td>
                                 <td>{{ invoice.customer.name }}</td>
-                                <td><span class="utc-date" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></td>
+                                <td><span class="utc-time" data-utc="{{ invoice.date.isoformat() }}">
+                                        {%- set colombia_time = invoice.date.astimezone(colombia_tz) -%}
+                                        {%- set hour = colombia_time.strftime('%I')|int -%}
+                                        {{ '%d:%s %s'|format(hour, colombia_time.strftime('%M'),
+                                        colombia_time.strftime('%p')|replace('AM', 'a. m.')|replace('PM', 'p. m.')) }}
+                                    </span></td>
                                 <td>{{ invoice.total | currency_co }}</td>
                                 <td>
-                                    <span class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
-                                        {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada', 'validated': 'Validada'}.get(invoice.status, invoice.status) }}
+                                    <span
+                                        class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
+                                        {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada',
+                                        'validated': 'Validada'}.get(invoice.status, invoice.status) }}
                                     </span>
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
-                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}" class="btn btn-outline-primary" title="Ver">
+                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}"
+                                            class="btn btn-outline-primary" title="Ver">
                                             <i class="bi bi-eye"></i>
                                         </a>
                                         {% if current_user.role == 'admin' %}
-                                            {% if invoice.status == 'pending' %}
-                                            <form method="post" action="{{ url_for('invoice_validate', id=invoice.id) }}" onsubmit="return confirm('Validar esta venta?');">
-                                                <button type="submit" class="btn btn-outline-success" title="Validar">
-                                                    <i class="bi bi-check2-circle"></i>
-                                                </button>
-                                            </form>
-                                            {% endif %}
-                                            {% if invoice.status != 'validated' %}
-                                            <button type="button" class="btn btn-outline-danger" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#deleteModal" 
-                                                    data-id="{{ invoice.id }}"
-                                                    data-number="{{ invoice.number }}" title="Eliminar">
-                                                <i class="bi bi-trash"></i>
+                                        {% if invoice.status == 'pending' %}
+                                        <form method="post" action="{{ url_for('invoice_validate', id=invoice.id) }}"
+                                            onsubmit="return confirm('Validar esta venta?');">
+                                            <button type="submit" class="btn btn-outline-success" title="Validar">
+                                                <i class="bi bi-check2-circle"></i>
                                             </button>
-                                            {% endif %}
+                                        </form>
+                                        {% endif %}
+                                        {% if invoice.status != 'validated' %}
+                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
+                                            data-bs-target="#deleteModal" data-id="{{ invoice.id }}"
+                                            data-number="{{ invoice.number }}" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                        {% endif %}
                                         {% endif %}
                                     </div>
                                 </td>
                             </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
+        </div>
+        {% endfor %}
         {% else %}
-            <div class="alert alert-info">
-                {% if query %}
-                    No se encontraron ventas para "{{ query }}".
-                {% else %}
-                    No hay ventas registradas. <a href="{{ url_for('invoice_new') }}">Crear la primera</a>.
-                {% endif %}
-            </div>
+        <div class="alert alert-info">
+            {% if query %}
+            No se encontraron ventas para "{{ query }}".
+            {% else %}
+            No hay ventas registradas. <a href="{{ url_for('invoice_new') }}">Crear la primera</a>.
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 </div>
@@ -126,25 +149,42 @@
 
 {% block extra_js %}
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const formatDate = d => d.toLocaleDateString(undefined,{day:'2-digit',month:'2-digit',year:'numeric'});
-    document.querySelectorAll('.utc-date').forEach(el => {
-      const iso = el.getAttribute('data-utc');
-      if(!iso) return;
-      const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
-      el.textContent = formatDate(d);
+    document.addEventListener('DOMContentLoaded', () => {
+        // Formatear fechas agrupadas
+        document.querySelectorAll('.formatted-date').forEach(el => {
+            const date = el.getAttribute('data-date');
+            if (!date) return;
+            const d = new Date(date);
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            };
+            el.textContent = d.toLocaleDateString('es-ES', options);
+        });
+
+        // Formatear horas en zona horaria local
+        document.querySelectorAll('.utc-time').forEach(el => {
+            const iso = el.getAttribute('data-utc');
+            if (!iso) return;
+
+            // Convertir la hora UTC a hora de Colombia (UTC-5)
+            // No necesitamos convertir la hora aquí ya que la conversión se hace en el servidor
+            // y el elemento ya tiene la hora correcta de Colombia
+            return;
+        });
     });
-  });
-  // Set up delete modal
-  document.addEventListener('DOMContentLoaded', function() {
-      const deleteModal = document.getElementById('deleteModal');
-      deleteModal.addEventListener('show.bs.modal', function(event) {
-          const button = event.relatedTarget;
-          const id = button.dataset.id;
-          const number = button.dataset.number;
-          document.getElementById('invoiceNumber').textContent = number;
-          document.getElementById('deleteForm').action = "{{ url_for('invoice_delete', id=0) }}".replace('0', id);
-      });
-  });
+    // Set up delete modal
+    document.addEventListener('DOMContentLoaded', function () {
+        const deleteModal = document.getElementById('deleteModal');
+        deleteModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const id = button.dataset.id;
+            const number = button.dataset.number;
+            document.getElementById('invoiceNumber').textContent = number;
+            document.getElementById('deleteForm').action = "{{ url_for('invoice_delete', id=0) }}".replace('0', id);
+        });
+    });
 </script>
 {% endblock %}

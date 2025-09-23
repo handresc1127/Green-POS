@@ -8,6 +8,7 @@ from functools import wraps
 import logging
 import argparse
 from sqlalchemy import func
+import pytz
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'green-pos-secret-key'
@@ -41,7 +42,12 @@ app.jinja_env.filters['currency_co'] = format_currency_co
 # Nuevo context processor (timezone-aware)
 @app.context_processor
 def inject_now():
-    return {"now": datetime.now(timezone.utc), "setting": Setting.get() }
+    colombia_tz = pytz.timezone('America/Bogota')
+    return {
+        "now": datetime.now(timezone.utc),
+        "setting": Setting.get(),
+        "colombia_tz": colombia_tz
+    }
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -289,11 +295,31 @@ def invoice_list():
             Invoice.number.contains(query) | 
             Customer.name.contains(query) | 
             Customer.document.contains(query)
-        ).all()
+        ).order_by(Invoice.date.desc()).all()
     else:
-        invoices = Invoice.query.order_by(Invoice.created_at.desc()).all()
+        invoices = Invoice.query.order_by(Invoice.date.desc()).all()
+    
+    # Agrupar facturas por fecha local (Colombia)
+    invoices_by_date = {}
+    colombia_tz = pytz.timezone('America/Bogota')
+    
+    for invoice in invoices:
+        # Asegurarse de que la fecha sea aware si no lo es
+        invoice_date = invoice.date
+        if invoice_date.tzinfo is None:
+            invoice_date = pytz.utc.localize(invoice_date)
+            
+        # Convertir la fecha UTC a hora local de Colombia
+        local_date = invoice_date.astimezone(colombia_tz)
+        date_str = local_date.strftime('%Y-%m-%d')
+        if date_str not in invoices_by_date:
+            invoices_by_date[date_str] = []
+        invoices_by_date[date_str].append(invoice)
+    
+    # Ordenar el diccionario por fecha de manera descendente
+    invoices_by_date = dict(sorted(invoices_by_date.items(), reverse=True))
         
-    return render_template('invoices/list.html', invoices=invoices, query=query)
+    return render_template('invoices/list.html', invoices_by_date=invoices_by_date, query=query)
 
 @app.route('/invoices/new', methods=['GET', 'POST'])
 @login_required
@@ -305,7 +331,13 @@ def invoice_new():
         setting = Setting.get()
         number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
         setting.next_invoice_number += 1
-        invoice = Invoice(number=number, customer_id=customer_id, payment_method=payment_method, notes=notes, status='pending', user_id=current_user.id)
+        
+        # Crear la factura usando la hora actual de Colombia convertida a UTC
+        colombia_tz = pytz.timezone('America/Bogota')
+        local_now = colombia_tz.localize(datetime.now())
+        utc_now = local_now.astimezone(pytz.utc)
+        
+        invoice = Invoice(number=number, customer_id=customer_id, payment_method=payment_method, notes=notes, status='pending', user_id=current_user.id, date=utc_now)
         db.session.add(invoice)
         db.session.flush()
         items_json = request.form['items_json']

@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
@@ -106,7 +106,7 @@ class Invoice(db.Model):
     number = db.Column(db.String(30), unique=True, nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))  # usuario que creó la factura
-    date = db.Column(db.DateTime, default=datetime.utcnow)
+    date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     subtotal = db.Column(db.Float, default=0.0)
     tax = db.Column(db.Float, default=0.0)
     total = db.Column(db.Float, default=0.0)
