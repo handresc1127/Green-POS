@@ -2,13 +2,16 @@
 
 {% block title %}Venta {{ invoice.number }} - {{ setting.business_name or 'Venta' }}{% endblock %}
 
-{% block page_title %}<span class="d-print-none">Venta #{{ invoice.number }} ({{ setting.document_label }})</span>{% endblock %}
+{% block page_title %}<span class="d-print-none">Venta #{{ invoice.number }} ({{ setting.document_label }})</span>{%
+endblock %}
 
 {% block page_info %}
 <div class="d-print-none mb-3">
-  <span class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
-    Estado: {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada', 'validated': 'Validada'}.get(invoice.status, invoice.status) }}
-  </span>
+    <span
+        class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
+        Estado: {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada', 'validated':
+        'Validada'}.get(invoice.status, invoice.status) }}
+    </span>
 </div>
 {% endblock %}
 
@@ -27,30 +30,215 @@
 {# --- Watermark styles dinámicos sólo si hay logo --- #}
 {% if setting.logo_path %}
 <style>
-  .invoice-watermark-wrapper { position: relative; }
-  .invoice-watermark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:0; }
+    .invoice-watermark-wrapper {
+        position: relative;
+    }
+
+    .invoice-watermark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 0;
+    }
+
     /* Forzar blanco y negro (alto contraste) */
-    .invoice-watermark img { width:200px; height:200px; filter:grayscale(100%) contrast(190%) brightness(105%); object-fit:contain; }
-  .invoice-content-layer { position:relative; z-index:1; }
-    @media print { .invoice-watermark img { filter:grayscale(100%) contrast(190%) brightness(105%); } }
+    .invoice-watermark img {
+        width: 200px;
+        height: 200px;
+        filter: grayscale(100%) contrast(190%) brightness(105%);
+        object-fit: contain;
+    }
+
+    .invoice-content-layer {
+        position: relative;
+        z-index: 1;
+    }
+
+    @media print {
+        .invoice-watermark img {
+            filter: grayscale(100%) contrast(190%) brightness(105%);
+        }
+    }
 </style>
 {% endif %}
 <style>
     /* Estilos B/N optimizados para impresión térmica (sin bordes) */
-    .invoice-bw-table { width:100%; border-collapse:collapse; }
-            .invoice-bw-table th, .invoice-bw-table td { border:none !important; padding:5px 6px; font-size:16px; line-height:1.25; }
-            .invoice-bw-table tfoot td { font-size:17px; }
-    .invoice-bw-table thead th { background:#fff !important; color:#000 !important; font-weight:600; border-bottom:1px solid #000 !important; }
-    .invoice-bw-table tfoot td { font-weight:600; }
-    .invoice-bw-table tfoot tr:first-child td { padding-top:6px; }
-    /* Quitar cualquier sombreado */
-    .invoice-bw-table tr, .invoice-bw-table tbody tr:nth-child(even), .invoice-bw-table tbody tr:nth-child(odd) { background:#fff !important; }
+    .invoice-bw-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .invoice-bw-table th,
+    .invoice-bw-table td {
+        border: none !important;
+        padding: 1px 1px;
+        font-size: 12px;
+        line-height: 1.1;
+    }
+
     @media print {
-        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .card, .card-body { border:none; box-shadow:none; padding:0; }
-        .invoice-watermark img { filter:grayscale(100%) contrast(500%) brightness(110%) !important; }
-        .btn, .d-print-none { display:none !important; }
-        h4, h5 { margin:0 0 4px 0; }
+
+        .invoice-bw-table th:last-child,
+        .invoice-bw-table td:last-child {
+            padding-right: 0 !important;
+        }
+    }
+
+    .invoice-bw-table tfoot td {
+        font-size: 13px;
+        padding-top: 3px;
+    }
+
+    .invoice-bw-table thead th {
+        background: #fff !important;
+        color: #000 !important;
+        font-weight: 800 !important;
+        border-bottom: 1px solid #000 !important;
+    }
+
+    .invoice-bw-table tfoot td {
+        font-weight: 800 !important;
+    }
+
+    @media print {
+        .invoice-bw-table th,
+        .invoice-bw-table td {
+            font-weight: 600 !important;
+            color: black !important;
+            -webkit-font-smoothing: none !important;
+        }
+    }
+
+    .invoice-bw-table tfoot tr:first-child td {
+        padding-top: 6px;
+    }
+
+    /* Optimizaciones para impresora térmica 3nStar RPT004 */
+    .invoice-bw-table tr,
+    .invoice-bw-table tbody tr:nth-child(even),
+    .invoice-bw-table tbody tr:nth-child(odd) {
+        background: #fff !important;
+    }
+
+    /* Ajustes específicos para impresora térmica */
+    @media print {
+        * {
+            font-weight: 600 !important;
+            color: black !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        
+        .print-cut-space {
+            display: block !important;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        #invoiceBusinessBlock h4 {
+            font-size: 14px;
+            margin-bottom: 2px !important;
+            font-weight: 800 !important;
+        }
+
+        #invoiceBusinessBlock p,
+        #invoiceMetaBlock p,
+        #invoiceCustomerBlock p {
+            font-size: 12px;
+            margin-bottom: 1px !important;
+            line-height: 1.2;
+        }
+
+        h5 {
+            font-size: 13px;
+            margin-bottom: 2px !important;
+            font-weight: 800 !important;
+        }
+
+        strong {
+            font-weight: 800 !important;
+        }
+
+        .invoice-watermark img {
+            width: 60px;
+            height: 60px;
+        }
+
+        hr {
+            margin: 4px 0;
+        }
+
+        .mb-3 {
+            margin-bottom: 0.5rem !important;
+        }
+
+        .mb-4 {
+            margin-bottom: 0.75rem !important;
+        }
+    }
+
+    @page {
+        margin: 0;
+        width: 79.5mm;
+        /* Ancho exacto del papel térmico 3nStar RPT004 */
+    }
+
+    @media print {
+        body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            margin: 0;
+            padding: 0;
+            width: 72mm;
+            /* Ancho máximo de impresión de la 3nStar RPT004 */
+            padding-right: 0 !important;
+        }
+
+        /* Ajustes para reducir margen derecho */
+        .container,
+        .container-fluid {
+            padding-right: 0 !important;
+            margin-right: 0 !important;
+            max-width: 72mm !important;
+        }
+
+        .row {
+            margin-right: 0 !important;
+        }
+
+        .col-6,
+        .col-md-6,
+        [class*="col-"] {
+            padding-right: 0 !important;
+        }
+
+        .card,
+        .card-body {
+            border: none;
+            box-shadow: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .invoice-watermark img {
+            filter: grayscale(100%) contrast(500%) brightness(110%) !important;
+        }
+
+        .btn,
+        .d-print-none {
+            display: none !important;
+        }
+
+        h4,
+        h5 {
+            margin: 0 0 4px 0;
+        }
     }
 </style>
 <div class="card mb-4" id="invoiceCard">
@@ -64,22 +252,33 @@
             <div class="invoice-content-layer" id="invoiceContentLayer">
                 <div class="row">
                     <div class="col-6 col-md-6" id="invoiceBusinessBlock">
-                        <h4 class="mb-3" id="invoiceBusinessName">{{ setting.business_name or 'Nombre de la Empresa' }}</h4>
+                        <h4 class="mb-3" id="invoiceBusinessName">{{ setting.business_name or 'Nombre de la Empresa' }}
+                        </h4>
                         {% if setting.nit %}<p class="mb-1" id="invoiceNIT">NIT: {{ setting.nit }}</p>{% endif %}
-                        {% if setting.address %}<p class="mb-1" id="invoiceAddress">Dirección: {{ setting.address }}</p>{% endif %}
-                        {% if setting.phone %}<p class="mb-1" id="invoicePhone">Teléfono: {{ setting.phone }}</p>{% endif %}
-                        {% if setting.email %}<p class="mb-1" id="invoiceEmail">Email: {{ setting.email }}</p>{% endif %}
-                        <p class="mb-1" id="invoiceIvaRegimen">Regimen IVA: {{ 'Responsable' if setting.iva_responsable else 'No responsable' }}</p>
+                        {% if setting.address %}<p class="mb-1" id="invoiceAddress">Dirección: {{ setting.address }}</p>
+                        {% endif %}
+                        {% if setting.phone %}<p class="mb-1" id="invoicePhone">Teléfono: {{ setting.phone }}</p>{%
+                        endif %}
+                        {% if setting.email %}<p class="mb-1" id="invoiceEmail">Email: {{ setting.email }}</p>{% endif
+                        %}
+                        <p class="mb-1" id="invoiceIvaRegimen">Regimen IVA: {{ 'Responsable' if setting.iva_responsable
+                            else 'No responsable' }}</p>
                     </div>
                     <div class="col-6 col-md-6 text-end" id="invoiceMetaBlock">
-                        <h5 class="mb-2" id="invoiceDocumentTypeLabel">{{ setting.document_label }}</h4>
+
+                        <!-- <h5 class="mb-2" id="invoiceDocumentTypeLabel">{{ setting.document_label }}</h4> -->
                         <h5 class="mb-1" id="invoiceDocumentNumberLabel">#{{ invoice.number }}</h4>
-                        <p class="mb-1" id="invoiceDate"><strong>Fecha:</strong> <span class="utc-datetime" id="invoiceDateValue" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></p>
-                        <p class="mb-1" id="invoiceSeller"><strong>Vendedor:</strong> {{ invoice.user.username if invoice.user else 'N/D' }}</p>
-                        <p class="mb-1" id="invoicePaymentMethod">
-                            <strong>Método de Pago:</strong> 
-                            {{ {'cash': 'Efectivo', 'credit_card': 'Tarjeta de Crédito', 'debit_card': 'Tarjeta de Débito', 'transfer': 'Transferencia Bancaria'}.get(invoice.payment_method, invoice.payment_method) }}
-                        </p>
+                            <p class="mb-1" id="invoiceDate"><strong>Fecha:</strong> <span class="utc-datetime"
+                                    id="invoiceDateValue" data-utc="{{ invoice.date.isoformat() }}">{{
+                                    invoice.date.isoformat() }}</span></p>
+                            <p class="mb-1" id="invoiceSeller"><strong>Vendedor:</strong> {{ invoice.user.username if
+                                invoice.user else 'N/D' }}</p>
+                            <p class="mb-1" id="invoicePaymentMethod">
+                                <strong>Método de Pago:</strong>
+                                {{ {'cash': 'Efectivo', 'credit_card': 'Tarjeta de Crédito', 'debit_card': 'Tarjeta de
+                                Débito', 'transfer': 'Transferencia Bancaria'}.get(invoice.payment_method,
+                                invoice.payment_method) }}
+                            </p>
                     </div>
                 </div>
             </div> {# invoice-content-layer #}
@@ -91,56 +290,60 @@
                 <p class="mb-1" id="invoiceCustomerName"><strong>{{ invoice.customer.name }}</strong></p>
                 <p class="mb-1" id="invoiceCustomerDocument">{{ invoice.customer.document }}</p>
                 {% if invoice.customer.phone %}
-                    <p class="mb-1" id="invoiceCustomerPhone">{{ invoice.customer.phone }}</p>
+                <p class="mb-1" id="invoiceCustomerPhone">{{ invoice.customer.phone }}</p>
                 {% endif %}
                 {% if invoice.customer.email %}
-                    <p class="mb-1" id="invoiceCustomerEmail">{{ invoice.customer.email }}</p>
+                <p class="mb-1" id="invoiceCustomerEmail">{{ invoice.customer.email }}</p>
                 {% endif %}
                 {% if invoice.customer.address %}
-                    <p class="mb-1" id="invoiceCustomerAddress">{{ invoice.customer.address }}</p>
+                <p class="mb-1" id="invoiceCustomerAddress">{{ invoice.customer.address }}</p>
                 {% endif %}
             </div>
         </div>
-            
-            <div class="table-responsive" id="invoiceItemsWrapper">
-                <table class="invoice-bw-table" id="invoiceItemsTable">
-                    <thead>
-                        <tr>
-                            <th class="text-center" style="width:15%;" id="invoiceHeadQty">Cant.</th>
-                            <th style="width:55%;" id="invoiceHeadItem">Item</th>
-                            <th class="text-end" style="width:30%;" id="invoiceHeadSubtotal">Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody id="invoiceItemsBody">
-                        {% for item in invoice.items %}
-                            <tr id="invoiceItemRow{{ loop.index }}" data-item-id="{{ item.id }}">
-                                <td class="text-center" id="invoiceItemQty{{ loop.index }}">{{ item.quantity }}</td>
-                                <td id="invoiceItemName{{ loop.index }}">{{ item.product.name }}</td>
-                                <td class="text-end" id="invoiceItemSubtotal{{ loop.index }}">{{ (item.quantity * item.price) | currency_co }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot id="invoiceItemsFoot">
-                        <tr id="invoiceTotalRow">
-                            <td colspan="2" class="text-end" id="invoiceTotalLabel"><strong>Total:</strong></td>
-                            <td class="text-end" id="invoiceTotalValue"><strong>{{ invoice.total | currency_co }}</strong></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-            
-            {% if invoice.notes %}
-                <div class="mt-4" id="invoiceNotesBlock">
-                    <h5 id="invoiceNotesTitle">Notas</h5>
-                        <pre class="mb-0 p-2" id="invoiceNotesContent" style="white-space:pre-wrap; font-family:inherit; background:#fff; color:#000; border:1px solid #000;">{{ invoice.notes }}</pre>
-                </div>
-            {% endif %}
-            
-            <div class="mt-4 text-center" id="invoiceThanksBlock">
-                <p id="invoiceThanksText">¡Gracias por su compra!</p>
-            </div>
-        </div> {# invoice-content-layer #}
-    </div> {# card-body #}
+
+        <div class="table-responsive" id="invoiceItemsWrapper">
+            <table class="invoice-bw-table" id="invoiceItemsTable">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width:12%;" id="invoiceHeadQty">Cant</th>
+                        <th style="width:58%;" id="invoiceHeadItem">Item</th>
+                        <th class="text-end" style="width:30%;" id="invoiceHeadSubtotal">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="invoiceItemsBody">
+                    {% for item in invoice.items %}
+                    <tr id="invoiceItemRow{{ loop.index }}" data-item-id="{{ item.id }}">
+                        <td class="text-center" id="invoiceItemQty{{ loop.index }}">{{ item.quantity }}</td>
+                        <td id="invoiceItemName{{ loop.index }}">{{ item.product.name }}</td>
+                        <td class="text-end" id="invoiceItemSubtotal{{ loop.index }}">{{ (item.quantity * item.price) |
+                            currency_co }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot id="invoiceItemsFoot">
+                    <tr id="invoiceTotalRow">
+                        <td colspan="2" class="text-end" id="invoiceTotalLabel"><strong>Total:</strong></td>
+                        <td class="text-end" id="invoiceTotalValue"><strong>{{ invoice.total | currency_co }}</strong>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        {% if invoice.notes %}
+        <div class="mt-4" id="invoiceNotesBlock">
+            <h5 id="invoiceNotesTitle">Notas</h5>
+            <pre class="mb-0 p-2" id="invoiceNotesContent"
+                style="white-space:pre-wrap; font-family:inherit; background:#fff; color:#000; border:1px solid #000;">{{ invoice.notes }}</pre>
+        </div>
+        {% endif %}
+
+        <div class="mt-4 text-center" id="invoiceThanksBlock">
+            <p id="invoiceThanksText">¡Gracias por su compra!</p>
+            <div class="print-cut-space" style="height: 50px;"></div>
+        </div>
+    </div> {# invoice-content-layer #}
+</div> {# card-body #}
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -169,14 +372,33 @@
 
 {% block extra_js %}
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.utc-datetime').forEach(el => {
-      const iso = el.getAttribute('data-utc');
-      if(!iso) return;
-      const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
-      const opts = { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' };
-      el.textContent = d.toLocaleString(undefined, opts);
+    document.addEventListener('DOMContentLoaded', () => {
+        // Formatear fechas
+        document.querySelectorAll('.utc-datetime').forEach(el => {
+            const iso = el.getAttribute('data-utc');
+            if (!iso) return;
+            const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+            const opts = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+            el.textContent = d.toLocaleString(undefined, opts);
+        });
+
+        // Agregar evento de impresión
+        window.addEventListener('beforeprint', () => {
+            // Asegurar que haya suficiente espacio para el corte
+            const printCutSpace = document.querySelector('.print-cut-space');
+            if (printCutSpace) {
+                // Aumentar el espacio antes de imprimir
+                printCutSpace.style.height = '100px';
+            }
+        });
+
+        window.addEventListener('afterprint', () => {
+            // Restaurar el espacio original después de imprimir
+            const printCutSpace = document.querySelector('.print-cut-space');
+            if (printCutSpace) {
+                printCutSpace.style.height = '50px';
+            }
+        });
     });
-  });
 </script>
 {% endblock %}

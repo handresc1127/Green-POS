@@ -91,7 +91,7 @@ def index():
     
     # Get low stock products
     # Excluir productos de categoría 'Servicios' (productos generados para sub-servicios)
-    low_stock_products = Product.query.filter(Product.stock < 5, Product.category != 'Servicios').limit(5).all()
+    low_stock_products = Product.query.filter(Product.stock < 1, Product.category != 'Servicios').limit(5).all()
     
     return render_template('index.html', 
                            product_count=product_count, 
