@@ -12,8 +12,13 @@ import pytz
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'green-pos-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
+# Increase SQLite timeout and allow multithreaded access
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db?timeout=30.0'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Engine options for better concurrency
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'connect_args': {'timeout': 30, 'check_same_thread': False}
+}
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -160,11 +165,11 @@ def product_new():
             category=category
         )
         
-        db.session.add(product)
-        db.session.commit()
-        
-        flash('Producto creado exitosamente', 'success')
-        return redirect(url_for('product_list'))
+    db.session.add(product)
+    db.session.commit()
+    db.session.remove()  # Ensure session is closed to release lock
+    flash('Producto creado exitosamente', 'success')
+    return redirect(url_for('product_list'))
     
     return render_template('products/form.html')
 
