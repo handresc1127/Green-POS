@@ -153,8 +153,9 @@ def product_new():
         existing_product = Product.query.filter_by(code=code).first()
         if existing_product:
             flash('El código del producto ya existe', 'danger')
-            return render_template('products/form.html')
-        
+            # Pass an empty Product object to avoid UnboundLocalError
+            return render_template('products/form.html', product=None)
+
         product = Product(
             code=code,
             name=name,
@@ -164,14 +165,14 @@ def product_new():
             stock=stock,
             category=category
         )
-        
-    db.session.add(product)
-    db.session.commit()
-    db.session.remove()  # Ensure session is closed to release lock
-    flash('Producto creado exitosamente', 'success')
-    return redirect(url_for('product_list'))
+
+        db.session.add(product)
+        db.session.commit()
+        db.session.remove()  # Ensure session is closed to release lock
+        flash('Producto creado exitosamente', 'success')
+        return redirect(url_for('product_list'))
     
-    return render_template('products/form.html')
+    return render_template('products/form.html', product=None)
 
 @app.route('/products/edit/<int:id>', methods=['GET', 'POST'])
 @role_required('admin')
