@@ -49,16 +49,29 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Ejecutar la aplicación:
+4. Ejecutar la aplicación (opciones):
 
+### Opción A: Script PowerShell (recomendado Windows)
 ```
-python app.py
+./run.ps1 -Host 0.0.0.0 -Port 8000 -UseWaitress
+```
+Sin `-UseWaitress` usa el servidor de desarrollo Flask.
+
+### Opción B: Script Batch
+```
+run.bat
+```
+Este script crea `.venv` si falta, instala dependencias (si faltan) y levanta waitress en `0.0.0.0:8000`.
+
+### Opción C: Manual (desarrollo)
+```
+python app.py --host 0.0.0.0 --port 8000
 ```
 
 5. Acceder a la aplicación en tu navegador:
 
 ```
-http://127.0.0.1:5000/
+http://127.0.0.1:8000/
 ```
 
 ## Estructura del Proyecto
@@ -141,15 +154,15 @@ Green-POS/
 
 `currency_co` → Formatea valores a pesos colombianos sin decimales y con separador de miles.
 
-## Ejecución Rápida
+## Ejecución Rápida (Resumen)
 
 ```
 python -m venv .venv
 .venv\Scripts\activate  # Windows
 pip install -r requirements.txt
-python app.py
+python app.py --port 8000
 ```
-Abrir: http://127.0.0.1:5000/
+Abrir: http://127.0.0.1:8000/
 
 ## Migraciones / Cambios de Esquema
 
