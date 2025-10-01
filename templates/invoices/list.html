@@ -93,12 +93,11 @@
                             <tr>
                                 <td>{{ invoice.number }}</td>
                                 <td>{{ invoice.customer.name }}</td>
-                                <td><span class="utc-time" data-utc="{{ invoice.date.isoformat() }}">
-                                        {%- set colombia_time = invoice.date.astimezone(colombia_tz) -%}
-                                        {%- set hour = colombia_time.strftime('%I')|int -%}
-                                        {{ '%d:%s %s'|format(hour, colombia_time.strftime('%M'),
-                                        colombia_time.strftime('%p')|replace('AM', 'a. m.')|replace('PM', 'p. m.')) }}
-                                    </span></td>
+                                <td>
+                                    <span class="utc-time" data-utc="{{ invoice.date.isoformat() }}">
+                                        {{ invoice.date|format_time_co }}
+                                    </span>
+                                </td>
                                 <td>{{ invoice.total | currency_co }}</td>
                                 <td>
                                     <span

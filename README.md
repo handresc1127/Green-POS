@@ -1,80 +1,128 @@
-# Green-POS
+# Green-POS 💚
 
-Sistema de facturación, inventario, gestión de servicios y citas para mascotas (grooming / baño) desarrollado con Python (Flask) y pensado para impresión térmica en blanco y negro.
+> Sistema de Punto de Venta completo con gestión de inventario, facturación, clientes, y servicios de mascota.
 
-## Características
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-2.3.3-green.svg)](https://flask.palletsprojects.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Production Ready](https://img.shields.io/badge/Production-Ready-brightgreen.svg)](PRODUCTION_READY.md)
 
-- **Gestión de Productos**: CRUD con control de stock y alerta de bajo inventario (excluye categoría "Servicios").
-- **Gestión de Clientes y Mascotas**: Relación cliente → múltiples mascotas.
-- **Citas (Appointments)**: Agrupa múltiples sub‑servicios seleccionados en una sola cita con fecha y hora programada (redondeo a múltiplos de 15 min).
-- **Servicios**: Selección multi-card con precios fijos o variables (entrada dinámica) y cálculo automático de total.
-- **Facturación Automática**: Cada cita genera factura (sin opción de omitir). Formato listo para impresora térmica (Cant., Item, Subtotal + Total) y moneda local (COP sin decimales) mediante filtro `currency_co`.
-- **Consentimiento Informado**: Texto dinámico autogenerado (plantilla corta < 500 chars) que se integra dentro de las notas de la factura.
-- **Notas Enriquecidas**: Encabezado de notas incluye fecha / hora de la cita + descripción + consentimiento.
-- **Roles**: Restricciones de visibilidad (por ejemplo, botones de edición y acciones de inventario sólo para admins).
-- **Autenticación**: Login básico y perfil de usuario.
-- **Impresión Optimizada**: Estilos B/N con watermark (logo) opcional adaptado a térmica.
-- **IDs Semánticos en Factura**: Facilitan automatización / testing (por ejemplo `invoiceItemsTable`, `invoiceTotalValue`).
-- **UX Mejorada**: Timepicker nativo con snapping a 00,15,30,45; textarea de consentimiento auto‑ajustable (sin scroll manual).
+## 🚀 Quick Start
 
-## Requisitos
-
-- Python 3.8+
-- Dependencias en `requirements.txt`
-
-## Instalación
-
-1. Clonar el repositorio:
-
-```
+```powershell
+# Clonar repositorio
 git clone https://github.com/handresc1127/Green-POS.git
 cd Green-POS
+
+# Ejecutar (auto-configura entorno y dependencias)
+.\run.ps1 -UseWaitress
+
+# Acceder
+# http://localhost:8000
 ```
 
-2. Crear un entorno virtual y activarlo:
+**Credenciales por defecto:**
+- Admin: `admin` / `admin123`
+- Vendedor: `vendedor` / `vendedor123`
 
-```
-# Windows
-python -m venv .venv
-.venv\Scripts\activate
+## ✨ Características Principales
 
-# Linux/macOS
-python -m venv .venv
-source .venv/bin/activate
-```
+### 📦 Gestión de Inventario
+- Control completo de productos con código, categorías y precios
+- Tracking de unidades vendidas por producto
+- Alertas de stock bajo automáticas
+- Ordenamiento multi-columna en listados
 
-3. Instalar dependencias:
+### 👥 Clientes y Mascotas
+- Base de datos de clientes con historial completo
+- Registro de mascotas por cliente
+- Búsqueda rápida y filtros avanzados
 
-```
-pip install -r requirements.txt
-```
+### 🧾 Facturación Inteligente
+- Generación automática de facturas
+- Múltiples métodos de pago (efectivo, tarjeta, transferencia)
+- Formato optimizado para impresoras térmicas (3nStar RPT004)
+- Impresión en blanco y negro con watermark
+- Numeración secuencial automática
 
-4. Ejecutar la aplicación (opciones):
+### 🐾 Servicios de Mascota
+- Gestión de servicios de grooming y baño
+- Sistema de citas con fecha/hora programada
+- Consentimiento informado digital
+- Precios fijos y variables
+- Generación automática de factura por cita
 
-### Opción A: Script PowerShell (recomendado Windows)
-```
-./run.ps1 -Host 0.0.0.0 -Port 8000 -UseWaitress
-```
-Sin `-UseWaitress` usa el servidor de desarrollo Flask.
+### 📊 Dashboard y Reportes
+- Estadísticas en tiempo real
+- Productos con bajo stock
+- Ventas recientes
+- Contadores de inventario y clientes
 
-### Opción B: Script Batch
-```
+### 🔐 Seguridad y Roles
+- Sistema de autenticación robusto
+- Roles diferenciados (Admin/Vendedor)
+- Protección de rutas sensibles
+- Cambio de contraseña en perfil
+
+### 🌍 Localización Colombiana
+- Formato de moneda: $1.234.567 (sin centavos)
+- Formato de fecha: DD/MM/YYYY
+- Formato de hora: H:MM a. m./p. m. (sin ceros iniciales)
+- Timezone: América/Bogotá (UTC-5)
+
+## 📋 Requisitos
+
+- **Python**: 3.9 o superior
+- **Sistema Operativo**: Windows, Linux, macOS
+- **Navegador**: Chrome, Firefox, Edge (versiones recientes)
+
+## 🛠️ Instalación
+
+### Ejecución Rápida (Recomendada)
+
+```powershell
+# Windows PowerShell
+.\run.ps1 -BindHost 0.0.0.0 -Port 8000 -UseWaitress
+
+# Windows CMD
 run.bat
 ```
-Este script crea `.venv` si falta, instala dependencias (si faltan) y levanta waitress en `0.0.0.0:8000`.
 
-### Opción C: Manual (desarrollo)
-```
-python app.py --host 0.0.0.0 --port 8000
+### Instalación Manual
+
+```bash
+# 1. Crear entorno virtual
+python -m venv .venv
+
+# 2. Activar entorno virtual
+# Windows
+.venv\Scripts\activate
+# Linux/macOS
+source .venv/bin/activate
+
+# 3. Instalar dependencias
+pip install -r requirements.txt
+
+# 4. Ejecutar aplicación
+# Desarrollo
+python app.py --port 8000
+
+# Producción
+waitress-serve --listen=0.0.0.0:8000 app:app
 ```
 
-5. Acceder a la aplicación en tu navegador:
+## 📦 Dependencias
 
-```
-http://127.0.0.1:8000/
+```txt
+flask==2.3.3              # Web framework
+flask-sqlalchemy==3.0.5   # ORM para base de datos
+flask-login==0.6.3        # Autenticación
+waitress==2.1.2           # WSGI production server
+reportlab==4.0.4          # Generación de PDFs
+tzdata>=2024.1            # Timezone data (Windows)
 ```
 
-## Estructura del Proyecto
+## 🗂️ Estructura del Proyecto
 
 ```
 Green-POS/

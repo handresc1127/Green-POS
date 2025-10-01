@@ -1,72 +1,190 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
-from models.models import db, Product, Customer, Invoice, InvoiceItem, Setting, User, Pet, PetService, ServiceType, Appointment
-import os
-from datetime import datetime, timezone, timedelta
-import json
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from functools import wraps
-import logging
-import argparse
-from sqlalchemy import func, or_
-import pytz
+"""Green-POS - Sistema de Punto de Venta
+Aplicación Flask para gestión de ventas, inventario, clientes y servicios de mascota.
+"""
 
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from models.models import (
+    db, Product, Customer, Invoice, InvoiceItem, Setting, User, 
+    Pet, PetService, ServiceType, Appointment
+)
+from sqlalchemy import func, or_
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+from functools import wraps
+import argparse
+import logging
+import json
+import os
+
+# ==================== CONFIGURACIÓN ====================
+
+# Timezone de Colombia (UTC-5, sin DST)
+CO_TZ = ZoneInfo("America/Bogota")
+
+# Inicializar Flask
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'green-pos-secret-key'
-# Increase SQLite timeout and allow multithreaded access
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db?timeout=30.0'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# Engine options for better concurrency
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'connect_args': {'timeout': 30, 'check_same_thread': False}
 }
 
+# Configurar autenticación
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 db.init_app(app)
 
-# ------------------ Filtros / Utilidades Jinja ------------------
+# ==================== FILTROS JINJA ====================
+
 def format_currency_co(value):
-    """Formatea un número al formato monetario colombiano sin centavos.
-    Ej: 0 -> $0, 1500 -> $1.500, 1234567.89 -> $1.234.568
-    - Redondea al entero más cercano.
-    - Acepta None o valores no numéricos devolviendo $0.
+    """Formatea número al formato monetario colombiano (sin centavos).
+    
+    Args:
+        value: Número a formatear
+    
+    Returns:
+        str: Valor formateado (ej: $1.234.567)
     """
     try:
-        # Redondear al entero más cercano
         integer_value = int(round(float(value or 0)))
     except (ValueError, TypeError):
         integer_value = 0
-    # Formatear con separadores de miles
-    # Usamos format con coma y luego reemplazamos coma por punto
     formatted = f"{integer_value:,}".replace(',', '.')
     return f"${formatted}"
 
-app.jinja_env.filters['currency_co'] = format_currency_co
+def format_tz(dt, tz="America/Bogota", fmt="%d/%m/%Y, %H:%M", assume="UTC"):
+    """Convierte y formatea datetime a zona horaria específica.
+    
+    Args:
+        dt: datetime (aware o naive)
+        tz: Zona horaria destino (default: America/Bogota)
+        fmt: Formato strftime (default: %d/%m/%Y, %H:%M)
+        assume: Zona para datetime naive (default: UTC)
+    
+    Returns:
+        str: Fecha formateada en zona horaria destino
+    """
+    if dt is None:
+        return ""
+    
+    if isinstance(tz, str):
+        tz = ZoneInfo(tz)
+    
+    if dt.tzinfo is None:
+        src = ZoneInfo(assume) if assume and assume != "UTC" else timezone.utc
+        dt = dt.replace(tzinfo=src)
+    
+    return dt.astimezone(tz).strftime(fmt)
 
-# Nuevo context processor (timezone-aware)
+def format_tz_co(dt, tz="America/Bogota", assume="UTC"):
+    """Formatea datetime al estilo colombiano con AM/PM en español.
+    Formato: DD/MM/YYYY, H:MM a. m./p. m. (sin ceros iniciales en hora)
+    
+    Args:
+        dt: datetime (aware o naive)
+        tz: Zona horaria destino (default: America/Bogota)
+        assume: Zona para datetime naive (default: UTC)
+    
+    Returns:
+        str: Fecha y hora formateada estilo colombiano
+    """
+    if dt is None:
+        return ""
+    
+    if isinstance(tz, str):
+        tz = ZoneInfo(tz)
+    
+    if dt.tzinfo is None:
+        src = ZoneInfo(assume) if assume and assume != "UTC" else timezone.utc
+        dt = dt.replace(tzinfo=src)
+    
+    local_dt = dt.astimezone(tz)
+    hour = int(local_dt.strftime('%I'))
+    minute = local_dt.strftime('%M')
+    period = local_dt.strftime('%p').replace('AM', 'a. m.').replace('PM', 'p. m.')
+    date_str = local_dt.strftime('%d/%m/%Y')
+    
+    return f"{date_str}, {hour}:{minute} {period}"
+
+def format_time_co(dt, tz="America/Bogota", assume="UTC"):
+    """Formatea solo la hora al estilo colombiano: H:MM a. m./p. m.
+    
+    Args:
+        dt: datetime (aware o naive)
+        tz: Zona horaria destino (default: America/Bogota)
+        assume: Zona para datetime naive (default: UTC)
+    
+    Returns:
+        str: Hora formateada estilo colombiano
+    """
+    if dt is None:
+        return ""
+    
+    if isinstance(tz, str):
+        tz = ZoneInfo(tz)
+    
+    if dt.tzinfo is None:
+        src = ZoneInfo(assume) if assume and assume != "UTC" else timezone.utc
+        dt = dt.replace(tzinfo=src)
+    
+    local_dt = dt.astimezone(tz)
+    hour = int(local_dt.strftime('%I'))
+    minute = local_dt.strftime('%M')
+    period = local_dt.strftime('%p').replace('AM', 'a. m.').replace('PM', 'p. m.')
+    
+    return f"{hour}:{minute} {period}"
+
+# Registrar filtros Jinja
+app.jinja_env.filters['currency_co'] = format_currency_co
+app.jinja_env.filters['format_tz'] = format_tz
+app.jinja_env.filters['format_tz_co'] = format_tz_co
+app.jinja_env.filters['format_time_co'] = format_time_co
+
+# ==================== CONTEXT PROCESSOR ====================
+
 @app.context_processor
-def inject_now():
-    colombia_tz = pytz.timezone('America/Bogota')
+def inject_globals():
+    """Inyecta variables globales en todos los templates."""
     return {
         "now": datetime.now(timezone.utc),
         "setting": Setting.get(),
-        "colombia_tz": colombia_tz
+        "colombia_tz": CO_TZ
     }
 
 @login_manager.user_loader
 def load_user(user_id):
+    """Carga usuario para Flask-Login."""
     return db.session.get(User, int(user_id))
 
-# Create DB tables if they don't exist
+# Inicializar base de datos
 with app.app_context():
     db.create_all()
     User.create_defaults()
     ServiceType.create_defaults()
 
-# Login routes
+# ==================== UTILIDADES ====================
+
+def role_required(*roles):
+    """Decorador para proteger rutas por rol de usuario."""
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def wrapped(*args, **kwargs):
+            if current_user.role not in roles:
+                flash('Acceso no autorizado', 'danger')
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
+
+# ==================== AUTENTICACIÓN ====================
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    """Inicio de sesión."""
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -85,54 +203,67 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    """Cierre de sesión."""
     logout_user()
     flash('Sesión cerrada', 'success')
     return redirect(url_for('login'))
 
-# Proteger rutas principales
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    """Perfil de usuario y cambio de contraseña."""
+    if request.method == 'POST':
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        if new_password:
+            if not current_user.check_password(current_password):
+                flash('Contraseña actual incorrecta', 'danger')
+            elif new_password != confirm_password:
+                flash('La confirmación no coincide', 'danger')
+            elif len(new_password) < 4:
+                flash('La nueva contraseña es muy corta', 'danger')
+            else:
+                current_user.set_password(new_password)
+                db.session.commit()
+                flash('Contraseña actualizada', 'success')
+                return redirect(url_for('profile'))
+    return render_template('auth/profile.html')
+
+# ==================== DASHBOARD ====================
+
 @app.route('/')
 @login_required
 def index():
+    """Dashboard principal con estadísticas."""
     product_count = Product.query.count()
     customer_count = Customer.query.count()
     invoice_count = Invoice.query.count()
-    
-    # Get recent invoices
     recent_invoices = Invoice.query.order_by(Invoice.created_at.desc()).limit(5).all()
+    low_stock_products = Product.query.filter(
+        Product.stock < 1,
+        Product.category != 'Servicios'
+    ).limit(5).all()
     
-    # Get low stock products
-    # Excluir productos de categoría 'Servicios' (productos generados para sub-servicios)
-    low_stock_products = Product.query.filter(Product.stock < 1, Product.category != 'Servicios').limit(5).all()
-    
-    return render_template('index.html', 
-                           product_count=product_count, 
-                           customer_count=customer_count, 
-                           invoice_count=invoice_count,
-                           recent_invoices=recent_invoices,
-                           low_stock_products=low_stock_products)
+    return render_template(
+        'index.html',
+        product_count=product_count,
+        customer_count=customer_count,
+        invoice_count=invoice_count,
+        recent_invoices=recent_invoices,
+        low_stock_products=low_stock_products
+    )
 
-# Decorador para requerir roles
-def role_required(*roles):
-    def decorator(f):
-        @wraps(f)
-        @login_required
-        def wrapped(*args, **kwargs):
-            if current_user.role not in roles:
-                flash('Acceso no autorizado', 'danger')
-                return redirect(url_for('index'))
-            return f(*args, **kwargs)
-        return wrapped
-    return decorator
-
-# Product routes
+# ==================== PRODUCTOS ====================
 @app.route('/products')
 @role_required('admin')
 def product_list():
+    """Lista de productos con búsqueda y ordenamiento."""
     query = request.args.get('query', '')
-    sort_by = request.args.get('sort_by', 'code')  # columna por defecto
-    sort_order = request.args.get('sort_order', 'asc')  # orden por defecto
+    sort_by = request.args.get('sort_by', 'name')
+    sort_order = request.args.get('sort_order', 'asc')
     
-    # Mapeo de columnas a campos del modelo
     sort_columns = {
         'code': Product.code,
         'name': Product.name,
@@ -140,16 +271,13 @@ def product_list():
         'purchase_price': Product.purchase_price,
         'sale_price': Product.sale_price,
         'stock': Product.stock,
-        'sales_count': 'sales_count'  # Se maneja especialmente
+        'sales_count': 'sales_count'
     }
     
-    # Query base con conteo de ventas
     base_query = db.session.query(
         Product,
         func.coalesce(func.sum(InvoiceItem.quantity), 0).label('sales_count')
     ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id)
-    
-    # Aplicar filtro de búsqueda si existe
     if query:
         base_query = base_query.filter(or_(Product.name.contains(query), Product.code.contains(query)))
     
@@ -356,16 +484,15 @@ def invoice_list():
     
     # Agrupar facturas por fecha local (Colombia)
     invoices_by_date = {}
-    colombia_tz = pytz.timezone('America/Bogota')
     
     for invoice in invoices:
         # Asegurarse de que la fecha sea aware si no lo es
         invoice_date = invoice.date
         if invoice_date.tzinfo is None:
-            invoice_date = pytz.utc.localize(invoice_date)
+            invoice_date = invoice_date.replace(tzinfo=timezone.utc)
             
         # Convertir la fecha UTC a hora local de Colombia
-        local_date = invoice_date.astimezone(colombia_tz)
+        local_date = invoice_date.astimezone(CO_TZ)
         date_str = local_date.strftime('%Y-%m-%d')
         if date_str not in invoices_by_date:
             invoices_by_date[date_str] = []
@@ -388,9 +515,10 @@ def invoice_new():
         setting.next_invoice_number += 1
         
         # Crear la factura usando la hora actual de Colombia convertida a UTC
-        colombia_tz = pytz.timezone('America/Bogota')
-        local_now = colombia_tz.localize(datetime.now())
-        utc_now = local_now.astimezone(pytz.utc)
+        # Obtener la hora actual en Colombia directamente (sin usar naive datetime)
+        local_now = datetime.now(CO_TZ)
+        # Convertir a UTC para almacenar en la base de datos
+        utc_now = local_now.astimezone(timezone.utc)
         
         invoice = Invoice(number=number, customer_id=customer_id, payment_method=payment_method, notes=notes, status='pending', user_id=current_user.id, date=utc_now)
         db.session.add(invoice)
@@ -420,7 +548,7 @@ def invoice_new():
 def invoice_view(id):
     invoice = Invoice.query.get_or_404(id)
     setting = Setting.get()
-    return render_template('invoices/view.html', invoice=invoice, setting=setting)
+    return render_template('invoices/view.html', invoice=invoice, setting=setting, colombia_tz=CO_TZ)
 
 @app.route('/invoices/validate/<int:id>', methods=['POST'])
 @role_required('admin')
@@ -532,15 +660,17 @@ def pet_list():
         pets_query = Pet.query.filter_by(customer_id=selected_customer.id)
     else:
         pets_query = Pet.query
-    # Debug: imprimir selected_customer
-    if selected_customer:
-        app.logger.debug(f"[Mascotas] selected_customer -> id={selected_customer.id}, name={selected_customer.name}")
-    else:
-        app.logger.debug("[Mascotas] selected_customer -> None (modo todos)")
+    
     pets = pets_query.order_by(Pet.created_at.desc()).all()
     customers = Customer.query.order_by(Customer.name).all()
-    # customer_id para template (string original o None)
-    return render_template('pets/list.html', pets=pets, customers=customers, customer_id=customer_id_raw, selected_customer=selected_customer)
+    
+    return render_template(
+        'pets/list.html',
+        pets=pets,
+        customers=customers,
+        customer_id=customer_id_raw,
+        selected_customer=selected_customer
+    )
 
 @app.route('/pets/new', methods=['GET','POST'])
 @login_required
@@ -570,8 +700,7 @@ def pet_new():
         db.session.commit()
         flash('Mascota creada', 'success')
         return redirect(url_for('pet_list'))
-    # GET
-    # Uso de SQLAlchemy 2.x: reemplaza Query.get() (deprecado) por session.get()
+    
     default_customer = db.session.get(Customer, 1)
     return render_template('pets/form.html', customers=customers, default_customer=default_customer)
 
@@ -612,7 +741,8 @@ def pet_delete(id):
     flash('Mascota eliminada', 'success')
     return redirect(url_for('pet_list'))
 
-# --------- SERVICIOS MASCOTAS ---------
+# ==================== SERVICIOS DE MASCOTA ====================
+
 CONSENT_TEMPLATE = (
     "Yo, {{customer_name}} identificado con el documento No. {{customer_document}}, responsable de {{pet_name}},"
     " autorizo a PET VERDE a realizar el servicio de {{service_type_label}} con fines estéticos/higiénicos priorizando su bienestar. "
@@ -632,9 +762,8 @@ SERVICE_TYPE_LABELS = {
 @app.route('/services/config', methods=['GET','POST'])
 @role_required('admin')
 def services_config():
-    """Vista de configuración de servicios (placeholder para futuras opciones)."""
+    """Vista de configuración de servicios."""
     if request.method == 'POST':
-        # Aquí se podrían guardar parámetros futuros de configuración.
         flash('Configuración de servicios guardada', 'success')
         return redirect(url_for('services_config'))
     service_types = ServiceType.query.order_by(ServiceType.name).all()
@@ -675,6 +804,7 @@ def service_type_new():
 @app.route('/services/types/edit/<int:id>', methods=['GET','POST'])
 @role_required('admin')
 def service_type_edit(id):
+    """Editar tipo de servicio existente."""
     st = ServiceType.query.get_or_404(id)
     if request.method == 'POST':
         st.code = request.form['code'].strip().upper()
@@ -696,6 +826,7 @@ def service_type_edit(id):
 @app.route('/services/types/delete/<int:id>', methods=['POST'])
 @role_required('admin')
 def service_type_delete(id):
+    """Eliminar tipo de servicio."""
     st = ServiceType.query.get_or_404(id)
     db.session.delete(st)
     db.session.commit()
@@ -705,19 +836,31 @@ def service_type_delete(id):
 @app.route('/services')
 @login_required
 def service_list():
-    status = request.args.get('status','')
+    """Lista de servicios de mascota con filtro por estado."""
+    status = request.args.get('status', '')
     q = PetService.query.order_by(PetService.created_at.desc())
+    
     if status:
         q = q.filter_by(status=status)
+    
     services = q.all()
-    st_map = { st.code: st.name for st in ServiceType.query.all() }
-    return render_template('services/list.html', services=services, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, status=status, SERVICE_TYPES_MAP=st_map)
+    st_map = {st.code: st.name for st in ServiceType.query.all()}
+    
+    return render_template(
+        'services/list.html',
+        services=services,
+        SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS,
+        status=status,
+        SERVICE_TYPES_MAP=st_map
+    )
 
 @app.route('/services/new', methods=['GET','POST'])
 @login_required
 def service_new():
+    """Crear nueva cita de servicios de mascota."""
     customers = Customer.query.order_by(Customer.name).all()
     pets = []
+    
     if request.method == 'POST':
         try:
             customer_id = int(request.form['customer_id'])
@@ -732,10 +875,11 @@ def service_new():
         description = request.form.get('description','')
         technician = request.form.get('technician','')
         consent_text = request.form.get('consent_text','')
-        # Nueva fecha y hora programada (opcionales)
+        
         scheduled_date_raw = request.form.get('scheduled_date','').strip()
         scheduled_time_raw = request.form.get('scheduled_time','').strip()
         scheduled_at = None
+        
         if scheduled_date_raw:
             try:
                 if scheduled_time_raw:
@@ -749,7 +893,6 @@ def service_new():
             flash('Debe seleccionar al menos un servicio', 'warning')
             return redirect(url_for('service_new'))
 
-        # Normalizar precios (alinear longitud)
         prices = []
         for i, code in enumerate(service_codes):
             try:
@@ -762,53 +905,79 @@ def service_new():
         invoice_link = None
         appointment = None
 
-        # Siempre generar factura
         setting = Setting.get()
         number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
         setting.next_invoice_number += 1
-        # Construir notas de la factura incluyendo fecha/hora programada, notas y consentimiento
+        
         if scheduled_at:
             fecha_cita = scheduled_at.strftime('%Y-%m-%d')
             hora_cita = scheduled_at.strftime('%H:%M')
             composed_notes = f"Servicios de mascota - Cita {fecha_cita}   {hora_cita}"
         else:
             composed_notes = 'Servicios de mascota - Cita'
+        
         if description:
             composed_notes += f"\nNotas:\n{description.strip()}"
         if consent_text:
             composed_notes += f"\nConsentimiento:\n{consent_text.strip()}"
         
-        invoice = Invoice(number=number, customer_id=customer_id, user_id=current_user.id, payment_method='cash', notes=composed_notes)
+        invoice = Invoice(
+            number=number,
+            customer_id=customer_id,
+            user_id=current_user.id,
+            payment_method='cash',
+            notes=composed_notes
+        )
         db.session.add(invoice)
         db.session.flush()
 
-        # Crear la cita que agrupa los sub-servicios
-        appointment = Appointment(pet_id=pet_id, customer_id=customer_id, invoice_id=invoice.id if invoice else None,
-                                  description=description, technician=technician, consent_text=consent_text or '',
-                                  scheduled_at=scheduled_at)
+        appointment = Appointment(
+            pet_id=pet_id,
+            customer_id=customer_id,
+            invoice_id=invoice.id if invoice else None,
+            description=description,
+            technician=technician,
+            consent_text=consent_text or '',
+            scheduled_at=scheduled_at
+        )
         db.session.add(appointment)
         db.session.flush()
 
         for idx, code in enumerate(service_codes):
             price = prices[idx] if idx < len(prices) else 0.0
             mode = service_modes[idx] if idx < len(service_modes) else 'fixed'
-            # Crear / actualizar producto representativo SERV-<CODE>
+            
             prod_code = f"SERV-{code.upper()}"
             product = Product.query.filter_by(code=prod_code).first()
+            
             if not product:
-                # Obtener nombre desde ServiceType si existe
                 st = ServiceType.query.filter_by(code=code).first()
                 prod_name = st.name if st else f'Servicio {code}'
-                product = Product(code=prod_code, name=prod_name, description='Servicio de mascota', sale_price=price or 0, purchase_price=0, stock=0, category='Servicios')
+                product = Product(
+                    code=prod_code,
+                    name=prod_name,
+                    description='Servicio de mascota',
+                    sale_price=price or 0,
+                    purchase_price=0,
+                    stock=0,
+                    category='Servicios'
+                )
                 db.session.add(product)
                 db.session.flush()
-            # Actualizar sale_price si viene un precio diferente (>0) y modo variable
+            
             if mode == 'variable' and price and price > 0 and product.sale_price != price:
                 product.sale_price = price
 
-            pet_service = PetService(pet_id=pet_id, customer_id=customer_id, service_type=code.lower(),
-                                     description=description, price=price, technician=technician,
-                                     consent_text=consent_text or '', appointment_id=appointment.id)
+            pet_service = PetService(
+                pet_id=pet_id,
+                customer_id=customer_id,
+                service_type=code.lower(),
+                description=description,
+                price=price,
+                technician=technician,
+                consent_text=consent_text or '',
+                appointment_id=appointment.id
+            )
             db.session.add(pet_service)
             db.session.flush()
             created_services.append(pet_service)
@@ -825,17 +994,18 @@ def service_new():
         db.session.commit()
         flash(f"Cita creada con {len(created_services)} servicio(s) y factura generada", 'success')
         return redirect(invoice_link)
-    # GET
+    
     default_consent = CONSENT_TEMPLATE
     q_customer_id = request.args.get('customer_id', type=int)
     effective_customer_id = q_customer_id if q_customer_id else None
+    
     if effective_customer_id:
         pets = Pet.query.filter_by(customer_id=effective_customer_id).order_by(Pet.name).all()
+    
     selected_customer = db.session.get(Customer, effective_customer_id) if effective_customer_id else None
-    app.logger.debug(f"[Servicio] GET /services/new param_customer_id={q_customer_id} effective_customer_id={effective_customer_id} pets_count={len(pets)}")
     service_types = ServiceType.query.filter_by(active=True).order_by(ServiceType.name).all()
-    # Defaults fecha/hora programada (hoy y siguiente múltiplo de 15 minutos)
-    scheduled_base = datetime.now()  # asumiendo hora local del servidor
+    
+    scheduled_base = datetime.now()
     minute = (scheduled_base.minute + 14) // 15 * 15
     if minute == 60:
         scheduled_base = scheduled_base.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
@@ -843,18 +1013,39 @@ def service_new():
         scheduled_base = scheduled_base.replace(minute=minute, second=0, microsecond=0)
     default_date_str = scheduled_base.strftime('%Y-%m-%d')
     default_time_str = scheduled_base.strftime('%H:%M')
-    return render_template('services/form.html', customers=customers, pets=pets, consent_template=default_consent, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, default_customer=None, selected_customer=selected_customer, selected_customer_id=effective_customer_id, service_types=service_types, default_scheduled_date=default_date_str, default_scheduled_time=default_time_str)
+    
+    return render_template(
+        'services/form.html',
+        customers=customers,
+        pets=pets,
+        consent_template=default_consent,
+        SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS,
+        default_customer=None,
+        selected_customer=selected_customer,
+        selected_customer_id=effective_customer_id,
+        service_types=service_types,
+        default_scheduled_date=default_date_str,
+        default_scheduled_time=default_time_str
+    )
 
 @app.route('/services/<int:id>')
 @login_required
 def service_view(id):
+    """Ver detalles de un servicio de mascota."""
     service = PetService.query.get_or_404(id)
-    st_map = { st.code: st.name for st in ServiceType.query.all() }
-    return render_template('services/view.html', service=service, SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS, SERVICE_TYPES_MAP=st_map)
+    st_map = {st.code: st.name for st in ServiceType.query.all()}
+    
+    return render_template(
+        'services/view.html',
+        service=service,
+        SERVICE_TYPE_LABELS=SERVICE_TYPE_LABELS,
+        SERVICE_TYPES_MAP=st_map
+    )
 
 @app.route('/services/finish/<int:id>', methods=['POST'])
 @login_required
 def service_finish(id):
+    """Marcar servicio como finalizado."""
     service = PetService.query.get_or_404(id)
     if service.status != 'done':
         service.status = 'done'
@@ -865,10 +1056,10 @@ def service_finish(id):
 @app.route('/services/cancel/<int:id>', methods=['POST'])
 @role_required('admin')
 def service_cancel(id):
+    """Cancelar servicio (solo admin)."""
     service = PetService.query.get_or_404(id)
     if service.status != 'cancelled':
         service.status = 'cancelled'
-        # actualizar estado cita si corresponde
         if service.appointment:
             _refresh_appointment_status(service.appointment)
         db.session.commit()
@@ -878,6 +1069,7 @@ def service_cancel(id):
 @app.route('/services/consent/sign/<int:id>', methods=['POST'])
 @login_required
 def service_consent_sign(id):
+    """Firmar consentimiento de servicio."""
     service = PetService.query.get_or_404(id)
     if not service.consent_signed:
         service.consent_signed = True
@@ -886,45 +1078,43 @@ def service_consent_sign(id):
         flash('Consentimiento firmado', 'success')
     return redirect(url_for('service_view', id=id))
 
-# --------------------- CITAS (APPOINTMENTS) ---------------------
+# ==================== CITAS ====================
 
 def _refresh_appointment_status(appointment: Appointment):
     """Recalcula el estado global de la cita basado en sub-servicios."""
     if not appointment.services:
         appointment.status = 'pending'
         return
+    
     statuses = {s.status for s in appointment.services}
+    
     if statuses == {'done'}:
         appointment.status = 'done'
     elif statuses == {'cancelled'}:
         appointment.status = 'cancelled'
     else:
-        # mezcla -> si hay al menos uno done o en progreso mantenemos pending (simple)
-        if 'done' in statuses:
-            # podríamos marcar in_progress, pero mantenemos pending hasta completar
-            appointment.status = 'pending'
-        else:
-            appointment.status = 'pending'
+        appointment.status = 'pending'
+    
     appointment.recompute_total()
 
 @app.route('/appointments')
 @login_required
 def appointment_list():
-    status = request.args.get('status','')
+    """Lista de citas con filtro por estado."""
+    status = request.args.get('status', '')
     q = Appointment.query.order_by(Appointment.created_at.desc())
+    
     if status:
         q = q.filter_by(status=status)
+    
     appointments = q.all()
-    # sincronizar totales en memoria (sin cometer para evitar side-effects en listado)
-    for a in appointments:
-        calc = sum(s.price for s in a.services)
-        if abs((a.total_price or 0) - calc) > 0.01:
-            a.total_price = calc
+    
     return render_template('appointments/list.html', appointments=appointments, status=status)
 
 @app.route('/appointments/<int:id>')
 @login_required
 def appointment_view(id):
+    """Vista detallada de una cita."""
     appointment = Appointment.query.get_or_404(id)
     _refresh_appointment_status(appointment)
     db.session.commit()
@@ -933,6 +1123,7 @@ def appointment_view(id):
 @app.route('/appointments/finish/<int:id>', methods=['POST'])
 @login_required
 def appointment_finish(id):
+    """Marcar todos los servicios de una cita como finalizados."""
     appointment = Appointment.query.get_or_404(id)
     changed = False
     for s in appointment.services:
@@ -950,6 +1141,7 @@ def appointment_finish(id):
 @app.route('/appointments/cancel/<int:id>', methods=['POST'])
 @role_required('admin')
 def appointment_cancel(id):
+    """Cancelar todos los servicios de una cita (solo admin)."""
     appointment = Appointment.query.get_or_404(id)
     changed = False
     for s in appointment.services:
@@ -967,33 +1159,14 @@ def appointment_cancel(id):
 @app.route('/services/delete/<int:id>', methods=['POST'])
 @role_required('admin')
 def service_delete(id):
+    """Eliminar servicio (solo admin)."""
     service = PetService.query.get_or_404(id)
     db.session.delete(service)
     db.session.commit()
     flash('Servicio eliminado', 'success')
     return redirect(url_for('service_list'))
 
-# Profile route
-@app.route('/profile', methods=['GET', 'POST'])
-@login_required
-def profile():
-    if request.method == 'POST':
-        current_password = request.form.get('current_password', '')
-        new_password = request.form.get('new_password', '')
-        confirm_password = request.form.get('confirm_password', '')
-        if new_password:
-            if not current_user.check_password(current_password):
-                flash('Contraseña actual incorrecta', 'danger')
-            elif new_password != confirm_password:
-                flash('La confirmación no coincide', 'danger')
-            elif len(new_password) < 4:
-                flash('La nueva contraseña es muy corta', 'danger')
-            else:
-                current_user.set_password(new_password)
-                db.session.commit()
-                flash('Contraseña actualizada', 'success')
-                return redirect(url_for('profile'))
-    return render_template('auth/profile.html')
+# ==================== MAIN ====================
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run Green-POS Flask app')
@@ -1004,19 +1177,24 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=int, default=5000)
     args = parser.parse_args()
 
-    # Config logging
     base_level = logging.WARNING
     if args.verbose == 1:
         base_level = logging.INFO
     elif args.verbose >= 2:
         base_level = logging.DEBUG
-    logging.basicConfig(level=base_level, format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
+    
+    logging.basicConfig(
+        level=base_level,
+        format='[%(asctime)s] %(levelname)s %(name)s: %(message)s'
+    )
     app.logger.setLevel(base_level)
     logging.getLogger('werkzeug').setLevel(base_level)
-    # SQL echo (se aplica antes de inicializar engine, pero aquí sirve para sesiones nuevas)
+    
     if args.sql:
         app.config['SQLALCHEMY_ECHO'] = True
-        logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO if base_level < logging.DEBUG else logging.DEBUG)
+        logging.getLogger('sqlalchemy.engine').setLevel(
+            logging.INFO if base_level < logging.DEBUG else logging.DEBUG
+        )
 
-    # Ejecutar
     app.run(debug=True, use_reloader=not args.no_reload, host=args.host, port=args.port)
+

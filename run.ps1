@@ -49,10 +49,11 @@ $pip = "$python -m pip"
 
 <#
   4. Comprobar dependencias mínimas.
-     Ahora validamos más de un módulo clave (pytz y waitress) para alinear con verificación de run.bat.
-     Si falta cualquiera, instalamos requirements completos.
+     Validamos módulos clave (waitress) para alinear con verificación de run.bat.
+     Si falta, instalamos requirements completos.
+     Nota: pytz ya no es necesario, usamos zoneinfo (incluido en Python 3.9+)
 #>
-$depsStatus = & $python -c "import importlib,importlib.util;req=['pytz','waitress'];missing=[m for m in req if importlib.util.find_spec(m) is None];print('OK' if not missing else 'MISS:'+','.join(missing))"
+$depsStatus = & $python -c "import importlib,importlib.util;req=['waitress'];missing=[m for m in req if importlib.util.find_spec(m) is None];print('OK' if not missing else 'MISS:'+','.join(missing))"
 
 if ($depsStatus -like 'MISS:*') {
   Write-Section "Instalando dependencias faltantes ($depsStatus)"

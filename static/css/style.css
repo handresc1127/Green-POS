@@ -46,7 +46,7 @@ body {
 /* Print styles */
 @page {
     size: auto;
-    margin: 10mm; /* Ajusta según necesidad; 0 elimina casi todo el espacio */
+    margin: 10mm;
 }
 @media print {
     .navbar, .footer, .btn, .no-print, .d-print-none {

@@ -299,14 +299,14 @@ endblock %}
                     </div>
                     <div class="col-6 col-md-6 text-end" id="invoiceMetaBlock">
 
-                        <!-- <h5 class="mb-2" id="invoiceDocumentTypeLabel">{{ setting.document_label }}</h4> -->
-                        <h5 class="mb-1" id="invoiceDocumentNumberLabel">#{{ invoice.number }}</h4>
-                            <p class="mb-1" id="invoiceDate"><strong>Fecha:</strong> <span class="utc-datetime"
-                                    id="invoiceDateValue" data-utc="{{ invoice.date.isoformat() }}">
-                                    {%- set colombia_time = invoice.date.astimezone(colombia_tz) -%}
-                                    {{ colombia_time.strftime('%d/%m/%Y, %I:%M %p')|replace('AM', 'a. m.')|replace('PM',
-                                    'p. m.') }}
-                                </span></p>
+                        <!-- <h5 class="mb-2" id="invoiceDocumentTypeLabel">{{ setting.document_label }}</h5> -->
+                        <h5 class="mb-1" id="invoiceDocumentNumberLabel">#{{ invoice.number }}</h5>
+                            <p class="mb-1" id="invoiceDate">
+                                <strong>Fecha:</strong> 
+                                <span class="utc-datetime" id="invoiceDateValue" data-utc="{{ invoice.date.isoformat() }}">
+                                    {{ invoice.date|format_tz_co }}
+                                </span>
+                            </p>
                             <p class="mb-1" id="invoiceSeller"><strong>Vendedor:</strong> {{ invoice.user.username if
                                 invoice.user else 'N/D' }}</p>
                             <p class="mb-1" id="invoicePaymentMethod">
