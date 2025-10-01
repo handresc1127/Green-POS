@@ -36,12 +36,15 @@ endblock %}
 
     .invoice-watermark {
         position: absolute;
-        inset: 0;
+        top: 0;
+        left: 0;
+        right: 0;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
         pointer-events: none;
         z-index: 0;
+        padding-top: 10px;
     }
 
     /* Forzar blanco y negro (alto contraste) */
@@ -194,29 +197,58 @@ endblock %}
         body {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
-            margin: 0;
-            padding: 0;
+            margin: 0 !important;
+            padding: 0 !important;
             width: 72mm;
             /* Ancho máximo de impresión de la 3nStar RPT004 */
-            padding-right: 0 !important;
         }
 
-        /* Ajustes para reducir margen derecho */
+        /* Ocultar elementos que no queremos imprimir */
+        nav, .navbar, .d-print-none, 
+        .alert, .btn-group, .modal {
+            display: none !important;
+        }
+
+        /* Eliminar todos los márgenes y paddings */
         .container,
         .container-fluid {
-            padding-right: 0 !important;
-            margin-right: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
             max-width: 72mm !important;
+            width: 100% !important;
         }
 
         .row {
-            margin-right: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
 
         .col-6,
         .col-md-6,
         [class*="col-"] {
-            padding-right: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        .card,
+        .card-body {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+
+        /* Eliminar márgenes de elementos internos */
+        .invoice-watermark-wrapper,
+        .invoice-content-layer {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Ajustar espaciado interno mínimo */
+        #invoiceBusinessBlock,
+        #invoiceMetaBlock,
+        #invoiceCustomerBlock {
+            padding: 0 2px !important;
         }
 
         .card,
