@@ -10,6 +10,27 @@
 </a>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    .table thead th a {
+        display: block;
+        color: inherit;
+        user-select: none;
+    }
+    .table thead th a:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+        cursor: pointer;
+    }
+    .table thead th {
+        position: relative;
+    }
+    .table thead th a i {
+        font-size: 0.8em;
+        margin-left: 4px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- Search Bar -->
 <div class="card mb-4">
@@ -38,12 +59,62 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>Código</th>
-                            <th>Nombre</th>
-                            <th>Categoría</th>
-                            <th>Precio Compra</th>
-                            <th>Precio Venta</th>
-                            <th>Stock</th>
+                            <th>
+                                <a href="{{ url_for('product_list', query=query, sort_by='code', sort_order='desc' if sort_by == 'code' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+                                    Código 
+                                    {% if sort_by == 'code' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('product_list', query=query, sort_by='name', sort_order='desc' if sort_by == 'name' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+                                    Nombre 
+                                    {% if sort_by == 'name' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('product_list', query=query, sort_by='category', sort_order='desc' if sort_by == 'category' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+                                    Categoría 
+                                    {% if sort_by == 'category' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('product_list', query=query, sort_by='purchase_price', sort_order='desc' if sort_by == 'purchase_price' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+                                    Precio Compra 
+                                    {% if sort_by == 'purchase_price' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('product_list', query=query, sort_by='sale_price', sort_order='desc' if sort_by == 'sale_price' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+                                    Precio Venta 
+                                    {% if sort_by == 'sale_price' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('product_list', query=query, sort_by='stock', sort_order='desc' if sort_by == 'stock' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+                                    Stock 
+                                    {% if sort_by == 'stock' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('product_list', query=query, sort_by='sales_count', sort_order='desc' if sort_by == 'sales_count' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+                                    Vendidos 
+                                    {% if sort_by == 'sales_count' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -63,6 +134,9 @@
                                         {% set badge_class = 'warning' %}
                                     {% endif %}
                                     <span class="badge bg-{{ badge_class }}">{{ product.stock }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ product.sales_count or 0 }}</span>
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">

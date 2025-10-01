@@ -7,7 +7,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from functools import wraps
 import logging
 import argparse
-from sqlalchemy import func
+from sqlalchemy import func, or_
 import pytz
 
 app = Flask(__name__)
@@ -129,13 +129,62 @@ def role_required(*roles):
 @role_required('admin')
 def product_list():
     query = request.args.get('query', '')
+    sort_by = request.args.get('sort_by', 'code')  # columna por defecto
+    sort_order = request.args.get('sort_order', 'asc')  # orden por defecto
     
+    # Mapeo de columnas a campos del modelo
+    sort_columns = {
+        'code': Product.code,
+        'name': Product.name,
+        'category': Product.category,
+        'purchase_price': Product.purchase_price,
+        'sale_price': Product.sale_price,
+        'stock': Product.stock,
+        'sales_count': 'sales_count'  # Se maneja especialmente
+    }
+    
+    # Query base con conteo de ventas
+    base_query = db.session.query(
+        Product,
+        func.coalesce(func.sum(InvoiceItem.quantity), 0).label('sales_count')
+    ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id)
+    
+    # Aplicar filtro de búsqueda si existe
     if query:
-        products = Product.query.filter(Product.name.contains(query) | Product.code.contains(query)).all()
-    else:
-        products = Product.query.all()
+        base_query = base_query.filter(or_(Product.name.contains(query), Product.code.contains(query)))
+    
+    # Agrupar por producto
+    base_query = base_query.group_by(Product.id)
+    
+    # Aplicar ordenamiento
+    if sort_by in sort_columns:
+        if sort_by == 'sales_count':
+            # Para sales_count usamos la columna calculada
+            if sort_order == 'desc':
+                base_query = base_query.order_by(func.coalesce(func.sum(InvoiceItem.quantity), 0).desc())
+            else:
+                base_query = base_query.order_by(func.coalesce(func.sum(InvoiceItem.quantity), 0).asc())
+        else:
+            # Para otras columnas usamos el campo del modelo
+            order_column = sort_columns[sort_by]
+            if sort_order == 'desc':
+                base_query = base_query.order_by(order_column.desc())
+            else:
+                base_query = base_query.order_by(order_column.asc())
+    
+    products = base_query.all()
+    
+    # Transformar resultados para que el template pueda acceder a sales_count
+    products_with_sales = []
+    for product, sales_count in products:
+        product.sales_count = sales_count
+        products_with_sales.append(product)
         
-    return render_template('products/list.html', products=products, query=query)
+    return render_template('products/list.html', 
+                         products=products_with_sales, 
+                         query=query,
+                         sort_by=sort_by,
+                         sort_order=sort_order)
 
 @app.route('/products/new', methods=['GET', 'POST'])
 @role_required('admin')
