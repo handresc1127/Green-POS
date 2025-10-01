@@ -27,7 +27,6 @@ endblock %}
 {% endblock %}
 
 {% block content %}
-{# --- Watermark styles dinámicos sólo si hay logo --- #}
 {% if setting.logo_path %}
 <style>
     .invoice-watermark-wrapper {
@@ -47,7 +46,6 @@ endblock %}
         padding-top: 10px;
     }
 
-    /* Forzar blanco y negro (alto contraste) */
     .invoice-watermark img {
         width: 200px;
         height: 200px;
@@ -68,7 +66,6 @@ endblock %}
 </style>
 {% endif %}
 <style>
-    /* Estilos B/N optimizados para impresión térmica (sin bordes) */
     .invoice-bw-table {
         width: 100%;
         border-collapse: collapse;
@@ -298,8 +295,6 @@ endblock %}
                             else 'No responsable' }}</p>
                     </div>
                     <div class="col-6 col-md-6 text-end" id="invoiceMetaBlock">
-
-                        <!-- <h5 class="mb-2" id="invoiceDocumentTypeLabel">{{ setting.document_label }}</h5> -->
                         <h5 class="mb-1" id="invoiceDocumentNumberLabel">#{{ invoice.number }}</h5>
                             <p class="mb-1" id="invoiceDate">
                                 <strong>Fecha:</strong> 
@@ -317,8 +312,8 @@ endblock %}
                             </p>
                     </div>
                 </div>
-            </div> {# invoice-content-layer #}
-        </div> {# watermark-wrapper #}
+            </div>
+        </div>
         <hr>
         <div class="row mb-4" id="invoiceCustomerRow">
             <div class="col-md-6" id="invoiceCustomerBlock">
@@ -378,11 +373,10 @@ endblock %}
             <p id="invoiceThanksText">¡Gracias por su compra!</p>
             <div class="print-cut-space" style="height: 50px;"></div>
         </div>
-    </div> {# invoice-content-layer #}
-</div> {# card-body #}
+    </div>
+</div>
 </div>
 
-<!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
