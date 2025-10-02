@@ -196,7 +196,11 @@
         document.querySelectorAll('.formatted-date').forEach(el => {
             const date = el.getAttribute('data-date');
             if (!date) return;
-            const d = new Date(date);
+            
+            // Parsear la fecha como local (YYYY-MM-DD) sin conversión de zona horaria
+            const [year, month, day] = date.split('-').map(Number);
+            const d = new Date(year, month - 1, day);
+            
             const options = {
                 weekday: 'long',
                 year: 'numeric',
