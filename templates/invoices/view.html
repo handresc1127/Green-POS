@@ -1,3 +1,15 @@
+{#
+Impresora POS
+Speed 230 mm/s
+Barcode 2D support: QRCODE, PDF417, DATAMATRIX
+BlackMark SENS L,H:12,12
+Image NV Download: Yes
+Font:Customization:yes
+Char line Font A/B: 48/64
+Printing width: 72mm
+Default ASCII FONT: FONTA
+Default code page: Page0
+#}
 {% extends 'layout.html' %}
 
 {% block title %}Venta {{ invoice.number }} - {{ setting.business_name or 'Venta' }}{% endblock %}
@@ -47,10 +59,7 @@ endblock %}
     }
 
     .invoice-watermark img {
-        width: 200px;
-        height: 200px;
-        filter: grayscale(100%) contrast(190%) brightness(105%);
-        object-fit: contain;
+        width: 100px;
     }
 
     .invoice-content-layer {
@@ -201,8 +210,12 @@ endblock %}
         }
 
         /* Ocultar elementos que no queremos imprimir */
-        nav, .navbar, .d-print-none, 
-        .alert, .btn-group, .modal {
+        nav,
+        .navbar,
+        .d-print-none,
+        .alert,
+        .btn-group,
+        .modal {
             display: none !important;
         }
 
@@ -284,20 +297,19 @@ endblock %}
                     <div class="col-6 col-md-6" id="invoiceBusinessBlock">
                         <h4 class="mb-3" id="invoiceBusinessName">{{ setting.business_name or 'Nombre de la Empresa' }}
                         </h4>
-                        {% if setting.nit %}<p class="mb-1" id="invoiceNIT">NIT: {{ setting.nit }}</p>{% endif %}
-                        {% if setting.address %}<p class="mb-1" id="invoiceAddress">Dirección: {{ setting.address }}</p>
+                        {% if setting.nit %}<p class="mb-1" id="invoiceNIT">{{ setting.nit }}</p>{% endif %}
+                        {% if setting.address %}<p class="mb-1" id="invoiceAddress">Dir: {{ setting.address }}</p>
                         {% endif %}
-                        {% if setting.phone %}<p class="mb-1" id="invoicePhone">Teléfono: {{ setting.phone }}</p>{%
+                        {% if setting.phone %}<p class="mb-1" id="invoicePhone">Tel: {{ setting.phone }}</p>{%
                         endif %}
-                        {% if setting.email %}<p class="mb-1" id="invoiceEmail">Email: {{ setting.email }}</p>{% endif
+                        {% if setting.email %}<p class="mb-1" id="invoiceEmail">{{ setting.email }}</p>{% endif
                         %}
-                        <p class="mb-1" id="invoiceIvaRegimen">Regimen IVA: {{ 'Responsable' if setting.iva_responsable
+                        <p class="mb-1" id="invoiceIvaRegimen">IVA: {{ 'Responsable' if setting.iva_responsable
                             else 'No responsable' }}</p>
                     </div>
                     <div class="col-6 col-md-6 text-end" id="invoiceMetaBlock">
                         <h5 class="mb-1" id="invoiceDocumentNumberLabel">#{{ invoice.number }}</h5>
                             <p class="mb-1" id="invoiceDate">
-                                <strong>Fecha:</strong> 
                                 <span class="utc-datetime" id="invoiceDateValue" data-utc="{{ invoice.date.isoformat() }}">
                                     {{ invoice.date|format_tz_co }}
                                 </span>
@@ -305,7 +317,7 @@ endblock %}
                             <p class="mb-1" id="invoiceSeller"><strong>Vendedor:</strong> {{ invoice.user.username if
                                 invoice.user else 'N/D' }}</p>
                             <p class="mb-1" id="invoicePaymentMethod">
-                                <strong>Método de Pago:</strong>
+                            <strong>Pago:</strong>
                                 {{ {'cash': 'Efectivo', 'credit_card': 'Tarjeta de Crédito', 'debit_card': 'Tarjeta de
                                 Débito', 'transfer': 'Transferencia Bancaria'}.get(invoice.payment_method,
                                 invoice.payment_method) }}

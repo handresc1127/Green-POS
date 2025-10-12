@@ -1,7 +1,11 @@
 @echo off
+
 set "PORT=8000"
 set "HOST=0.0.0.0"
 set "VENV_DIR=.venv"
+set "LOG_DIR=logs"
+set "LOG_FILE=%LOG_DIR%\server.log"
+
 
 if not exist "%VENV_DIR%\Scripts\python.exe" (
 	echo [INFO] Creating virtual environment...
@@ -13,6 +17,9 @@ if not exist "%VENV_DIR%\Scripts\python.exe" (
 	)
 )
 
+REM Crear el directorio de logs si no existe
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+
 call "%VENV_DIR%\Scripts\activate.bat"
 
 echo [INFO] Checking for waitress...
@@ -23,8 +30,10 @@ if not %errorlevel%==0 (
 	"%VENV_DIR%\Scripts\python.exe" -m pip install -r requirements.txt || goto :error
 )
 
+
 echo [INFO] Starting server with waitress on %HOST%:%PORT% ...
-"%VENV_DIR%\Scripts\python.exe" -m waitress --listen=%HOST%:%PORT% app:app
+REM Sobrescribir el log en cada ejecución
+"%VENV_DIR%\Scripts\python.exe" -m waitress --listen=%HOST%:%PORT% app:app > "%LOG_FILE%" 2>&1
 goto :eof
 
 :error
