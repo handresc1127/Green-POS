@@ -90,8 +90,54 @@
                     </div>
                     
                     <!-- No items message -->
-                    <div id="noItemsMessage" class="alert alert-info">
+                    <div id="noItemsMessage" class="alert alert-info mt-3">
                         <i class="bi bi-info-circle"></i> Agregue productos a la venta usando el botón "Agregar Producto".
+                    </div>
+                    
+                    <!-- Calculadora de cambio - Fuera de la tabla para mejor visibilidad -->
+                    <div id="changeCalculatorSection" class="mt-3 border-top pt-3" style="display: none;">
+                        <div class="row align-items-center mb-2">
+                            <div class="col-7 text-end">
+                                <label for="cashReceived" class="form-label mb-0">
+                                    <i class="bi bi-cash-coin text-success"></i> 
+                                    <strong>Recibido:</strong>
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" 
+                                           id="cashReceived" 
+                                           class="form-control" 
+                                           placeholder="0" 
+                                           min="0" 
+                                           step="1000"
+                                           inputmode="numeric"
+                                           pattern="[0-9]*">
+                                </div>
+                            </div>
+                            <div class="col-1">
+                                <button type="button" 
+                                        id="clearChangeBtn" 
+                                        class="btn btn-sm btn-outline-secondary"
+                                        title="Limpiar">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="invoiceChangeRow" class="row align-items-center" style="display: none;">
+                            <div class="col-7 text-end">
+                                <strong class="text-success">
+                                    <i class="bi bi-arrow-return-left"></i> <span id="changeLabel">Cambio</span>:
+                                </strong>
+                            </div>
+                            <div class="col-5">
+                                <div class="p-2 border rounded bg-light" id="changeAlert">
+                                    <strong class="fs-5">$<span id="changeAmount">0</span></strong>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Hidden field to store JSON of items -->
@@ -216,13 +262,20 @@
             // Update hidden input with JSON
             itemsJsonInput.value = JSON.stringify(items);
             
-            // Toggle submit button and message based on items
+            // Toggle submit button, message and calculator based on items
+            const changeCalculatorSection = document.getElementById('changeCalculatorSection');
             if (items.length > 0) {
                 submitBtn.disabled = false;
                 noItemsMessage.style.display = 'none';
+                if (changeCalculatorSection) {
+                    changeCalculatorSection.style.display = 'block';
+                }
             } else {
                 submitBtn.disabled = true;
                 noItemsMessage.style.display = 'block';
+                if (changeCalculatorSection) {
+                    changeCalculatorSection.style.display = 'none';
+                }
             }
         }
         
@@ -385,6 +438,71 @@
                 });
             });
         }
+        // Calculadora de cambio
+        const cashReceivedInput = document.getElementById('cashReceived');
+        const changeRow = document.getElementById('invoiceChangeRow');
+        const changeAmountElement = document.getElementById('changeAmount');
+        const changeLabel = document.getElementById('changeLabel');
+        const changeAlertElement = document.getElementById('changeAlert');
+        const clearChangeBtn = document.getElementById('clearChangeBtn');
+
+        function calculateChange() {
+            const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+            const tax = ivaResponsable ? subtotal * taxRate : 0;
+            const total = subtotal + tax;
+            
+            const cashReceived = sanitizeInt(cashReceivedInput.value);
+            
+            if (cashReceived > 0 && total > 0) {
+                const difference = cashReceived - total;
+                
+                if (difference >= 0) {
+                    changeAmountElement.textContent = formatCo(difference);
+                    changeRow.style.display = 'flex';
+                    
+                    if (difference === 0) {
+                        changeAlertElement.className = 'p-2 border rounded bg-info bg-opacity-10 border-info';
+                        changeLabel.textContent = 'Pago Exacto';
+                        changeLabel.parentElement.className = 'text-info';
+                    } else {
+                        changeAlertElement.className = 'p-2 border rounded bg-success bg-opacity-10 border-success';
+                        changeLabel.textContent = 'Cambio';
+                        changeLabel.parentElement.className = 'text-success';
+                    }
+                } else {
+                    const shortage = Math.abs(difference);
+                    changeAmountElement.textContent = formatCo(shortage);
+                    changeRow.style.display = 'flex';
+                    changeAlertElement.className = 'p-2 border rounded bg-danger bg-opacity-10 border-danger';
+                    changeLabel.textContent = 'Falta';
+                    changeLabel.parentElement.className = 'text-danger';
+                }
+            } else {
+                changeRow.style.display = 'none';
+            }
+        }
+
+        if (cashReceivedInput) {
+            cashReceivedInput.addEventListener('input', calculateChange);
+            cashReceivedInput.addEventListener('change', calculateChange);
+        }
+
+        if (clearChangeBtn) {
+            clearChangeBtn.addEventListener('click', function() {
+                cashReceivedInput.value = '';
+                changeRow.style.display = 'none';
+                cashReceivedInput.focus();
+            });
+        }
+
+        const originalUpdateTotals = updateTotals;
+        updateTotals = function() {
+            originalUpdateTotals();
+            if (cashReceivedInput && cashReceivedInput.value) {
+                calculateChange();
+            }
+        };
+
         const originalSubmitHandler = document.getElementById('invoiceForm').onsubmit;
         document.getElementById('invoiceForm').addEventListener('submit', function(e){
             if (!customerIdInput.value) {
@@ -393,6 +511,7 @@
                 return;
             }
         }, true);
+
         updateTotals();
     });
 </script>
