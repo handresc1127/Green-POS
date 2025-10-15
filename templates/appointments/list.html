@@ -1,71 +1,206 @@
 {% extends 'layout.html' %}
 {% block title %}Citas{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-header .btn-link {
+        transition: all 0.3s ease;
+    }
+    .card-header .btn-link:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+    .collapse-icon {
+        transition: transform 0.3s ease;
+        display: inline-block;
+    }
+    .collapsed .collapse-icon {
+        transform: rotate(-90deg);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h4 mb-0">Citas</h1>
-  <a href="{{ url_for('service_type_list') }}" class="btn btn-sm btn-outline-secondary" title="Configurar tipos de servicio">
-    <i class="fas fa-cog"></i>
-  </a>
-</div>
-<div class="mb-3">
-  <a href="{{ url_for('service_new') }}" class="btn btn-sm btn-primary">Nueva Cita</a>
-</div>
-<form method="get" class="row g-2 mb-3">
-  <div class="col-auto">
-    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-      <option value="">-- Estado --</option>
-      <option value="pending" {{ 'selected' if status=='pending' else '' }}>Pendiente</option>
-      <option value="done" {{ 'selected' if status=='done' else '' }}>Finalizada</option>
-      <option value="cancelled" {{ 'selected' if status=='cancelled' else '' }}>Cancelada</option>
-    </select>
+  <div>
+    <a href="{{ url_for('service_new') }}" class="btn btn-sm btn-primary me-2">
+      <i class="bi bi-plus-circle"></i> Nueva Cita
+    </a>
+    <a href="{{ url_for('service_type_list') }}" class="btn btn-sm btn-outline-secondary" title="Configurar tipos de servicio">
+      <i class="fas fa-cog"></i>
+    </a>
   </div>
-</form>
-<table class="table table-sm align-middle table-hover">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Mascota</th>
-      <th>Cliente</th>
-  <th>Servicios</th>
-  <th>Total</th>
-  <th>Programada</th>
-      <th>Estado</th>
-      <th>Factura</th>
-      <th>Creada</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for a in appointments %}
-    <tr>
-      <td>{{ a.id }}</td>
-      <td>{{ a.pet.name if a.pet else '' }}</td>
-      <td>{{ a.customer.name if a.customer else '' }}</td>
-      <td>{{ a.services|length }}</td>
-  <td>{{ (a.total_price or 0)|currency_co }}</td>
-  <td>{% if a.scheduled_at %}{{ a.scheduled_at.strftime('%Y-%m-%d %H:%M') }}{% else %}<span class="text-muted">(No)</span>{% endif %}</td>
-      <td>
-        {% if a.status=='done' %}<span class="badge bg-success">Finalizada</span>
-        {% elif a.status=='cancelled' %}<span class="badge bg-danger">Cancelada</span>
-        {% else %}<span class="badge bg-secondary">Pendiente</span>{% endif %}
-      </td>
-      <td>
-        {% if a.invoice_id %}
-          <a href="{{ url_for('invoice_view', id=a.invoice_id) }}" class="text-decoration-none" title="Ver factura">
-            <i class="bi bi-receipt-cutoff text-success"></i>
-          </a>
-        {% else %}
-          <span class="text-muted" title="Sin factura">
-            <i class="bi bi-hourglass-split"></i>
-          </span>
-        {% endif %}
-      </td>
-  <td>{{ a.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-      <td><a href="{{ url_for('appointment_view', id=a.id) }}" class="btn btn-sm btn-outline-primary">Ver</a></td>
-    </tr>
-  {% else %}
-    <tr><td colspan="10" class="text-center text-muted">Sin citas</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-2">
+      <div class="col-auto">
+        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">-- Todos los Estados --</option>
+          <option value="pending" {{ 'selected' if status=='pending' else '' }}>Pendiente</option>
+          <option value="done" {{ 'selected' if status=='done' else '' }}>Finalizada</option>
+          <option value="cancelled" {{ 'selected' if status=='cancelled' else '' }}>Cancelada</option>
+        </select>
+      </div>
+      {% if status %}
+      <div class="col-auto">
+        <a href="{{ url_for('appointment_list') }}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-x-circle"></i> Limpiar
+        </a>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    {% if appointments_by_date %}
+    {% for date, appointments in appointments_by_date.items() %}
+    <div class="card mb-4">
+      <div class="card-header bg-light">
+        <h5 class="mb-0">
+          <button class="btn btn-link text-decoration-none text-dark w-100 text-start d-flex justify-content-between align-items-center p-0{{ ' collapsed' if loop.index != 1 }}" 
+                  type="button" 
+                  data-bs-toggle="collapse" 
+                  data-bs-target="#collapse-{{ loop.index }}" 
+                  aria-expanded="{{ 'true' if loop.index == 1 else 'false' }}" 
+                  aria-controls="collapse-{{ loop.index }}">
+            <span>
+              <i class="bi bi-chevron-down collapse-icon"></i>
+              <span class="formatted-date" data-date="{{ date }}">{{ date }}</span>
+              <small class="text-muted ms-2">
+                ({{ appointments|length }} cita{{ 's' if appointments|length != 1 }})
+                <span class="ms-2">Total: {{ appointments|sum(attribute='total_price')|currency_co }}</span>
+              </small>
+            </span>
+          </button>
+        </h5>
+      </div>
+      <div id="collapse-{{ loop.index }}" class="collapse{{ ' show' if loop.index == 1 }}">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Mascota</th>
+                  <th>Cliente</th>
+                  <th>Hora</th>
+                  <th>Servicios</th>
+                  <th>Total</th>
+                  <th>Estado</th>
+                  <th>Factura</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for a in appointments %}
+                <tr>
+                  <td>{{ a.id }}</td>
+                  <td>{{ a.pet.name if a.pet else '' }}</td>
+                  <td>{{ a.customer.name if a.customer else '' }}</td>
+                  <td>
+                    {% if a.scheduled_at %}
+                      <span class="utc-time" data-utc="{{ a.scheduled_at.isoformat() }}">
+                        {{ a.scheduled_at|format_time_co }}
+                      </span>
+                    {% else %}
+                      <span class="text-muted">(No programada)</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ a.services|length }}</td>
+                  <td>{{ (a.total_price or 0)|currency_co }}</td>
+                  <td>
+                    {% if a.status=='done' %}<span class="badge bg-success">Finalizada</span>
+                    {% elif a.status=='cancelled' %}<span class="badge bg-danger">Cancelada</span>
+                    {% else %}<span class="badge bg-secondary">Pendiente</span>{% endif %}
+                  </td>
+                  <td>
+                    {% if a.invoice_id %}
+                      <a href="{{ url_for('invoice_view', id=a.invoice_id) }}" class="text-decoration-none" title="Ver factura">
+                        <i class="bi bi-receipt-cutoff text-success"></i>
+                      </a>
+                    {% else %}
+                      <span class="text-muted" title="Sin factura">
+                        <i class="bi bi-hourglass-split"></i>
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <a href="{{ url_for('appointment_view', id=a.id) }}" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-eye"></i> Ver
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="alert alert-info">
+      {% if status %}
+      No se encontraron citas con el estado "{{ {'pending': 'Pendiente', 'done': 'Finalizada', 'cancelled': 'Cancelada'}.get(status, status) }}".
+      {% else %}
+      No hay citas registradas. <a href="{{ url_for('service_new') }}">Crear la primera</a>.
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Manejar la rotación del icono chevron
+        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
+            const targetId = button.getAttribute('data-bs-target');
+            const targetElement = document.querySelector(targetId);
+            
+            if (targetElement) {
+                targetElement.addEventListener('show.bs.collapse', () => {
+                    button.classList.remove('collapsed');
+                });
+                
+                targetElement.addEventListener('hide.bs.collapse', () => {
+                    button.classList.add('collapsed');
+                });
+            }
+        });
+        
+        // Formatear fechas agrupadas
+        document.querySelectorAll('.formatted-date').forEach(el => {
+            const date = el.getAttribute('data-date');
+            if (!date) return;
+            
+            // Parsear la fecha como local (YYYY-MM-DD) sin conversión de zona horaria
+            const [year, month, day] = date.split('-').map(Number);
+            const d = new Date(year, month - 1, day);
+            
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            };
+            el.textContent = d.toLocaleDateString('es-ES', options);
+        });
+
+        // Formatear horas en zona horaria local
+        document.querySelectorAll('.utc-time').forEach(el => {
+            const iso = el.getAttribute('data-utc');
+            if (!iso) return;
+
+            // La conversión ya se hace en el servidor con format_time_co
+            // El elemento ya tiene la hora correcta de Colombia
+            return;
+        });
+    });
+</script>
 {% endblock %}

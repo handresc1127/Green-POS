@@ -1099,7 +1099,7 @@ def _refresh_appointment_status(appointment: Appointment):
 @app.route('/appointments')
 @login_required
 def appointment_list():
-    """Lista de citas con filtro por estado."""
+    """Lista de citas con filtro por estado, agrupadas por fecha."""
     status = request.args.get('status', '')
     q = Appointment.query.order_by(Appointment.created_at.desc())
     
@@ -1108,7 +1108,29 @@ def appointment_list():
     
     appointments = q.all()
     
-    return render_template('appointments/list.html', appointments=appointments, status=status)
+    # Agrupar citas por fecha local (Colombia)
+    appointments_by_date = {}
+    
+    for appointment in appointments:
+        # Usar scheduled_at si existe, sino created_at
+        date_to_use = appointment.scheduled_at if appointment.scheduled_at else appointment.created_at
+        
+        # Asegurarse de que la fecha sea aware si no lo es
+        if date_to_use.tzinfo is None:
+            date_to_use = date_to_use.replace(tzinfo=timezone.utc)
+        
+        # Convertir la fecha UTC a hora local de Colombia
+        local_date = date_to_use.astimezone(CO_TZ)
+        date_str = local_date.strftime('%Y-%m-%d')
+        
+        if date_str not in appointments_by_date:
+            appointments_by_date[date_str] = []
+        appointments_by_date[date_str].append(appointment)
+    
+    # Ordenar el diccionario por fecha de manera descendente
+    appointments_by_date = dict(sorted(appointments_by_date.items(), reverse=True))
+    
+    return render_template('appointments/list.html', appointments_by_date=appointments_by_date, status=status)
 
 @app.route('/appointments/<int:id>')
 @login_required
