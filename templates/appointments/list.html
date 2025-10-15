@@ -1,7 +1,12 @@
 {% extends 'layout.html' %}
 {% block title %}Citas{% endblock %}
 {% block content %}
-<h1 class="h4">Citas</h1>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Citas</h1>
+  <a href="{{ url_for('service_type_list') }}" class="btn btn-sm btn-outline-secondary" title="Configurar tipos de servicio">
+    <i class="fas fa-cog"></i>
+  </a>
+</div>
 <div class="mb-3">
   <a href="{{ url_for('service_new') }}" class="btn btn-sm btn-primary">Nueva Cita</a>
 </div>
@@ -25,6 +30,7 @@
   <th>Total</th>
   <th>Programada</th>
       <th>Estado</th>
+      <th>Factura</th>
       <th>Creada</th>
       <th></th>
     </tr>
@@ -43,11 +49,22 @@
         {% elif a.status=='cancelled' %}<span class="badge bg-danger">Cancelada</span>
         {% else %}<span class="badge bg-secondary">Pendiente</span>{% endif %}
       </td>
+      <td>
+        {% if a.invoice_id %}
+          <a href="{{ url_for('invoice_view', id=a.invoice_id) }}" class="text-decoration-none" title="Ver factura">
+            <i class="bi bi-receipt-cutoff text-success"></i>
+          </a>
+        {% else %}
+          <span class="text-muted" title="Sin factura">
+            <i class="bi bi-hourglass-split"></i>
+          </span>
+        {% endif %}
+      </td>
   <td>{{ a.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
       <td><a href="{{ url_for('appointment_view', id=a.id) }}" class="btn btn-sm btn-outline-primary">Ver</a></td>
     </tr>
   {% else %}
-    <tr><td colspan="8" class="text-center text-muted">Sin citas</td></tr>
+    <tr><td colspan="10" class="text-center text-muted">Sin citas</td></tr>
   {% endfor %}
   </tbody>
 </table>

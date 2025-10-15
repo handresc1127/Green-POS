@@ -3,7 +3,7 @@
 {% block page_title %}Servicios{% endblock %}
 {% block page_actions %}
 {% if current_user.role == 'admin' %}
-<a href="{{ url_for('services_config') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-gear"></i> Configurar</a>
+<a href="{{ url_for('service_type_list') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-gear"></i> Configurar</a>
 {% endif %}
 <a href="{{ url_for('service_new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nuevo Servicio</a>
 {% endblock %}

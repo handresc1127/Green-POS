@@ -219,6 +219,15 @@ class ServiceType(db.Model):
     def __repr__(self):
         return f"<ServiceType {self.code}>"
 
+    @property
+    def pricing_mode_display(self):
+        """Devuelve el modo de precio en formato legible."""
+        modes = {
+            'fixed': 'Precio Fijo',
+            'variable': 'Precio Variable'
+        }
+        return modes.get(self.pricing_mode, 'Desconocido')
+
     @staticmethod
     def create_defaults():
         if ServiceType.query.count() == 0:

@@ -773,12 +773,32 @@ def services_config():
 @app.route('/services/types')
 @role_required('admin')
 def service_type_list():
-    types = ServiceType.query.order_by(ServiceType.category, ServiceType.name).all()
-    return render_template('services/types/list.html', types=types)
+    """Lista tipos de servicio con filtros opcionales."""
+    category = request.args.get('category', '')
+    pricing_mode = request.args.get('pricing_mode', '')
+    active = request.args.get('active', '')
+    
+    query = ServiceType.query
+    
+    if category:
+        query = query.filter_by(category=category)
+    if pricing_mode:
+        query = query.filter_by(pricing_mode=pricing_mode)
+    if active:
+        active_bool = active == '1'
+        query = query.filter_by(active=active_bool)
+    
+    types = query.order_by(ServiceType.category, ServiceType.name).all()
+    return render_template('services/types/config.html', 
+                         types=types,
+                         category=category,
+                         pricing_mode=pricing_mode,
+                         active=active)
 
 @app.route('/services/types/new', methods=['GET','POST'])
 @role_required('admin')
 def service_type_new():
+    """Crear nuevo tipo de servicio."""
     if request.method == 'POST':
         code = request.form['code'].strip().upper()
         name = request.form['name'].strip()
@@ -791,15 +811,20 @@ def service_type_new():
             base_price = float(base_price_raw or 0)
         except ValueError:
             base_price = 0.0
+        
         if ServiceType.query.filter_by(code=code).first():
             flash('El código ya existe', 'danger')
-        return render_template('services/config.html', st=None)
-        st = ServiceType(code=code, name=name, description=description, pricing_mode=pricing_mode, base_price=base_price, category=category, active=active)
+            return render_template('services/types/form.html', st=None)
+        
+        st = ServiceType(code=code, name=name, description=description, 
+                        pricing_mode=pricing_mode, base_price=base_price, 
+                        category=category, active=active)
         db.session.add(st)
         db.session.commit()
-        flash('Tipo de servicio creado', 'success')
+        flash('Tipo de servicio creado exitosamente', 'success')
         return redirect(url_for('service_type_list'))
-    return render_template('services/config.html', st=None)
+    
+    return render_template('services/types/form.html', st=None)
 
 @app.route('/services/types/edit/<int:id>', methods=['GET','POST'])
 @role_required('admin')
@@ -819,9 +844,10 @@ def service_type_edit(id):
         st.category = request.form.get('category','general')
         st.active = True if request.form.get('active') == 'on' else False
         db.session.commit()
-        flash('Tipo de servicio actualizado', 'success')
+        flash('Tipo de servicio actualizado exitosamente', 'success')
         return redirect(url_for('service_type_list'))
-    return render_template('services/config.html', st=st)
+    
+    return render_template('services/types/form.html', st=st)
 
 @app.route('/services/types/delete/<int:id>', methods=['POST'])
 @role_required('admin')
@@ -902,39 +928,13 @@ def service_new():
                 prices.append(0.0)
 
         created_services = []
-        invoice_link = None
         appointment = None
 
-        setting = Setting.get()
-        number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
-        setting.next_invoice_number += 1
-        
-        if scheduled_at:
-            fecha_cita = scheduled_at.strftime('%Y-%m-%d')
-            hora_cita = scheduled_at.strftime('%H:%M')
-            composed_notes = f"Servicios de mascota - Cita {fecha_cita}   {hora_cita}"
-        else:
-            composed_notes = 'Servicios de mascota - Cita'
-        
-        if description:
-            composed_notes += f"\nNotas:\n{description.strip()}"
-        if consent_text:
-            composed_notes += f"\nConsentimiento:\n{consent_text.strip()}"
-        
-        invoice = Invoice(
-            number=number,
-            customer_id=customer_id,
-            user_id=current_user.id,
-            payment_method='cash',
-            notes=composed_notes
-        )
-        db.session.add(invoice)
-        db.session.flush()
-
+        # Crear la cita/appointment SIN factura
         appointment = Appointment(
             pet_id=pet_id,
             customer_id=customer_id,
-            invoice_id=invoice.id if invoice else None,
+            invoice_id=None,  # No se crea factura aún
             description=description,
             technician=technician,
             consent_text=consent_text or '',
@@ -943,10 +943,12 @@ def service_new():
         db.session.add(appointment)
         db.session.flush()
 
+        # Crear los servicios asociados a la cita
         for idx, code in enumerate(service_codes):
             price = prices[idx] if idx < len(prices) else 0.0
             mode = service_modes[idx] if idx < len(service_modes) else 'fixed'
             
+            # Crear o actualizar el producto asociado al servicio
             prod_code = f"SERV-{code.upper()}"
             product = Product.query.filter_by(code=prod_code).first()
             
@@ -965,9 +967,11 @@ def service_new():
                 db.session.add(product)
                 db.session.flush()
             
+            # Actualizar precio si es variable
             if mode == 'variable' and price and price > 0 and product.sale_price != price:
                 product.sale_price = price
 
+            # Crear el servicio
             pet_service = PetService(
                 pet_id=pet_id,
                 customer_id=customer_id,
@@ -976,24 +980,19 @@ def service_new():
                 price=price,
                 technician=technician,
                 consent_text=consent_text or '',
-                appointment_id=appointment.id
+                appointment_id=appointment.id,
+                invoice_id=None  # Sin factura por ahora
             )
             db.session.add(pet_service)
             db.session.flush()
             created_services.append(pet_service)
 
-            if invoice:
-                db.session.add(InvoiceItem(invoice_id=invoice.id, product_id=product.id, quantity=1, price=price))
-
-        invoice.calculate_totals()
-        for s in created_services:
-            s.invoice_id = invoice.id
+        # Recalcular el total de la cita
         appointment.recompute_total()
-        invoice_link = url_for('invoice_view', id=invoice.id)
 
         db.session.commit()
-        flash(f"Cita creada con {len(created_services)} servicio(s) y factura generada", 'success')
-        return redirect(invoice_link)
+        flash(f"Orden de servicio creada con {len(created_services)} servicio(s). La factura se generará al finalizar la cita.", 'success')
+        return redirect(url_for('appointment_view', id=appointment.id))
     
     default_consent = CONSENT_TEMPLATE
     q_customer_id = request.args.get('customer_id', type=int)
@@ -1120,23 +1119,232 @@ def appointment_view(id):
     db.session.commit()
     return render_template('appointments/view.html', appointment=appointment)
 
+@app.route('/appointments/<int:id>/edit')
+@login_required
+def appointment_edit(id):
+    """Formulario para editar una cita."""
+    appointment = Appointment.query.get_or_404(id)
+    
+    # No permitir editar citas finalizadas con factura generada
+    if appointment.status == 'done' and appointment.invoice_id:
+        flash('No se puede editar una cita finalizada con factura generada', 'warning')
+        return redirect(url_for('appointment_view', id=id))
+    
+    service_types = ServiceType.query.filter_by(active=True).order_by(ServiceType.name).all()
+    return render_template('appointments/edit.html', appointment=appointment, service_types=service_types)
+
+@app.route('/appointments/<int:id>/update', methods=['POST'])
+@login_required
+def appointment_update(id):
+    """Procesa la actualización de una cita."""
+    appointment = Appointment.query.get_or_404(id)
+    
+    # Validar que no esté finalizada con factura
+    if appointment.status == 'done' and appointment.invoice_id:
+        flash('No se puede editar una cita finalizada con factura generada', 'danger')
+        return redirect(url_for('appointment_view', id=id))
+    
+    try:
+        # Actualizar información general
+        appointment.technician = request.form.get('technician', '').strip()
+        appointment.description = request.form.get('description', '').strip()
+        appointment.consent_text = request.form.get('consent_text', '').strip()
+        
+        # Actualizar fecha programada
+        scheduled_at_raw = request.form.get('scheduled_at', '').strip()
+        if scheduled_at_raw:
+            try:
+                appointment.scheduled_at = datetime.strptime(scheduled_at_raw, '%Y-%m-%dT%H:%M')
+            except ValueError:
+                appointment.scheduled_at = None
+        else:
+            appointment.scheduled_at = None
+        
+        # Procesar servicios
+        service_ids = request.form.getlist('service_ids[]')
+        service_types = request.form.getlist('service_types[]')
+        service_prices = request.form.getlist('service_prices[]')
+        service_statuses = request.form.getlist('service_statuses[]')
+        
+        if not service_types:
+            flash('Debe tener al menos un servicio', 'danger')
+            return redirect(url_for('appointment_edit', id=id))
+        
+        # Mapear servicios existentes
+        existing_services = {s.id: s for s in appointment.services}
+        processed_ids = set()
+        
+        # Actualizar o crear servicios
+        for idx, service_id_str in enumerate(service_ids):
+            if idx >= len(service_types):
+                continue
+            
+            service_type_code = service_types[idx]
+            if not service_type_code:
+                continue
+            
+            try:
+                price = float(service_prices[idx]) if idx < len(service_prices) else 0.0
+            except ValueError:
+                price = 0.0
+            
+            status = service_statuses[idx] if idx < len(service_statuses) else 'pending'
+            
+            # Verificar si es servicio existente o nuevo
+            if service_id_str and service_id_str != 'new':
+                try:
+                    service_id = int(service_id_str)
+                    if service_id in existing_services:
+                        # Actualizar servicio existente
+                        service = existing_services[service_id]
+                        service.service_type = service_type_code.lower()
+                        service.price = price
+                        service.status = status
+                        processed_ids.add(service_id)
+                except ValueError:
+                    pass
+            else:
+                # Crear nuevo servicio
+                new_service = PetService(
+                    pet_id=appointment.pet_id,
+                    customer_id=appointment.customer_id,
+                    service_type=service_type_code.lower(),
+                    description=appointment.description,
+                    price=price,
+                    status=status,
+                    technician=appointment.technician,
+                    consent_text=appointment.consent_text,
+                    appointment_id=appointment.id,
+                    invoice_id=None
+                )
+                db.session.add(new_service)
+                
+                # Crear o actualizar el producto asociado
+                prod_code = f"SERV-{service_type_code.upper()}"
+                product = Product.query.filter_by(code=prod_code).first()
+                
+                if not product:
+                    st = ServiceType.query.filter_by(code=service_type_code).first()
+                    prod_name = st.name if st else f'Servicio {service_type_code}'
+                    product = Product(
+                        code=prod_code,
+                        name=prod_name,
+                        description='Servicio de mascota',
+                        sale_price=price or 0,
+                        purchase_price=0,
+                        stock=0,
+                        category='Servicios'
+                    )
+                    db.session.add(product)
+        
+        # Eliminar servicios que ya no están en el formulario
+        for service_id, service in existing_services.items():
+            if service_id not in processed_ids:
+                db.session.delete(service)
+        
+        # Recalcular el total de la cita
+        appointment.recompute_total()
+        
+        # Actualizar estado de la cita
+        _refresh_appointment_status(appointment)
+        
+        db.session.commit()
+        flash('Cita actualizada exitosamente', 'success')
+        return redirect(url_for('appointment_view', id=id))
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f'Error actualizando cita: {str(e)}')
+        flash('Error al actualizar la cita', 'danger')
+        return redirect(url_for('appointment_edit', id=id))
+
 @app.route('/appointments/finish/<int:id>', methods=['POST'])
 @login_required
 def appointment_finish(id):
-    """Marcar todos los servicios de una cita como finalizados."""
+    """Marcar todos los servicios de una cita como finalizados y generar factura."""
     appointment = Appointment.query.get_or_404(id)
-    changed = False
-    for s in appointment.services:
-        if s.status != 'done':
-            s.status = 'done'
-            changed = True
-    _refresh_appointment_status(appointment)
-    if changed:
+    
+    # Verificar si ya tiene factura
+    if appointment.invoice_id:
+        # Si ya tiene factura, solo actualizar estados
+        changed = False
+        for s in appointment.services:
+            if s.status != 'done':
+                s.status = 'done'
+                changed = True
+        _refresh_appointment_status(appointment)
+        if changed:
+            db.session.commit()
+            flash('Cita finalizada', 'success')
+        else:
+            flash('La cita ya estaba finalizada', 'info')
+        return redirect(url_for('appointment_view', id=id))
+    
+    # Generar la factura al finalizar la cita
+    try:
+        setting = Setting.get()
+        number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
+        setting.next_invoice_number += 1
+        
+        # Preparar notas de la factura
+        if appointment.scheduled_at:
+            fecha_cita = appointment.scheduled_at.strftime('%Y-%m-%d')
+            hora_cita = appointment.scheduled_at.strftime('%H:%M')
+            composed_notes = f"Servicios de mascota - Cita {fecha_cita} {hora_cita}"
+        else:
+            composed_notes = 'Servicios de mascota - Cita'
+        
+        if appointment.description:
+            composed_notes += f"\nNotas:\n{appointment.description.strip()}"
+        if appointment.consent_text:
+            composed_notes += f"\nConsentimiento:\n{appointment.consent_text.strip()}"
+        
+        # Crear la factura
+        invoice = Invoice(
+            number=number,
+            customer_id=appointment.customer_id,
+            user_id=current_user.id,
+            payment_method='cash',
+            notes=composed_notes
+        )
+        db.session.add(invoice)
+        db.session.flush()
+        
+        # Asociar los servicios a la factura
+        for pet_service in appointment.services:
+            # Actualizar estado del servicio
+            pet_service.status = 'done'
+            pet_service.invoice_id = invoice.id
+            
+            # Crear item de factura
+            prod_code = f"SERV-{pet_service.service_type.upper()}"
+            product = Product.query.filter_by(code=prod_code).first()
+            
+            if product:
+                invoice_item = InvoiceItem(
+                    invoice_id=invoice.id,
+                    product_id=product.id,
+                    quantity=1,
+                    price=pet_service.price or 0
+                )
+                db.session.add(invoice_item)
+        
+        # Calcular totales de la factura
+        invoice.calculate_totals()
+        
+        # Asociar la factura a la cita
+        appointment.invoice_id = invoice.id
+        _refresh_appointment_status(appointment)
+        
         db.session.commit()
-        flash('Cita finalizada', 'success')
-    else:
-        flash('La cita ya estaba finalizada', 'info')
-    return redirect(url_for('appointment_view', id=id))
+        flash(f'Cita finalizada y factura {invoice.number} generada exitosamente', 'success')
+        return redirect(url_for('invoice_view', id=invoice.id))
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f'Error al finalizar cita y generar factura: {str(e)}')
+        flash('Error al finalizar la cita y generar factura', 'danger')
+        return redirect(url_for('appointment_view', id=id))
 
 @app.route('/appointments/cancel/<int:id>', methods=['POST'])
 @role_required('admin')

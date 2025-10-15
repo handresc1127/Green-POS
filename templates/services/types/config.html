@@ -1,0 +1,266 @@
+{% extends 'layout.html' %}
+{% block title %}Configuración de Tipos de Servicio{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('appointment_list') }}">Citas</a></li>
+            <li class="breadcrumb-item active">Configuración de Tipos de Servicio</li>
+        </ol>
+    </nav>
+
+    <!-- Título y Acciones -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-cog"></i> Configuración de Tipos de Servicio</h2>
+        <div>
+            <a href="{{ url_for('appointment_list') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver a Citas
+            </a>
+            <a href="{{ url_for('service_type_new') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nuevo Tipo
+            </a>
+        </div>
+    </div>
+
+    <!-- Mensajes Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Filtros -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="category" class="form-label">Categoría</label>
+                    <select name="category" id="category" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todas las categorías</option>
+                        <option value="grooming" {{ 'selected' if category=='grooming' else '' }}>Grooming</option>
+                        <option value="hygiene" {{ 'selected' if category=='hygiene' else '' }}>Higiene</option>
+                        <option value="treatment" {{ 'selected' if category=='treatment' else '' }}>Tratamiento</option>
+                        <option value="accessory" {{ 'selected' if category=='accessory' else '' }}>Accesorio</option>
+                        <option value="general" {{ 'selected' if category=='general' else '' }}>General</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="pricing_mode" class="form-label">Modo de Precio</label>
+                    <select name="pricing_mode" id="pricing_mode" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos los modos</option>
+                        <option value="fixed" {{ 'selected' if pricing_mode=='fixed' else '' }}>Precio Fijo</option>
+                        <option value="variable" {{ 'selected' if pricing_mode=='variable' else '' }}>Precio Variable</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="active" class="form-label">Estado</label>
+                    <select name="active" id="active" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        <option value="1" {{ 'selected' if active=='1' else '' }}>Activos</option>
+                        <option value="0" {{ 'selected' if active=='0' else '' }}>Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <a href="{{ url_for('service_type_list') }}" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-times"></i> Limpiar Filtros
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de Tipos de Servicio -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Tipos de Servicio Registrados</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="serviceTypesTable" class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Modo Precio</th>
+                            <th>Precio Base</th>
+                            <th>Categoría</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for type in types %}
+                        <tr class="{% if not type.active %}table-secondary{% endif %}">
+                            <td>
+                                <span class="badge bg-dark font-monospace">{{ type.code }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ type.name }}</strong>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ type.description[:50] }}{% if type.description and type.description|length > 50 %}...{% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 'primary' if type.pricing_mode=='fixed' else 'warning' }}">
+                                    {% if type.pricing_mode == 'fixed' %}
+                                        <i class="fas fa-dollar-sign"></i> Fijo
+                                    {% else %}
+                                        <i class="fas fa-chart-line"></i> Variable
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <strong>{{ type.base_price | currency_co }}</strong>
+                            </td>
+                            <td>
+                                {% if type.category == 'grooming' %}
+                                    <span class="badge bg-info"><i class="fas fa-cut"></i> Grooming</span>
+                                {% elif type.category == 'hygiene' %}
+                                    <span class="badge bg-success"><i class="fas fa-hands-wash"></i> Higiene</span>
+                                {% elif type.category == 'treatment' %}
+                                    <span class="badge bg-primary"><i class="fas fa-heartbeat"></i> Tratamiento</span>
+                                {% elif type.category == 'accessory' %}
+                                    <span class="badge bg-secondary"><i class="fas fa-gift"></i> Accesorio</span>
+                                {% else %}
+                                    <span class="badge bg-dark"><i class="fas fa-tag"></i> General</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if type.active %}
+                                    <span class="badge bg-success"><i class="fas fa-check"></i> Activo</span>
+                                {% else %}
+                                    <span class="badge bg-danger"><i class="fas fa-times"></i> Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('service_type_edit', id=type.id) }}" 
+                                       class="btn btn-sm btn-warning" 
+                                       title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-danger" 
+                                            onclick="confirmDelete({{ type.id }}, '{{ type.name }}')" 
+                                            title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                <p>No hay tipos de servicio registrados</p>
+                                <a href="{{ url_for('service_type_new') }}" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Crear Primer Tipo
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información Adicional -->
+    <div class="card mt-3">
+        <div class="card-header bg-info text-white">
+            <i class="fas fa-info-circle"></i> Información sobre Tipos de Servicio
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6><i class="fas fa-dollar-sign"></i> Modos de Precio</h6>
+                    <ul class="small">
+                        <li><strong>Precio Fijo:</strong> El servicio tiene un precio base establecido que se aplica a todas las mascotas.</li>
+                        <li><strong>Precio Variable:</strong> El precio puede variar según el tamaño, raza o condiciones específicas de la mascota.</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6><i class="fas fa-tags"></i> Categorías</h6>
+                    <ul class="small">
+                        <li><strong>Grooming:</strong> Servicios de estética y peluquería</li>
+                        <li><strong>Higiene:</strong> Servicios de limpieza e higiene</li>
+                        <li><strong>Tratamiento:</strong> Tratamientos especiales</li>
+                        <li><strong>Accesorio:</strong> Accesorios opcionales</li>
+                        <li><strong>General:</strong> Otros servicios</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación de Eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro de eliminar el tipo de servicio <strong id="deleteServiceName"></strong>?</p>
+                <p class="text-danger small">
+                    <i class="fas fa-exclamation-circle"></i> Esta acción no se puede deshacer.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <form id="deleteForm" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Inicializar DataTables
+    if ($('#serviceTypesTable').length && $.fn.DataTable) {
+        $('#serviceTypesTable').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+            },
+            pageLength: 10,
+            order: [[5, 'asc'], [1, 'asc']],
+            columnDefs: [
+                { orderable: false, targets: [7] }
+            ]
+        });
+    }
+});
+
+/**
+ * Confirma eliminación de tipo de servicio
+ * @param {number} id - ID del tipo de servicio a eliminar
+ * @param {string} name - Nombre del tipo de servicio
+ */
+function confirmDelete(id, name) {
+    $('#deleteServiceName').text(name);
+    $('#deleteForm').attr('action', `/services/types/delete/${id}`);
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+</script>
+{% endblock %}

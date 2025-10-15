@@ -4,14 +4,23 @@
 <h1 class="h4">Cita #{{ appointment.id }}</h1>
 <div class="mb-3">
   <a href="{{ url_for('appointment_list') }}" class="btn btn-sm btn-secondary">Volver</a>
+  {% if appointment.status == 'pending' %}
+    <a href="{{ url_for('appointment_edit', id=appointment.id) }}" class="btn btn-sm btn-warning">
+      <i class="bi bi-pencil-square"></i> Editar
+    </a>
+  {% endif %}
   {% if appointment.status != 'done' and appointment.status != 'cancelled' %}
-    <form action="{{ url_for('appointment_finish', id=appointment.id) }}" method="post" class="d-inline" onsubmit="return confirm('Finalizar todos los sub-servicios?');">
-      <button class="btn btn-sm btn-success">Finalizar Cita</button>
+    <form action="{{ url_for('appointment_finish', id=appointment.id) }}" method="post" class="d-inline" onsubmit="return confirm('¿Finalizar cita y generar factura?');">
+      <button class="btn btn-sm btn-success">
+        <i class="bi bi-check-circle"></i> Finalizar Cita y Generar Factura
+      </button>
     </form>
   {% endif %}
-  {% if appointment.status != 'cancelled' %}
+  {% if appointment.status == 'pending' %}
     <form action="{{ url_for('appointment_cancel', id=appointment.id) }}" method="post" class="d-inline" onsubmit="return confirm('Cancelar cita y sub-servicios?');">
-      <button class="btn btn-sm btn-danger">Cancelar</button>
+      <button class="btn btn-sm btn-danger">
+        <i class="bi bi-x-circle"></i> Cancelar
+      </button>
     </form>
   {% endif %}
 </div>
@@ -26,11 +35,50 @@
         {% else %}<span class="badge bg-secondary">Pendiente</span>{% endif %}
       </div>
   <div class="col-md-2"><strong>Total:</strong><br>{{ (appointment.total_price or 0)|currency_co }}</div>
-  <div class="col-md-2"><strong>Programada:</strong><br>{% if appointment.scheduled_at %}{{ appointment.scheduled_at.strftime('%Y-%m-%d %H:%M') }}{% else %}<span class="text-muted">(No)</span>{% endif %}</div>
-  <div class="col-md-2"><strong>Creada:</strong><br>{{ appointment.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+  <div class="col-md-2"><strong>Factura:</strong><br>
+    {% if appointment.invoice_id %}
+      <a href="{{ url_for('invoice_view', id=appointment.invoice_id) }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-receipt"></i> Ver Factura
+      </a>
+    {% else %}
+      <span class="badge bg-warning text-dark">Pendiente</span>
+    {% endif %}
+  </div>
+  <div class="col-md-3"><strong>Programada:</strong><br>{% if appointment.scheduled_at %}{{ appointment.scheduled_at.strftime('%Y-%m-%d %H:%M') }}{% else %}<span class="text-muted">(No)</span>{% endif %}</div>
+  <div class="col-md-3"><strong>Creada:</strong><br>{{ appointment.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
     </div>
   </div>
 </div>
+
+<!-- Notas y Consentimiento Informado -->
+{% if appointment.description or appointment.consent_text %}
+<div class="card mb-3">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center">
+    <h6 class="mb-0"><i class="bi bi-file-text"></i> Notas y Consentimiento Informado</h6>
+    {% if appointment.consent_text %}
+    <button onclick="printConsent()" class="btn btn-sm btn-primary">
+      <i class="bi bi-printer"></i> Imprimir Consentimiento
+    </button>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% if appointment.description %}
+    <div class="mb-3">
+      <strong>Notas de la Cita:</strong>
+      <p class="mt-2 mb-0" style="white-space: pre-wrap;">{{ appointment.description }}</p>
+    </div>
+    {% endif %}
+    
+    {% if appointment.consent_text %}
+    <div id="consentSection">
+      <strong>Consentimiento Informado:</strong>
+      <div class="mt-2 p-3 border rounded bg-light" style="white-space: pre-wrap; font-family: 'Courier New', monospace;">{{ appointment.consent_text }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <h5>Sub-Servicios</h5>
 <table class="table table-sm table-striped align-middle">
   <thead>
@@ -58,4 +106,77 @@
   {% endfor %}
   </tbody>
 </table>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/**
+ * Imprime el consentimiento informado
+ */
+function printConsent() {
+    // Obtener datos de la cita
+    var appointmentId = {{ appointment.id }};
+    var petName = "{{ appointment.pet.name if appointment.pet else '' }}";
+    var customerName = "{{ appointment.customer.name if appointment.customer else '' }}";
+    var customerDocument = "{{ appointment.customer.document if appointment.customer else '' }}";
+    var consentText = {{ appointment.consent_text|tojson|safe }};
+    var scheduledDate = "{% if appointment.scheduled_at %}{{ appointment.scheduled_at.strftime('%d/%m/%Y %H:%M') }}{% else %}No programada{% endif %}";
+    var createdDate = "{{ appointment.created_at.strftime('%d/%m/%Y %H:%M') }}";
+    var businessName = "{{ setting.business_name }}";
+    var logoPath = "{{ url_for('static', filename='uploads/logo.png') }}";
+    
+    // Crear ventana de impresión
+    var printWindow = window.open('', '_blank', 'width=800,height=600');
+    
+    // Generar contenido HTML para imprimir
+    var printContent = '<!DOCTYPE html>' +
+        '<html lang="es">' +
+        '<head>' +
+        '<meta charset="UTF-8">' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+        '<title>Consentimiento Informado - Cita #' + appointmentId + '</title>' +
+        '<style>' +
+        'body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }' +
+        '.header { text-align: center; border-bottom: 2px solid #28a745; padding-bottom: 15px; margin-bottom: 20px; }' +
+        '.header-title { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px; }' +
+        '.header-title img { width: 50px; height: 50px; object-fit: contain; }' +
+        '.header h1 { color: #28a745; margin: 0; font-size: 24px; display: inline-block; }' +
+        '.header h2 { color: #666; margin: 5px 0 0 0; font-size: 16px; font-weight: normal; }' +
+        '.info-section { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }' +
+        '.info-row { margin-bottom: 8px; }' +
+        '.info-label { font-weight: bold; display: inline-block; width: 180px; }' +
+        '.consent-text { white-space: pre-wrap; line-height: 1.6; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #fff; font-size: 12px; }' +
+        '.footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 11px; }' +
+        '@media print { body { padding: 0; } .no-print { display: none; } }' +
+        '</style>' +
+        '</head>' +
+        '<body>' +
+        '<div class="header">' +
+        '<div class="header-title">' +
+        '<img src="' + logoPath + '" alt="Logo">' +
+        '<h1>' + businessName + ' - Animal Center</h1>' +
+        '</div>' +
+        '<h2>CONSENTIMIENTO INFORMADO</h2>' +
+        '</div>' +
+        '<div class="info-section">' +
+        '<div class="info-row"><span class="info-label">Cliente:</span><span>' + customerName + '</span></div>' +
+        '<div class="info-row"><span class="info-label">Documento:</span><span>' + customerDocument + '</span></div>' +
+        '<div class="info-row"><span class="info-label">Mascota:</span><span>' + petName + '</span></div>' +
+        '<div class="info-row"><span class="info-label">Fecha de Cita:</span><span>' + scheduledDate + '</span></div>' +
+        '</div>' +
+        '<div class="consent-text">' + consentText + '</div>' +
+        '<div class="footer">' +
+        '<p>Documento generado el ' + new Date().toLocaleString('es-CO') + '</p>' +
+        '<p>Green-POS Powered by HACC &copy; ' + new Date().getFullYear() + ' - Todos los derechos reservados</p>' +
+        '</div>' +
+        '<script>' +
+        'window.onload = function() { window.print(); };' +
+        '<\/script>' +
+        '</body>' +
+        '</html>';
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+}
+</script>
 {% endblock %}

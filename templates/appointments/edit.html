@@ -1,0 +1,237 @@
+{% extends 'layout.html' %}
+{% block title %}Editar Cita #{{ appointment.id }}{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('appointment_list') }}">Citas</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('appointment_view', id=appointment.id) }}">Cita #{{ appointment.id }}</a></li>
+    <li class="breadcrumb-item active">Editar</li>
+  </ol>
+</nav>
+
+<h1 class="h4 mb-4"><i class="bi bi-pencil-square"></i> Editar Cita #{{ appointment.id }}</h1>
+
+<form method="POST" action="{{ url_for('appointment_update', id=appointment.id) }}">
+  <div class="card mb-4">
+    <div class="card-header bg-light">
+      <h5 class="mb-0"><i class="bi bi-info-circle"></i> Información General</h5>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label"><strong>Cliente:</strong></label>
+          <p class="form-control-plaintext">{{ appointment.customer.name if appointment.customer else 'N/A' }}</p>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label"><strong>Mascota:</strong></label>
+          <p class="form-control-plaintext">{{ appointment.pet.name if appointment.pet else 'N/A' }}</p>
+        </div>
+        <div class="col-md-6">
+          <label for="technician" class="form-label">Técnico</label>
+          <input type="text" class="form-control" id="technician" name="technician" value="{{ appointment.technician or '' }}" maxlength="100">
+        </div>
+        <div class="col-md-6">
+          <label for="scheduled_at" class="form-label">Fecha Programada</label>
+          <input type="datetime-local" class="form-control" id="scheduled_at" name="scheduled_at" 
+                 value="{% if appointment.scheduled_at %}{{ appointment.scheduled_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header bg-light">
+      <h5 class="mb-0"><i class="bi bi-file-text"></i> Notas y Consentimiento</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="description" class="form-label">Notas de la Cita</label>
+        <textarea class="form-control" id="description" name="description" rows="4">{{ appointment.description or '' }}</textarea>
+        <div class="form-text">Información adicional sobre la cita, observaciones, etc.</div>
+      </div>
+      <div class="mb-3">
+        <label for="consent_text" class="form-label">Consentimiento Informado</label>
+        <textarea class="form-control" id="consent_text" name="consent_text" rows="6">{{ appointment.consent_text or '' }}</textarea>
+        <div class="form-text">Texto del consentimiento informado del cliente.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <h5 class="mb-0"><i class="bi bi-list-check"></i> Servicios</h5>
+      <button type="button" class="btn btn-sm btn-success" onclick="addService()">
+        <i class="bi bi-plus-circle"></i> Agregar Servicio
+      </button>
+    </div>
+    <div class="card-body">
+      <div id="services-container">
+        {% for service in appointment.services %}
+        <div class="service-item border rounded p-3 mb-3" data-service-id="{{ service.id }}">
+          <input type="hidden" name="service_ids[]" value="{{ service.id }}">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Tipo de Servicio <span class="text-danger">*</span></label>
+              <select class="form-select" name="service_types[]" required>
+                <option value="">Seleccionar...</option>
+                {% for st in service_types %}
+                <option value="{{ st.code }}" {% if st.code == service.service_type %}selected{% endif %}>
+                  {{ st.name }} - {{ st.pricing_mode_display }} ({{ st.base_price|currency_co }})
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Precio <span class="text-danger">*</span></label>
+              <input type="number" class="form-control" name="service_prices[]" 
+                     value="{{ service.price or 0 }}" min="0" step="0.01" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Estado</label>
+              <select class="form-select" name="service_statuses[]">
+                <option value="pending" {% if service.status == 'pending' %}selected{% endif %}>Pendiente</option>
+                <option value="done" {% if service.status == 'done' %}selected{% endif %}>Finalizado</option>
+                <option value="cancelled" {% if service.status == 'cancelled' %}selected{% endif %}>Cancelado</option>
+              </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button type="button" class="btn btn-danger w-100" onclick="removeService(this)">
+                <i class="bi bi-trash"></i> Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      
+      <div class="alert alert-info mt-3">
+        <i class="bi bi-info-circle"></i> El total se recalculará automáticamente al guardar.
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between">
+    <a href="{{ url_for('appointment_view', id=appointment.id) }}" class="btn btn-secondary">
+      <i class="bi bi-x-circle"></i> Cancelar
+    </a>
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-check-circle"></i> Guardar Cambios
+    </button>
+  </div>
+</form>
+
+<!-- Template para nuevos servicios -->
+<template id="service-template">
+  <div class="service-item border rounded p-3 mb-3">
+    <input type="hidden" name="service_ids[]" value="new">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Tipo de Servicio <span class="text-danger">*</span></label>
+        <select class="form-select" name="service_types[]" required>
+          <option value="">Seleccionar...</option>
+          {% for st in service_types %}
+          <option value="{{ st.code }}" data-price="{{ st.base_price }}">
+            {{ st.name }} - {{ st.pricing_mode_display }} ({{ st.base_price|currency_co }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Precio <span class="text-danger">*</span></label>
+        <input type="number" class="form-control" name="service_prices[]" 
+               value="0" min="0" step="0.01" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Estado</label>
+        <select class="form-select" name="service_statuses[]">
+          <option value="pending" selected>Pendiente</option>
+          <option value="done">Finalizado</option>
+          <option value="cancelled">Cancelado</option>
+        </select>
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button type="button" class="btn btn-danger w-100" onclick="removeService(this)">
+          <i class="bi bi-trash"></i> Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/**
+ * Agrega un nuevo servicio al formulario
+ */
+function addService() {
+    const template = document.getElementById('service-template');
+    const container = document.getElementById('services-container');
+    const clone = template.content.cloneNode(true);
+    
+    // Agregar event listener para actualizar precio automáticamente
+    const select = clone.querySelector('select[name="service_types[]"]');
+    const priceInput = clone.querySelector('input[name="service_prices[]"]');
+    
+    select.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption && selectedOption.dataset.price) {
+            priceInput.value = selectedOption.dataset.price;
+        }
+    });
+    
+    container.appendChild(clone);
+}
+
+/**
+ * Elimina un servicio del formulario
+ */
+function removeService(button) {
+    const serviceItem = button.closest('.service-item');
+    const serviceId = serviceItem.dataset.serviceId;
+    
+    if (serviceId) {
+        // Servicio existente - confirmar eliminación
+        if (confirm('¿Está seguro de eliminar este servicio? Esta acción no se puede deshacer.')) {
+            serviceItem.remove();
+        }
+    } else {
+        // Servicio nuevo - eliminar sin confirmar
+        serviceItem.remove();
+    }
+}
+
+// Actualizar precio automáticamente al cambiar tipo de servicio en servicios existentes
+document.addEventListener('DOMContentLoaded', function() {
+    const serviceSelects = document.querySelectorAll('select[name="service_types[]"]');
+    
+    serviceSelects.forEach(function(select, index) {
+        const priceInputs = document.querySelectorAll('input[name="service_prices[]"]');
+        const priceInput = priceInputs[index];
+        
+        select.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption && selectedOption.dataset.price) {
+                // Solo actualizar si el precio actual es 0 o no está definido
+                if (!priceInput.value || priceInput.value == '0') {
+                    priceInput.value = selectedOption.dataset.price;
+                }
+            }
+        });
+        
+        // Agregar data-price a las opciones si no existe
+        Array.from(select.options).forEach(option => {
+            if (option.value && !option.dataset.price) {
+                const priceMatch = option.textContent.match(/\$([\d,.]+)/);
+                if (priceMatch) {
+                    const priceStr = priceMatch[1].replace(/\./g, '').replace(',', '.');
+                    option.dataset.price = priceStr;
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
