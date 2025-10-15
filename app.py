@@ -1014,7 +1014,7 @@ def service_new():
     default_time_str = scheduled_base.strftime('%H:%M')
     
     return render_template(
-        'services/form.html',
+        'appointments/form.html',
         customers=customers,
         pets=pets,
         consent_template=default_consent,
@@ -1131,7 +1131,12 @@ def appointment_edit(id):
         return redirect(url_for('appointment_view', id=id))
     
     service_types = ServiceType.query.filter_by(active=True).order_by(ServiceType.name).all()
-    return render_template('appointments/edit.html', appointment=appointment, service_types=service_types)
+    return render_template(
+        'appointments/edit.html', 
+        appointment=appointment, 
+        service_types=service_types,
+        consent_template=CONSENT_TEMPLATE
+    )
 
 @app.route('/appointments/<int:id>/update', methods=['POST'])
 @login_required
@@ -1150,15 +1155,21 @@ def appointment_update(id):
         appointment.description = request.form.get('description', '').strip()
         appointment.consent_text = request.form.get('consent_text', '').strip()
         
-        # Actualizar fecha programada
-        scheduled_at_raw = request.form.get('scheduled_at', '').strip()
-        if scheduled_at_raw:
+        # Actualizar fecha programada (date + time separados)
+        scheduled_date_raw = request.form.get('scheduled_date', '').strip()
+        scheduled_time_raw = request.form.get('scheduled_time', '').strip()
+        scheduled_at = None
+        
+        if scheduled_date_raw:
             try:
-                appointment.scheduled_at = datetime.strptime(scheduled_at_raw, '%Y-%m-%dT%H:%M')
+                if scheduled_time_raw:
+                    scheduled_at = datetime.strptime(f"{scheduled_date_raw} {scheduled_time_raw}", '%Y-%m-%d %H:%M')
+                else:
+                    scheduled_at = datetime.strptime(scheduled_date_raw, '%Y-%m-%d')
             except ValueError:
-                appointment.scheduled_at = None
-        else:
-            appointment.scheduled_at = None
+                scheduled_at = None
+        
+        appointment.scheduled_at = scheduled_at
         
         # Procesar servicios
         service_ids = request.form.getlist('service_ids[]')
