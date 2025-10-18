@@ -103,9 +103,7 @@
                   <td>{{ a.customer.name if a.customer else '' }}</td>
                   <td>
                     {% if a.scheduled_at %}
-                      <span class="utc-time" data-utc="{{ a.scheduled_at.isoformat() }}">
-                        {{ a.scheduled_at|format_time_co }}
-                      </span>
+                      {{ a.scheduled_at.strftime('%H:%M') }}
                     {% else %}
                       <span class="text-muted">(No programada)</span>
                     {% endif %}
@@ -129,9 +127,17 @@
                     {% endif %}
                   </td>
                   <td>
-                    <a href="{{ url_for('appointment_view', id=a.id) }}" class="btn btn-sm btn-outline-primary">
-                      <i class="bi bi-eye"></i> Ver
+                    <a href="{{ url_for('appointment_view', id=a.id) }}" class="btn btn-sm btn-outline-primary" title="Ver detalles">
+                      <i class="bi bi-eye"></i>
                     </a>
+                    {% if a.customer and a.customer.phone %}
+                    <a href="https://wa.me/+57{{ a.customer.phone.replace(' ', '').replace('-', '') }}?text=Hola%20desde%20Pet%20Verde%20queremos%20confirmar%20la%20cita%20con%20nuestra%20groomer%20para%20{{ a.pet.name if a.pet else 'su mascota' }}" 
+                       class="btn btn-sm btn-outline-success" 
+                       target="_blank"
+                       title="Enviar WhatsApp">
+                      <i class="bi bi-whatsapp"></i>
+                    </a>
+                    {% endif %}
                   </td>
                 </tr>
                 {% endfor %}
@@ -190,16 +196,6 @@
                 day: 'numeric'
             };
             el.textContent = d.toLocaleDateString('es-ES', options);
-        });
-
-        // Formatear horas en zona horaria local
-        document.querySelectorAll('.utc-time').forEach(el => {
-            const iso = el.getAttribute('data-utc');
-            if (!iso) return;
-
-            // La conversión ya se hace en el servidor con format_time_co
-            // El elemento ya tiene la hora correcta de Colombia
-            return;
         });
     });
 </script>

@@ -1108,20 +1108,16 @@ def appointment_list():
     
     appointments = q.all()
     
-    # Agrupar citas por fecha local (Colombia)
+    # Agrupar citas por fecha (sin conversión de zona horaria)
+    # Las citas se programan y guardan en hora local, por lo que no necesitan conversión
     appointments_by_date = {}
     
     for appointment in appointments:
         # Usar scheduled_at si existe, sino created_at
         date_to_use = appointment.scheduled_at if appointment.scheduled_at else appointment.created_at
         
-        # Asegurarse de que la fecha sea aware si no lo es
-        if date_to_use.tzinfo is None:
-            date_to_use = date_to_use.replace(tzinfo=timezone.utc)
-        
-        # Convertir la fecha UTC a hora local de Colombia
-        local_date = date_to_use.astimezone(CO_TZ)
-        date_str = local_date.strftime('%Y-%m-%d')
+        # Extraer solo la fecha (sin conversión de zona horaria)
+        date_str = date_to_use.strftime('%Y-%m-%d')
         
         if date_str not in appointments_by_date:
             appointments_by_date[date_str] = []
