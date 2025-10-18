@@ -103,7 +103,7 @@
                   <td>{{ a.customer.name if a.customer else '' }}</td>
                   <td>
                     {% if a.scheduled_at %}
-                      {{ a.scheduled_at.strftime('%H:%M') }}
+                      {{ a.scheduled_at.strftime('%I:%M %p') }}
                     {% else %}
                       <span class="text-muted">(No programada)</span>
                     {% endif %}
@@ -131,10 +131,10 @@
                       <i class="bi bi-eye"></i>
                     </a>
                     {% if a.customer and a.customer.phone %}
-                    <a href="https://wa.me/+57{{ a.customer.phone.replace(' ', '').replace('-', '') }}?text=Hola%20desde%20Pet%20Verde%20queremos%20confirmar%20la%20cita%20con%20nuestra%20groomer%20para%20{{ a.pet.name if a.pet else 'su mascota' }}" 
+                    <a href="https://wa.me/+57{{ a.customer.phone.replace(' ', '').replace('-', '') }}?text=🐾%20Hola%20{{ a.customer.name.split()[0] if a.customer.name else '' }}!%0ATe%20saludamos%20desde%20*Pet%20Verde*%20💚%0A%0AQueremos%20confirmar%20la%20cita%20de%20grooming%20para%20*{{ a.pet.name if a.pet else 'tu%20mascota' }}*%0A%0A📅%20Fecha:%20{{ a.scheduled_at.strftime('%d/%m/%Y') if a.scheduled_at else 'Por%20confirmar' }}%0A🕐%20Hora:%20{{ a.scheduled_at.strftime('%I:%M%20%p') if a.scheduled_at else 'Por%20confirmar' }}%0A%0A¿Podrías%20confirmarnos%20tu%20asistencia?%20🙏%0A%0A¡Gracias%20por%20preferirnos!%20🐶✨" 
                        class="btn btn-sm btn-outline-success" 
                        target="_blank"
-                       title="Enviar WhatsApp">
+                       title="Confirmar cita por WhatsApp">
                       <i class="bi bi-whatsapp"></i>
                     </a>
                     {% endif %}
