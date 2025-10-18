@@ -136,7 +136,7 @@
                     {% set pet_name = a.pet.name if a.pet else 'tu mascota' %}
                     {% set fecha = a.scheduled_at.strftime('%d/%m/%Y') if a.scheduled_at else 'Por confirmar' %}
                     {% set hora = a.scheduled_at.strftime('%I:%M %p') if a.scheduled_at else 'Por confirmar' %}
-                    {% set mensaje = '🐾 Hola ' ~ first_name ~ '!%0ATe saludamos desde *Pet Verde* 💚%0A%0ARecuerda la cita con nuestra groomer para *' ~ pet_name ~ '*%0A%0A📅  ' ~ fecha ~ '%0A🕐 Hora: ' ~ hora ~ '%0A%0A¡Gracias por preferirnos! 🐶✨' %}
+                    {% set mensaje = 'Hola ' ~ first_name ~ '!%0ATe saludamos desde *Pet Verde*%0A%0ARecuerda la cita con nuestra groomer para *' ~ pet_name ~ '*%0A%0AFecha: ' ~ fecha ~ '%0AHora: ' ~ hora ~ '%0A%0AGracias por preferirnos!' %}
                     <a href="https://wa.me/+57{{ phone_clean }}?text={{ mensaje }}" 
                        class="btn btn-sm btn-outline-success" 
                        target="_blank"
