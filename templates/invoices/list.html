@@ -67,6 +67,14 @@
                             <small class="text-muted ms-2">
                                 ({{ invoices|length }} venta{{ 's' if invoices|length != 1 }})
                                 <span class="ms-2">Total: {{ invoices|sum(attribute='total')|currency_co }}</span>
+                                {% set efectivo = invoices|selectattr('payment_method', 'equalto', 'cash')|sum(attribute='total') %}
+                                {% set transferencia = invoices|selectattr('payment_method', 'equalto', 'transfer')|sum(attribute='total') %}
+                                {% if efectivo > 0 %}
+                                <span class="ms-2 text-success">💵 Efectivo: {{ efectivo|currency_co }}</span>
+                                {% endif %}
+                                {% if transferencia > 0 %}
+                                <span class="ms-2 text-primary">💳 Transferencias: {{ transferencia|currency_co }}</span>
+                                {% endif %}
                             </small>
                         </span>
                     </button>
