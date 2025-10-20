@@ -6,7 +6,7 @@ from flask import Flask, render_template, redirect, url_for, request, flash, jso
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models.models import (
     db, Product, Customer, Invoice, InvoiceItem, Setting, User, 
-    Pet, PetService, ServiceType, Appointment
+    Pet, PetService, ServiceType, Appointment, ProductStockLog
 )
 from sqlalchemy import func, or_
 from datetime import datetime, timezone, timedelta
@@ -362,7 +362,36 @@ def product_edit(id):
         product.description = request.form.get('description', '')
         product.purchase_price = float(request.form.get('purchase_price', 0))
         product.sale_price = float(request.form['sale_price'])
-        product.stock = int(request.form.get('stock', 0))
+        
+        # Manejo de cambios en el stock con trazabilidad
+        new_stock = int(request.form.get('stock', 0))
+        old_stock = product.stock
+        
+        if new_stock != old_stock:
+            # Requiere razón del cambio si hay diferencia en stock
+            reason = request.form.get('stock_reason', '').strip()
+            
+            if not reason:
+                flash('Debe proporcionar una razón para el cambio en las existencias', 'warning')
+                return render_template('products/form.html', product=product)
+            
+            # Calcular diferencia y tipo de movimiento
+            quantity_diff = new_stock - old_stock
+            movement_type = 'addition' if quantity_diff > 0 else 'subtraction'
+            
+            # Crear log de movimiento
+            stock_log = ProductStockLog(
+                product_id=product.id,
+                user_id=current_user.id,
+                quantity=abs(quantity_diff),
+                movement_type=movement_type,
+                reason=reason,
+                previous_stock=old_stock,
+                new_stock=new_stock
+            )
+            db.session.add(stock_log)
+        
+        product.stock = new_stock
         product.category = request.form.get('category', '')
         
         db.session.commit()
@@ -387,6 +416,19 @@ def product_delete(id):
     
     flash('Producto eliminado exitosamente', 'success')
     return redirect(url_for('product_list'))
+
+@app.route('/products/<int:id>/stock-history')
+@login_required
+def product_stock_history(id):
+    """Ver historial de movimientos de inventario de un producto"""
+    product = Product.query.get_or_404(id)
+    
+    # Obtener todos los logs del producto, ordenados por fecha descendente
+    logs = ProductStockLog.query.filter_by(product_id=id)\
+        .order_by(ProductStockLog.created_at.desc())\
+        .all()
+    
+    return render_template('products/stock_history.html', product=product, logs=logs)
 
 # Customer routes
 @app.route('/customers')

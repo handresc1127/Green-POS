@@ -273,3 +273,23 @@ class User(UserMixin, db.Model):
                 user.set_password(p)
                 db.session.add(user)
             db.session.commit()
+
+class ProductStockLog(db.Model):
+    """Registro de movimientos de inventario (ingresos y egresos)"""
+    __tablename__ = 'product_stock_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    quantity = db.Column(db.Integer, nullable=False)  # Positivo para ingreso, negativo para egreso
+    movement_type = db.Column(db.String(20), nullable=False)  # 'addition' o 'subtraction'
+    reason = db.Column(db.Text, nullable=False)
+    previous_stock = db.Column(db.Integer, nullable=False)
+    new_stock = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    product = db.relationship('Product', backref='stock_logs')
+    user = db.relationship('User')
+    
+    def __repr__(self):
+        return f"<ProductStockLog {self.id} product={self.product_id} qty={self.quantity}>"

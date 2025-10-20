@@ -138,14 +138,22 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
-                                        <a href="{{ url_for('product_edit', id=product.id) }}" class="btn btn-outline-primary">
+                                        <a href="{{ url_for('product_stock_history', id=product.id) }}" 
+                                           class="btn btn-outline-info" 
+                                           title="Ver historial de inventario">
+                                            <i class="bi bi-clock-history"></i>
+                                        </a>
+                                        <a href="{{ url_for('product_edit', id=product.id) }}" 
+                                           class="btn btn-outline-primary"
+                                           title="Editar producto">
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <button type="button" class="btn btn-outline-danger" 
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#deleteModal" 
                                                 data-id="{{ product.id }}"
-                                                data-name="{{ product.name }}">
+                                                data-name="{{ product.name }}"
+                                                title="Eliminar producto">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </div>

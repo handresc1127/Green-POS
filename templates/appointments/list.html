@@ -86,12 +86,12 @@
                 <tr>
                   <th>ID</th>
                   <th>Mascota</th>
+                  <th>Raza</th>
                   <th>Cliente</th>
                   <th>Hora</th>
                   <th>Servicios</th>
                   <th>Total</th>
-                  <th>Estado</th>
-                  <th>Factura</th>
+
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -100,6 +100,9 @@
                 <tr>
                   <td>{{ a.id }}</td>
                   <td>{{ a.pet.name if a.pet else '' }}</td>
+                  <td>
+                    <small class="text-muted">{{ a.pet.breed if (a.pet and a.pet.breed) else '-' }}</small>
+                  </td>
                   <td>{{ a.customer.name if a.customer else '' }}</td>
                   <td>
                     {% if a.scheduled_at %}
@@ -110,23 +113,10 @@
                   </td>
                   <td>{{ a.services|length }}</td>
                   <td>{{ (a.total_price or 0)|currency_co }}</td>
+
                   <td>
-                    {% if a.status=='done' %}<span class="badge bg-success">Finalizada</span>
-                    {% elif a.status=='cancelled' %}<span class="badge bg-danger">Cancelada</span>
-                    {% else %}<span class="badge bg-secondary">Pendiente</span>{% endif %}
-                  </td>
-                  <td>
-                    {% if a.invoice_id %}
-                      <a href="{{ url_for('invoice_view', id=a.invoice_id) }}" class="text-decoration-none" title="Ver factura">
-                        <i class="bi bi-receipt-cutoff text-success"></i>
-                      </a>
-                    {% else %}
-                      <span class="text-muted" title="Sin factura">
-                        <i class="bi bi-hourglass-split"></i>
-                      </span>
-                    {% endif %}
-                  </td>
-                  <td>
+                    
+                  
                     <a href="{{ url_for('appointment_view', id=a.id) }}" class="btn btn-sm btn-outline-primary" title="Ver detalles">
                       <i class="bi bi-eye"></i>
                     </a>
@@ -144,6 +134,28 @@
                       <i class="bi bi-whatsapp"></i>
                     </a>
                     {% endif %}
+
+                    {% if a.invoice_id %}
+                      <a href="{{ url_for('invoice_view', id=a.invoice_id) }}" 
+                         class="btn btn-sm btn-outline-success" 
+                         title="Ver factura">
+                        <i class="bi bi-receipt-cutoff"></i>
+                      </a>
+                    {% else %}
+                      <span class="btn btn-sm btn-outline-secondary disabled" 
+                            title="Sin factura">
+                        <i class="bi bi-hourglass-split"></i>
+                      </span>
+                    {% endif %}
+
+                    {% if a.status=='done' %}
+                      <i class="bi bi-check-circle-fill text-success" title="Finalizada"></i>
+                    {% elif a.status=='cancelled' %}
+                      <i class="bi bi-x-circle-fill text-danger" title="Cancelada"></i>
+                    {% else %}
+                      <i class="bi bi-hourglass-split text-secondary" title="Pendiente"></i>
+                    {% endif %}
+
                   </td>
                 </tr>
                 {% endfor %}

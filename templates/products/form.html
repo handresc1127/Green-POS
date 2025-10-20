@@ -47,8 +47,26 @@
                 <div class="col-md-4 mb-3">
                     <label for="stock" class="form-label">Existencias</label>
                     <input type="number" id="stock" name="stock" class="form-control" min="0" 
-                           value="{{ product.stock if product else 0 }}">
+                           value="{{ product.stock if product else 0 }}"
+                           {% if product %}onchange="toggleStockReason()"{% endif %}>
                 </div>
+                
+                {% if product %}
+                <div class="col-md-12 mb-3" id="stock-reason-container" style="display: none;">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        <strong>Cambio en existencias detectado</strong>
+                    </div>
+                    <label for="stock_reason" class="form-label">
+                        <i class="bi bi-journal-text"></i> Razón del cambio en existencias *
+                    </label>
+                    <textarea id="stock_reason" name="stock_reason" class="form-control" rows="2" 
+                              placeholder="Ej: Nueva compra factura #1234 del proveedor Italcol - 20/10/2025&#10;Ej: Producto destapado para venta a granel&#10;Ej: Ajuste de inventario por conteo físico"></textarea>
+                    <small class="form-text text-muted">
+                        Este cambio quedará registrado en el historial de movimientos del producto.
+                    </small>
+                </div>
+                {% endif %}
                 
                 <div class="col-md-6 mb-3">
                     <label for="category" class="form-label">Categoría</label>
@@ -74,4 +92,40 @@
         </form>
     </div>
 </div>
+
+{% if product %}
+<script>
+    const originalStock = {{ product.stock if product else 0 }};
+    
+    function toggleStockReason() {
+        const stockInput = document.getElementById('stock');
+        const reasonContainer = document.getElementById('stock-reason-container');
+        const reasonTextarea = document.getElementById('stock_reason');
+        const currentStock = parseInt(stockInput.value) || 0;
+        
+        if (currentStock !== originalStock) {
+            reasonContainer.style.display = 'block';
+            reasonTextarea.required = true;
+        } else {
+            reasonContainer.style.display = 'none';
+            reasonTextarea.required = false;
+            reasonTextarea.value = '';
+        }
+    }
+    
+    // Validación del formulario
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const stockInput = document.getElementById('stock');
+        const reasonTextarea = document.getElementById('stock_reason');
+        const currentStock = parseInt(stockInput.value) || 0;
+        
+        if (currentStock !== originalStock && !reasonTextarea.value.trim()) {
+            e.preventDefault();
+            alert('Por favor, proporcione una razón para el cambio en las existencias.');
+            reasonTextarea.focus();
+            return false;
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}
