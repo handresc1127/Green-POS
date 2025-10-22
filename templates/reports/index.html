@@ -1,0 +1,641 @@
+{% extends "layout.html" %}
+
+{% block title %}Reportes de Ventas{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Animación para iconos de colapso */
+  .btn-link[aria-expanded="true"] .bi-chevron-down {
+    transform: rotate(180deg);
+    transition: transform 0.3s ease;
+  }
+  
+  .btn-link[aria-expanded="false"] .bi-chevron-down {
+    transform: rotate(0deg);
+    transition: transform 0.3s ease;
+  }
+  
+  /* Hover effect en headers colapsables */
+  .card-header .btn-link:hover {
+    opacity: 0.8;
+  }
+  
+  /* Canvas del gráfico */
+  .chart-container {
+    position: relative;
+    height: 300px;
+    margin-bottom: 20px;
+  }
+  
+  /* Estilo de impresión */
+  @media print {
+    .card-header .btn-link .bi-chevron-down {
+      display: none;
+    }
+    
+    .collapse {
+      display: block !important;
+      height: auto !important;
+    }
+    
+    .btn-primary, .btn-outline-secondary {
+      display: none;
+    }
+    
+    .chart-container {
+      height: 250px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
+    <li class="breadcrumb-item active">Reportes</li>
+  </ol>
+</nav>
+
+<!-- Título y filtro de fechas -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2><i class="bi bi-graph-up-arrow me-2"></i>Reportes de Ventas</h2>
+</div>
+
+<!-- Formulario de filtro de fechas -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" action="{{ url_for('reports') }}" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label for="start_date" class="form-label">Fecha Inicio</label>
+        <input type="date" class="form-control" id="start_date" name="start_date" 
+               value="{{ start_date.strftime('%Y-%m-%d') }}" required>
+      </div>
+      <div class="col-md-4">
+        <label for="end_date" class="form-label">Fecha Fin</label>
+        <input type="date" class="form-control" id="end_date" name="end_date" 
+               value="{{ end_date.strftime('%Y-%m-%d') }}" required>
+      </div>
+      <div class="col-md-4">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-funnel me-1"></i> Filtrar
+        </button>
+        <a href="{{ url_for('reports') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-clockwise me-1"></i> Resetear
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Período seleccionado -->
+<div class="alert alert-info mb-4">
+  <i class="bi bi-calendar-range me-2"></i>
+  <strong>Período:</strong> {{ start_date.strftime('%d/%m/%Y') }} - {{ end_date.strftime('%d/%m/%Y') }}
+  ({{ (end_date - start_date).days + 1 }} días)
+</div>
+
+<!-- Métricas principales (cards) -->
+<div class="row mb-4">
+  <!-- Número de ventas -->
+  <div class="col-md-3 mb-3">
+    <div class="card border-primary">
+      <div class="card-body text-center">
+        <i class="bi bi-receipt-cutoff text-primary" style="font-size: 2rem;"></i>
+        <h3 class="mt-2 mb-0">{{ total_invoices }}</h3>
+        <p class="text-muted mb-0">Ventas Realizadas</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Total de ingresos -->
+  <div class="col-md-3 mb-3">
+    <div class="card border-success">
+      <div class="card-body text-center">
+        <i class="bi bi-cash-stack text-success" style="font-size: 2rem;"></i>
+        <h3 class="mt-2 mb-0">{{ total_revenue|currency_co }}</h3>
+        <p class="text-muted mb-0">Ingresos Totales</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Utilidades -->
+  <div class="col-md-3 mb-3">
+    <div class="card border-info">
+      <div class="card-body text-center">
+        <i class="bi bi-graph-up text-info" style="font-size: 2rem;"></i>
+        <h3 class="mt-2 mb-0">{{ total_profit|currency_co }}</h3>
+        <p class="text-muted mb-0">Utilidades</p>
+        <small class="text-muted">({{ "%.1f"|format(profit_margin) }}% margen)</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticket promedio -->
+  <div class="col-md-3 mb-3">
+    <div class="card border-warning">
+      <div class="card-body text-center">
+        <i class="bi bi-calculator text-warning" style="font-size: 2rem;"></i>
+        <h3 class="mt-2 mb-0">{{ avg_ticket|currency_co }}</h3>
+        <p class="text-muted mb-0">Ticket Promedio</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Segunda fila de métricas -->
+<div class="row mb-4">
+  <!-- Valor inventario -->
+  <div class="col-md-4 mb-3">
+    <div class="card">
+      <div class="card-body text-center">
+        <i class="bi bi-boxes text-secondary" style="font-size: 2rem;"></i>
+        <h4 class="mt-2 mb-0">{{ inventory_value|currency_co }}</h4>
+        <p class="text-muted mb-0">Valor Inventario (costo)</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Potencial de ventas -->
+  <div class="col-md-4 mb-3">
+    <div class="card">
+      <div class="card-body text-center">
+        <i class="bi bi-cart-check text-secondary" style="font-size: 2rem;"></i>
+        <h4 class="mt-2 mb-0">{{ inventory_potential|currency_co }}</h4>
+        <p class="text-muted mb-0">Potencial de Ventas</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Productos con stock bajo -->
+  <div class="col-md-4 mb-3">
+    <div class="card border-danger">
+      <div class="card-body text-center">
+        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+        <h4 class="mt-2 mb-0">{{ low_stock_products|length }}</h4>
+        <p class="text-muted mb-0">Productos con Stock Bajo</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Análisis por método de pago -->
+{% if payment_methods %}
+<div class="card mb-4">
+  <div class="card-header bg-light">
+    <h5 class="mb-0">
+      <button class="btn btn-link text-decoration-none text-dark w-100 text-start d-flex justify-content-between align-items-center p-0" 
+              type="button" 
+              data-bs-toggle="collapse" 
+              data-bs-target="#collapsePaymentMethods">
+        <span><i class="bi bi-credit-card me-2"></i>Ventas por Método de Pago</span>
+        <i class="bi bi-chevron-down"></i>
+      </button>
+    </h5>
+  </div>
+  <div class="collapse show" id="collapsePaymentMethods">
+    <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Método de Pago</th>
+            <th class="text-end">Cantidad</th>
+            <th class="text-end">Total</th>
+            <th class="text-end">Porcentaje</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pm in payment_methods %}
+          <tr>
+            <td>
+              {% if pm.method == 'cash' %}
+                <i class="bi bi-cash text-success"></i> Efectivo
+              {% elif pm.method == 'card' %}
+                <i class="bi bi-credit-card text-primary"></i> Tarjeta
+              {% elif pm.method == 'transfer' %}
+                <i class="bi bi-bank text-info"></i> Transferencia
+              {% else %}
+                <i class="bi bi-shuffle text-warning"></i> Mixto
+              {% endif %}
+            </td>
+            <td class="text-end">{{ pm.count }}</td>
+            <td class="text-end">{{ pm.total|currency_co }}</td>
+            <td class="text-end">
+              <span class="badge bg-secondary">{{ "%.1f"|format(pm.percentage) }}%</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Horas pico de ventas -->
+{% if peak_hours %}
+<div class="card mb-4">
+  <div class="card-header bg-light">
+    <h5 class="mb-0">
+      <button class="btn btn-link text-decoration-none text-dark w-100 text-start d-flex justify-content-between align-items-center p-0" 
+              type="button" 
+              data-bs-toggle="collapse" 
+              data-bs-target="#collapsePeakHours">
+        <span>
+          <i class="bi bi-clock-history me-2"></i>Análisis de Ventas por Hora
+          <small class="text-muted ms-2">({{ peak_hours|length }} horas con ventas)</small>
+        </span>
+        <i class="bi bi-chevron-down"></i>
+      </button>
+    </h5>
+  </div>
+  <div class="collapse show" id="collapsePeakHours">
+    <div class="card-body">
+    
+    <!-- Gráfico de barras -->
+    <div class="chart-container mb-4">
+      <canvas id="peakHoursChart"></canvas>
+    </div>
+    
+    <!-- Tabla de datos -->
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th class="text-end">Cantidad de Ventas</th>
+            <th class="text-end">Total Vendido</th>
+            <th class="text-end">Ticket Promedio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for hour in peak_hours %}
+          <tr>
+            <td><i class="bi bi-clock me-1"></i> {{ hour.hour }}</td>
+            <td class="text-end">
+              <span class="badge bg-primary">{{ hour.count }}</span>
+            </td>
+            <td class="text-end">{{ hour.total|currency_co }}</td>
+            <td class="text-end">{{ hour.avg|currency_co }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Productos más vendidos -->
+{% if top_products %}
+<div class="card mb-4">
+  <div class="card-header bg-light">
+    <h5 class="mb-0">
+      <button class="btn btn-link text-decoration-none text-dark w-100 text-start d-flex justify-content-between align-items-center p-0" 
+              type="button" 
+              data-bs-toggle="collapse" 
+              data-bs-target="#collapseTopProducts">
+        <span><i class="bi bi-trophy me-2"></i>Productos Más Vendidos (Top 10)</span>
+        <i class="bi bi-chevron-down"></i>
+      </button>
+    </h5>
+  </div>
+  <div class="collapse show" id="collapseTopProducts">
+    <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Código</th>
+            <th>Producto</th>
+            <th class="text-end">Cantidad Vendida</th>
+            <th class="text-end">Ingresos Generados</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for prod in top_products %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td><span class="badge bg-secondary">{{ prod.code }}</span></td>
+            <td>{{ prod.name }}</td>
+            <td class="text-end">
+              <strong>{{ prod.quantity }}</strong> unidades
+            </td>
+            <td class="text-end text-success">{{ prod.revenue|currency_co }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Productos con stock bajo -->
+{% if low_stock_products %}
+<div class="card mb-4">
+  <div class="card-header bg-light border-danger">
+    <h5 class="mb-0 text-danger">
+      <button class="btn btn-link text-decoration-none text-danger w-100 text-start d-flex justify-content-between align-items-center p-0" 
+              type="button" 
+              data-bs-toggle="collapse" 
+              data-bs-target="#collapseLowStock">
+        <span><i class="bi bi-exclamation-triangle-fill me-2"></i>Productos con Stock Bajo (< 10 unidades)</span>
+        <i class="bi bi-chevron-down"></i>
+      </button>
+    </h5>
+  </div>
+  <div class="collapse show" id="collapseLowStock">
+    <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Producto</th>
+            <th class="text-end">Stock Actual</th>
+            <th class="text-end">Precio Venta</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for prod in low_stock_products %}
+          <tr>
+            <td><span class="badge bg-secondary">{{ prod.code }}</span></td>
+            <td>{{ prod.name }}</td>
+            <td class="text-end">
+              <span class="badge {% if prod.stock == 0 %}bg-danger{% elif prod.stock < 5 %}bg-warning{% else %}bg-info{% endif %}">
+                {{ prod.stock }}
+              </span>
+            </td>
+            <td class="text-end">{{ prod.sale_price|currency_co }}</td>
+            <td>
+              <a href="{{ url_for('product_edit', id=prod.id) }}" 
+                 class="btn btn-sm btn-outline-primary" 
+                 title="Editar producto">
+                <i class="bi bi-pencil-square"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Últimas facturas del período -->
+{% if invoices %}
+<div class="card mb-4">
+  <div class="card-header bg-light">
+    <h5 class="mb-0">
+      <button class="btn btn-link text-decoration-none text-dark w-100 text-start d-flex justify-content-between align-items-center p-0" 
+              type="button" 
+              data-bs-toggle="collapse" 
+              data-bs-target="#collapseInvoices">
+        <span><i class="bi bi-list-ul me-2"></i>Últimas Facturas del Período (20 más recientes)</span>
+        <i class="bi bi-chevron-down"></i>
+      </button>
+    </h5>
+  </div>
+  <div class="collapse" id="collapseInvoices">
+    <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Fecha</th>
+            <th>Cliente</th>
+            <th class="text-end">Total</th>
+            <th>Método</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for invoice in invoices %}
+          <tr>
+            <td><span class="badge bg-primary">{{ invoice.number }}</span></td>
+            <td>
+              <small>{{ invoice.date.astimezone(CO_TZ).strftime('%d/%m/%Y %I:%M %p') }}</small>
+            </td>
+            <td>{{ invoice.customer.name }}</td>
+            <td class="text-end text-success"><strong>{{ invoice.total|currency_co }}</strong></td>
+            <td>
+              {% if invoice.payment_method == 'cash' %}
+                <i class="bi bi-cash text-success" title="Efectivo"></i>
+              {% elif invoice.payment_method == 'card' %}
+                <i class="bi bi-credit-card text-primary" title="Tarjeta"></i>
+              {% elif invoice.payment_method == 'transfer' %}
+                <i class="bi bi-bank text-info" title="Transferencia"></i>
+              {% else %}
+                <i class="bi bi-shuffle text-warning" title="Mixto"></i>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('invoice_view', id=invoice.id) }}" 
+                 class="btn btn-sm btn-outline-primary" 
+                 title="Ver detalle">
+                <i class="bi bi-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Mensaje si no hay datos -->
+{% if total_invoices == 0 %}
+<div class="alert alert-warning text-center">
+  <i class="bi bi-info-circle me-2"></i>
+  No se encontraron ventas en el período seleccionado.
+</div>
+{% endif %}
+
+<!-- Botones de acción -->
+<div class="d-flex justify-content-between mt-4">
+  <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i> Volver al Inicio
+  </a>
+  
+  <button type="button" class="btn btn-primary" onclick="window.print()">
+    <i class="bi bi-printer me-1"></i> Imprimir Reporte
+  </button>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+// Gráfico de Horas Pico
+{% if peak_hours %}
+document.addEventListener('DOMContentLoaded', function() {
+  const ctx = document.getElementById('peakHoursChart');
+  
+  // Datos del gráfico
+  const hoursData = [{% for hour in peak_hours %}{{ hour.total }}{% if not loop.last %}, {% endif %}{% endfor %}];
+  const maxValue = Math.max(...hoursData);
+  
+  // Generar colores dinámicos basados en el valor (más oscuro = más ventas)
+  const backgroundColors = hoursData.map(value => {
+    if (value === 0) return 'rgba(220, 220, 220, 0.3)'; // Gris claro para sin ventas
+    const intensity = value / maxValue;
+    const r = Math.floor(54 + (200 - 54) * (1 - intensity));
+    const g = Math.floor(162 + (50 - 162) * (1 - intensity));
+    const b = Math.floor(235 + (50 - 235) * (1 - intensity));
+    return `rgba(${r}, ${g}, ${b}, 0.7)`;
+  });
+  
+  const borderColors = hoursData.map(value => {
+    if (value === 0) return 'rgba(180, 180, 180, 0.5)';
+    const intensity = value / maxValue;
+    const r = Math.floor(54 + (200 - 54) * (1 - intensity));
+    const g = Math.floor(162 + (50 - 162) * (1 - intensity));
+    const b = Math.floor(235 + (50 - 235) * (1 - intensity));
+    return `rgba(${r}, ${g}, ${b}, 1)`;
+  });
+  
+  const peakHoursData = {
+    labels: [{% for hour in peak_hours %}'{{ hour.hour }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+    datasets: [{
+      label: 'Total Vendido',
+      data: hoursData,
+      backgroundColor: backgroundColors,
+      borderColor: borderColors,
+      borderWidth: 2,
+      borderRadius: 4,
+      hoverBackgroundColor: borderColors
+    }]
+  };
+  
+  // Configuración del gráfico
+  const config = {
+    type: 'bar',
+    data: peakHoursData,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        title: {
+          display: true,
+          text: 'Distribución de Ventas por Hora del Día',
+          font: {
+            size: 16,
+            weight: 'bold'
+          },
+          padding: {
+            bottom: 20
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const index = context.dataIndex;
+              const count = [{% for hour in peak_hours %}{{ hour.count }}{% if not loop.last %}, {% endif %}{% endfor %}][index];
+              const total = context.parsed.y;
+              const avg = count > 0 ? total / count : 0;
+              
+              return [
+                'Total: ' + new Intl.NumberFormat('es-CO', {
+                  style: 'currency',
+                  currency: 'COP',
+                  minimumFractionDigits: 0
+                }).format(total),
+                'Ventas: ' + count,
+                'Promedio: ' + new Intl.NumberFormat('es-CO', {
+                  style: 'currency',
+                  currency: 'COP',
+                  minimumFractionDigits: 0
+                }).format(avg)
+              ];
+            }
+          },
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          titleFont: {
+            size: 14,
+            weight: 'bold'
+          },
+          bodyFont: {
+            size: 13
+          },
+          padding: 12,
+          cornerRadius: 8,
+          displayColors: false
+        }
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Hora del Día (formato 24h)',
+            font: {
+              size: 14,
+              weight: 'bold'
+            }
+          },
+          grid: {
+            display: false
+          },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: {
+              size: 10
+            }
+          }
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Total Vendido (COP)',
+            font: {
+              size: 14,
+              weight: 'bold'
+            }
+          },
+          ticks: {
+            callback: function(value) {
+              // Formatear eje Y como moneda compacta
+              if (value >= 1000000) {
+                return '$' + (value / 1000000).toFixed(1) + 'M';
+              } else if (value >= 1000) {
+                return '$' + (value / 1000).toFixed(0) + 'K';
+              }
+              return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+              }).format(value);
+            }
+          }
+        }
+      },
+      animation: {
+        duration: 1200,
+        easing: 'easeInOutQuart'
+      }
+    }
+  };
+  
+  // Crear el gráfico
+  new Chart(ctx, config);
+});
+{% endif %}
+</script>
+{% endblock %}

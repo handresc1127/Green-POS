@@ -57,6 +57,14 @@ cd Green-POS
 - Productos con bajo stock
 - Ventas recientes
 - Contadores de inventario y clientes
+- **Módulo de reportes avanzados con análisis de:**
+  * Número de ventas y ingresos en período
+  * Cálculo de utilidades y margen de ganancia
+  * Análisis por método de pago
+  * Horas pico de ventas
+  * Top 10 productos más vendidos
+  * Estado de inventario y stock bajo
+  * Filtros de fecha personalizables
 
 ### 🔐 Seguridad y Roles
 - Sistema de autenticación robusto
@@ -168,6 +176,8 @@ Green-POS/
 │   │   ├── list.html           # Listado de facturas
 │   │   ├── form.html           # (Ingreso manual de venta si aplica)
 │   │   └── view.html           # Vista/imprimible de factura (con IDs semánticos)
+│   ├── reports/
+│   │   └── index.html          # Módulo de reportes con métricas y análisis
 │   └── settings/
 │       └── form.html           # Configuración (logo, datos empresa, IVA, etc.)
 └── instance/                   # (Si existe) configuración/BD local (Flask instance folder)
@@ -224,10 +234,10 @@ Se recomienda integrar una herramienta (Flask-Migrate) para entornos productivos
 
 ## Próximas Mejoras
 
-- Exportar facturas a PDF
+- Exportar reportes a PDF/Excel
 - Integración con facturación electrónica (DIAN)
 - Módulo de compras / ingreso de inventario
-- Reportes avanzados y gráficos interactivos
+- Gráficos interactivos en reportes
 - Agenda diaria y vista calendario para citas
 - Anulación / reimpresión auditada de facturas
 - Control de caja (apertura / cierre)

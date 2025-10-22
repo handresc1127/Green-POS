@@ -1544,6 +1544,7 @@ def api_dashboard_stats():
 - `/appointments/<id>/edit` - Edición de cita
 - `/appointments/<id>/finish` - Finalizar y generar factura
 - `/services/types/config` - Configuración de tipos de servicio
+- `/reports` - **Módulo de reportes y análisis de ventas** (nuevo)
 - `/settings` - Configuración del negocio (admin only)
 
 ### Rutas de Impresión
@@ -2186,6 +2187,25 @@ Testing:
 - Citas agrupadas con conteo de servicios
 - Expandir/colapsar acordeones
 - Primera fecha expandida por defecto
+
+### Módulo de Reportes (Oct 2025)
+- **Ruta principal**: `/reports` con filtros de fecha (start_date, end_date)
+- **Métricas calculadas**:
+  * Número total de ventas (facturas) en el período
+  * Ingresos totales (suma de Invoice.total)
+  * Utilidades: `(precio_venta - precio_compra) * cantidad` por cada InvoiceItem
+  * Margen de utilidad (%) = utilidades / ingresos * 100
+  * Ticket promedio = ingresos / número de ventas
+  * Valor del inventario (stock * precio_compra)
+  * Potencial de ventas (stock * precio_venta)
+- **Análisis por método de pago**: Agrupación con count, total y porcentaje
+- **Horas pico de ventas**: Top 5 horas con más ventas (agrupado por hora local CO_TZ)
+- **Top 10 productos más vendidos**: Cantidad vendida e ingresos generados
+- **Productos con stock bajo**: Listado de productos con < 10 unidades
+- **Últimas 20 facturas** del período con detalles
+- **UI**: Cards para métricas, tablas responsivas, filtros de fecha, botón de impresión
+- **Patrón**: Repository Pattern con queries complejas usando SQLAlchemy func
+- **Acceso**: Disponible para todos los usuarios autenticados (admin y vendedor)
 
 ---
 
