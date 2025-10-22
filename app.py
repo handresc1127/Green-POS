@@ -326,11 +326,10 @@ def product_new():
         stock = int(request.form.get('stock', 0))
         category = request.form.get('category', '')
         
-        # Check if product code already exists
+        # Verificar si el código del producto ya existe
         existing_product = Product.query.filter_by(code=code).first()
         if existing_product:
             flash('El código del producto ya existe', 'danger')
-            # Pass an empty Product object to avoid UnboundLocalError
             return render_template('products/form.html', product=None)
 
         product = Product(
@@ -406,7 +405,7 @@ def product_edit(id):
 def product_delete(id):
     product = Product.query.get_or_404(id)
     
-    # Check if product is being used in any invoice
+    # Verificar si el producto está siendo usado en alguna factura
     if InvoiceItem.query.filter_by(product_id=id).first():
         flash('No se puede eliminar este producto porque está siendo usado en ventas', 'danger')
         return redirect(url_for('product_list'))
@@ -455,7 +454,7 @@ def customer_new():
         phone = request.form.get('phone', '')
         address = request.form.get('address', '')
         
-        # Check if customer document already exists
+        # Verificar si el documento del cliente ya existe
         existing_customer = Customer.query.filter_by(document=document).first()
         if existing_customer:
             flash('El documento del cliente ya existe', 'danger')
@@ -499,7 +498,7 @@ def customer_edit(id):
 def customer_delete(id):
     customer = Customer.query.get_or_404(id)
     
-    # Check if customer has invoices
+    # Verificar si el cliente tiene facturas asociadas
     if customer.invoices:
         flash('No se puede eliminar este cliente porque tiene ventas asociadas', 'danger')
         return redirect(url_for('customer_list'))
@@ -674,9 +673,7 @@ def api_product_details(id):
 @app.route('/api/pets/by_customer/<int:customer_id>')
 @login_required
 def api_pets_by_customer(customer_id):
-    app.logger.debug(f"[API] /api/pets/by_customer/{customer_id} llamada")
     pets = Pet.query.filter_by(customer_id=customer_id).all()
-    app.logger.debug(f"[API] Mascotas encontradas: {len(pets)} para cliente {customer_id}")
     return jsonify([
         {'id': p.id, 'name': p.name, 'species': p.species, 'breed': p.breed} for p in pets
     ])
@@ -693,11 +690,9 @@ def pet_list():
             selected_customer = db.session.get(Customer, cid)
             if not selected_customer:
                 flash('Cliente no encontrado para el filtro solicitado', 'warning')
-                app.logger.debug(f"[Mascotas] customer_id inválido recibido: {customer_id_raw}")
                 return redirect(url_for('pet_list'))
         except ValueError:
             flash('Identificador de cliente inválido', 'warning')
-            app.logger.debug(f"[Mascotas] customer_id no numérico: {customer_id_raw}")
             return redirect(url_for('pet_list'))
         pets_query = Pet.query.filter_by(customer_id=selected_customer.id)
     else:

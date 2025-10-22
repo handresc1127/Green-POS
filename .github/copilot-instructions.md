@@ -937,6 +937,8 @@ let debugTotal = 0;  // TEMP
 - `# FIXME:` / `// FIXME:` → Código que necesita corrección
 - `# TEST:` / `// TEST:` → Solo para testing
 
+**📋 IMPORTANTE**: Ver guía completa de limpieza en `.github/instructions/code-clean.instructions.md`
+
 ### HTML/Templates (Jinja2)
 - **Plantilla base**: Siempre extender `layout.html`
 - **Bootstrap 5.3+**: Uso exclusivo (sin jQuery)
