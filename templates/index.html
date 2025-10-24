@@ -5,88 +5,91 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-4 mb-4">
-        <div class="card bg-primary text-white">
+<div class="row" id="dashboardStatsRow">
+    <div class="col-md-4 mb-4" id="productsStatCol">
+        <div class="card bg-primary text-white" id="productsStatCard">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h5 class="card-title">Productos</h5>
-                        <h2 class="mb-0">{{ product_count }}</h2>
+                        <h5 class="card-title" id="productsStatTitle">Productos</h5>
+                        <h2 class="mb-0" id="productsStatCount">{{ product_count }}</h2>
                     </div>
                     <div>
-                        <i class="bi bi-box-seam fs-1"></i>
+                        <i class="bi bi-box-seam fs-1" id="productsStatIcon"></i>
                     </div>
                 </div>
-                <a href="{{ url_for('product_list') }}" class="text-white">Ver todos <i class="bi bi-arrow-right"></i></a>
+                <a href="{{ url_for('product_list') }}" class="text-white" id="viewAllProductsLink">Ver todos <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>
     
-    <div class="col-md-4 mb-4">
-        <div class="card bg-success text-white">
+    <div class="col-md-4 mb-4" id="customersStatCol">
+        <div class="card bg-success text-white" id="customersStatCard">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h5 class="card-title">Clientes</h5>
-                        <h2 class="mb-0">{{ customer_count }}</h2>
+                        <h5 class="card-title" id="customersStatTitle">Clientes</h5>
+                        <h2 class="mb-0" id="customersStatCount">{{ customer_count }}</h2>
                     </div>
                     <div>
-                        <i class="bi bi-people fs-1"></i>
+                        <i class="bi bi-people fs-1" id="customersStatIcon"></i>
                     </div>
                 </div>
-                <a href="{{ url_for('customer_list') }}" class="text-white">Ver todos <i class="bi bi-arrow-right"></i></a>
+                <a href="{{ url_for('customer_list') }}" class="text-white" id="viewAllCustomersLink">Ver todos <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>
     
-    <div class="col-md-4 mb-4">
-        <div class="card bg-info text-white">
+    <div class="col-md-4 mb-4" id="salesStatCol">
+        <div class="card bg-info text-white" id="salesStatCard">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h5 class="card-title">Ventas</h5>
-                        <h2 class="mb-0">{{ invoice_count }}</h2>
+                        <h5 class="card-title" id="salesStatTitle">Ventas</h5>
+                        <h2 class="mb-0" id="salesStatCount">{{ invoice_count }}</h2>
                     </div>
                     <div>
-                        <i class="bi bi-receipt fs-1"></i>
+                        <i class="bi bi-receipt fs-1" id="salesStatIcon"></i>
                     </div>
                 </div>
-                <a href="{{ url_for('invoice_list') }}" class="text-white">Ver todas <i class="bi bi-arrow-right"></i></a>
+                <a href="{{ url_for('invoice_list') }}" class="text-white" id="viewAllSalesLink">Ver todas <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <!-- Recent Invoices -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-light">
-                <h5 class="mb-0">Ventas Recientes</h5>
+<div class="row" id="dashboardDetailsRow">
+    <!-- Left Column: Recent Invoices + Upcoming Appointments -->
+    <div class="col-md-6 mb-4" id="leftColumn">
+        <!-- Recent Invoices -->
+        <div class="card mb-4" id="recentInvoicesCard">
+            <div class="card-header bg-light" id="recentInvoicesHeader">
+                <h5 class="mb-0" id="recentInvoicesTitle">Ventas Recientes</h5>
             </div>
-            <div class="card-body">
+            <div class="card-body" id="recentInvoicesBody">
                 {% if recent_invoices %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
+                    <div class="table-responsive" id="recentInvoicesTableContainer">
+                        <table class="table table-hover table-sm small" id="recentInvoicesTable">
+                            <thead id="recentInvoicesTableHead">
                                 <tr>
-                                    <th>#</th>
-                                    <th>Cliente</th>
-                                    <th>Fecha</th>
-                                    <th>Total</th>
-                                    <th></th>
+                                    <th id="recentInvoicesHeaderNumber">#</th>
+                                    <th id="recentInvoicesHeaderCustomer">Cliente</th>
+                                    <th id="recentInvoicesHeaderDate">Fecha</th>
+                                    <th id="recentInvoicesHeaderTotal">Total</th>
+                                    <th id="recentInvoicesHeaderActions"></th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="recentInvoicesTableBody">
                                 {% for invoice in recent_invoices %}
-                                <tr>
-                                    <td>{{ invoice.number }}</td>
-                                    <td>{{ invoice.customer.name }}</td>
-                                    <td><span class="utc-date" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></td>
-                                    <td>{{ invoice.total | currency_co }}</td>
-                                    <td>
-                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}" class="btn btn-sm btn-outline-primary">
+                                <tr id="recentInvoiceRow-{{ invoice.id }}">
+                                    <td id="recentInvoiceNumber-{{ invoice.id }}">{{ invoice.number }}</td>
+                                    <td id="recentInvoiceCustomer-{{ invoice.id }}">{{ invoice.customer.name }}</td>
+                                    <td id="recentInvoiceDate-{{ invoice.id }}"><span class="utc-date" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></td>
+                                    <td id="recentInvoiceTotal-{{ invoice.id }}">{{ invoice.total | currency_co }}</td>
+                                    <td id="recentInvoiceActions-{{ invoice.id }}">
+                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}" 
+                                           class="btn btn-sm btn-outline-primary"
+                                           id="viewInvoiceBtn-{{ invoice.id }}">
                                             <i class="bi bi-eye"></i>
                                         </a>
                                     </td>
@@ -96,54 +99,148 @@
                         </table>
                     </div>
                 {% else %}
-                    <p class="text-muted">No hay ventas recientes.</p>
+                    <p class="text-muted" id="recentInvoicesEmptyState">No hay ventas recientes.</p>
                 {% endif %}
             </div>
-            <div class="card-footer bg-light">
-                <a href="{{ url_for('invoice_list') }}" class="btn btn-sm btn-outline-secondary">Ver todas</a>
-                <a href="{{ url_for('invoice_new') }}" class="btn btn-sm btn-primary float-end">Nueva Venta</a>
+            <div class="card-footer bg-light" id="recentInvoicesFooter">
+                <a href="{{ url_for('invoice_list') }}" class="btn btn-sm btn-outline-secondary" id="viewAllInvoicesBtn">Ver todas</a>
+                <a href="{{ url_for('invoice_new') }}" class="btn btn-sm btn-primary float-end" id="newInvoiceBtn">Nueva Venta</a>
+            </div>
+        </div>
+
+        <!-- Upcoming Appointments -->
+        <div class="card" id="upcomingAppointmentsCard">
+            <div class="card-header bg-light" id="upcomingAppointmentsHeader">
+                <h5 class="mb-0" id="upcomingAppointmentsTitle">Próximas Citas (Top 10)</h5>
+            </div>
+            <div class="card-body" id="upcomingAppointmentsBody">
+                {% if upcoming_appointments %}
+                    <div class="table-responsive" id="upcomingAppointmentsTableContainer">
+                        <table class="table table-hover table-sm small" id="upcomingAppointmentsTable">
+                            <thead id="upcomingAppointmentsTableHead">
+                                <tr>
+                                    <th id="upcomingAppointmentsHeaderPet">Mascota</th>
+                                    <th id="upcomingAppointmentsHeaderBreed">Raza</th>
+                                    <th id="upcomingAppointmentsHeaderCustomer">Cliente</th>
+                                    <th id="upcomingAppointmentsHeaderDate">Fecha</th>
+                                    <th id="upcomingAppointmentsHeaderTime">Hora</th>
+                                    <th id="upcomingAppointmentsHeaderActions"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="upcomingAppointmentsTableBody">
+                                {% for appointment in upcoming_appointments %}
+                                <tr id="upcomingAppointmentRow-{{ appointment.id }}">
+                                    <td id="upcomingAppointmentPet-{{ appointment.id }}">
+                                        {{ appointment.pet.name if appointment.pet else '-' }}
+                                    </td>
+                                    <td id="upcomingAppointmentBreed-{{ appointment.id }}">
+                                        <small class="text-muted">
+                                            {{ appointment.pet.breed if (appointment.pet and appointment.pet.breed) else '-' }}
+                                        </small>
+                                    </td>
+                                    <td id="upcomingAppointmentCustomer-{{ appointment.id }}">
+                                        {{ appointment.customer.name if appointment.customer else '-' }}
+                                    </td>
+                                    <td id="upcomingAppointmentDate-{{ appointment.id }}">
+                                        {% if appointment.scheduled_at %}
+                                            {{ appointment.scheduled_at.strftime('%d/%m/%Y') }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td id="upcomingAppointmentTime-{{ appointment.id }}">
+                                        {% if appointment.scheduled_at %}
+                                            {{ appointment.scheduled_at.strftime('%I:%M %p') }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td id="upcomingAppointmentActions-{{ appointment.id }}">
+                                        <a href="{{ url_for('appointment_view', id=appointment.id) }}" 
+                                           class="btn btn-sm btn-outline-primary" 
+                                           title="Ver detalles"
+                                           id="viewUpcomingAppointmentBtn-{{ appointment.id }}">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if appointment.customer and appointment.customer.phone %}
+                                        {% set phone_clean = appointment.customer.phone.replace(' ', '').replace('-', '') %}
+                                        {% set first_name = appointment.customer.name.split()[0] if appointment.customer.name else '' %}
+                                        {% set pet_name = appointment.pet.name if appointment.pet else 'tu mascota' %}
+                                        {% set fecha = appointment.scheduled_at.strftime('%d/%m/%Y') if appointment.scheduled_at else 'Por confirmar' %}
+                                        {% set hora = appointment.scheduled_at.strftime('%I:%M %p') if appointment.scheduled_at else 'Por confirmar' %}
+                                        {% set mensaje = 'Hola ' ~ first_name ~ '!%0ATe saludamos desde *Pet Verde*%0A%0ARecuerda la cita con nuestra groomer para *' ~ pet_name ~ '*%0A%0AFecha: ' ~ fecha ~ '%0AHora: ' ~ hora ~ '%0A%0AGracias por preferirnos!' %}
+                                        <a href="https://wa.me/+57{{ phone_clean }}?text={{ mensaje }}" 
+                                           class="btn btn-sm btn-outline-success" 
+                                           target="_blank"
+                                           title="Confirmar cita por WhatsApp"
+                                           id="whatsappUpcomingAppointmentBtn-{{ appointment.id }}">
+                                            <i class="bi bi-whatsapp"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted" id="upcomingAppointmentsEmptyState">No hay citas pendientes.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-light" id="upcomingAppointmentsFooter">
+                <a href="{{ url_for('appointment_list') }}" class="btn btn-sm btn-outline-secondary" id="viewAllAppointmentsBtn">Ver todas</a>
+                <a href="{{ url_for('service_new') }}" class="btn btn-sm btn-primary float-end" id="newAppointmentBtn">Nueva Cita</a>
             </div>
         </div>
     </div>
     
-    <!-- Low Stock Products -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-light">
-                <h5 class="mb-0">Productos con Poco Stock</h5>
+    <!-- Right Column: Low Stock Products -->
+    <div class="col-md-6 mb-4" id="lowStockProductsCol">
+        <div class="card" id="lowStockProductsCard">
+            <div class="card-header bg-light" id="lowStockProductsHeader">
+                <h5 class="mb-0" id="lowStockProductsTitle">Productos con Poco Stock (Top 20)</h5>
             </div>
-            <div class="card-body">
+            <div class="card-body p-2" id="lowStockProductsBody">
                 {% if low_stock_products %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
+                <div class="table-responsive" id="lowStockProductsTableContainer">
+                    <table class="table table-hover table-sm mb-0" id="lowStockProductsTable" style="font-size: 0.85rem;">
+                        <thead id="lowStockProductsTableHead">
                             <tr>
-                                <th>Código</th>
-                                <th>Producto</th>
-                                <th>Stock</th>
-                                <th></th>
+                                <th id="lowStockProductsHeaderCode" style="width: 15%;">Código</th>
+                                <th id="lowStockProductsHeaderName" style="width: 50%;">Producto</th>
+                                <th id="lowStockProductsHeaderStock" style="width: 10%;" class="text-center">Stock</th>
+                                <th id="lowStockProductsHeaderSales" style="width: 10%;" class="text-center">Ventas</th>
+                                <th id="lowStockProductsHeaderActions" style="width: 15%;"></th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="lowStockProductsTableBody">
                             {% for product in low_stock_products %}
-                            <tr>
-                                <td>{{ product.code }}</td>
-                                <td>{{ product.name }}</td>
-                                <td>
+                            <tr id="lowStockProductRow-{{ product.id }}">
+                                <td id="lowStockProductCode-{{ product.id }}" class="text-muted">{{ product.code }}</td>
+                                <td id="lowStockProductName-{{ product.id }}" class="text-truncate" style="max-width: 200px;" title="{{ product.name }}">{{ product.name }}</td>
+                                <td id="lowStockProductStock-{{ product.id }}" class="text-center">
                                     {% set badge_class = 'success' %}
                                     {% if product.stock <= 0 %}
                                         {% set badge_class = 'danger' %}
-                                    {% elif product.stock <= 5 %}
+                                    {% elif product.stock <= 3 %}
                                         {% set badge_class = 'warning' %}
+                                    {% elif product.stock <= 5 %}
+                                        {% set badge_class = 'info' %}
                                     {% endif %}
-                                    <span class="badge bg-{{ badge_class }}">{{ product.stock }}</span>
+                                    <span class="badge bg-{{ badge_class }}" id="lowStockProductBadge-{{ product.id }}">{{ product.stock }}</span>
                                 </td>
-                                <td>
-                                                                        {% if current_user.is_authenticated and current_user.role == 'admin' %}
-                                                                            <a href="{{ url_for('product_edit', id=product.id) }}" class="btn btn-sm btn-outline-primary" title="Editar producto">
-                                                                                    <i class="bi bi-pencil"></i>
-                                                                            </a>
-                                                                        {% endif %}
+                                <td id="lowStockProductSales-{{ product.id }}" class="text-center">
+                                    <span class="badge bg-secondary" id="lowStockProductSalesBadge-{{ product.id }}">{{ product.sales_count or 0 }}</span>
+                                </td>
+                                <td id="lowStockProductActions-{{ product.id }}" class="text-center">
+                                    {% if current_user.is_authenticated and current_user.role == 'admin' %}
+                                        <a href="{{ url_for('product_edit', id=product.id) }}" 
+                                           class="btn btn-sm btn-outline-primary" 
+                                           title="Editar producto"
+                                           id="editLowStockProductBtn-{{ product.id }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -151,18 +248,19 @@
                     </table>
                 </div>
                 {% else %}
-                    <p class="text-muted">No hay productos con poco stock.</p>
+                    <p class="text-muted" id="lowStockProductsEmptyState">No hay productos con poco stock.</p>
                 {% endif %}
             </div>
              {% if current_user.is_authenticated and current_user.role == 'admin' %}
-                <div class="card-footer bg-light">
-                    <a href="{{ url_for('product_list') }}" class="btn btn-sm btn-outline-secondary">Ver todos</a>
-                    <a href="{{ url_for('product_new') }}" class="btn btn-sm btn-primary float-end">Nuevo Producto</a>
+                <div class="card-footer bg-light" id="lowStockProductsFooter">
+                    <a href="{{ url_for('product_list') }}" class="btn btn-sm btn-outline-secondary" id="viewAllProductsBtn">Ver todos</a>
+                    <a href="{{ url_for('product_new') }}" class="btn btn-sm btn-primary float-end" id="newProductBtn">Nuevo Producto</a>
                 </div>
              {% endif %}
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block extra_js %}
