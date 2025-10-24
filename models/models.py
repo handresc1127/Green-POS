@@ -213,11 +213,33 @@ class ServiceType(db.Model):
     base_price = db.Column(db.Float, default=0.0)
     category = db.Column(db.String(50), default='general')
     active = db.Column(db.Boolean, default=True)
+    profit_percentage = db.Column(db.Float, default=50.0)  # % de utilidad para la tienda (default 50%)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         return f"<ServiceType {self.code}>"
+    
+    def calculate_cost(self, sale_price):
+        """Calcula el costo del servicio basado en el precio de venta y el % de utilidad.
+        
+        Args:
+            sale_price: Precio de venta del servicio
+            
+        Returns:
+            float: Costo del servicio (lo que se paga a la groomer)
+            
+        Example:
+            Si profit_percentage = 50% y sale_price = 50000:
+            - Costo (groomer) = 50000 * (1 - 0.50) = 25000
+            - Utilidad (tienda) = 50000 - 25000 = 25000
+        """
+        if not sale_price or sale_price <= 0:
+            return 0.0
+        
+        profit_ratio = (self.profit_percentage or 50.0) / 100.0
+        cost = sale_price * (1 - profit_ratio)
+        return round(cost, 2)
 
     @property
     def pricing_mode_display(self):
@@ -232,14 +254,22 @@ class ServiceType(db.Model):
     def create_defaults():
         if ServiceType.query.count() == 0:
             defaults = [
-                ('BATH', 'Baño', 'Servicio de baño básico. Precio puede variar según mascota.', 'variable', 0.0, 'grooming'),
-                ('EAR_CLEAN', 'Limpieza de Oídos', 'Limpieza higiénica estándar.', 'fixed', 15000.0, 'hygiene'),
-                ('COAT_TRIM', 'Corte de Pelaje', 'Corte o grooming según estado del manto.', 'variable', 0.0, 'grooming'),
-                ('COAT_HYDRATE', 'Hidratación del Manto', 'Tratamiento hidratante para el pelaje.', 'variable', 0.0, 'treatment'),
-                ('ACCESSORY', 'Accesorios (Moño / Pañoleta)', 'Accesorios opcionales que pueden no tener costo.', 'variable', 0.0, 'accessory'),
+                ('BATH', 'Baño', 'Servicio de baño básico. Precio puede variar según mascota.', 'variable', 0.0, 'grooming', 50.0),
+                ('EAR_CLEAN', 'Limpieza de Oídos', 'Limpieza higiénica estándar.', 'fixed', 15000.0, 'hygiene', 50.0),
+                ('COAT_TRIM', 'Corte de Pelaje', 'Corte o grooming según estado del manto.', 'variable', 0.0, 'grooming', 50.0),
+                ('COAT_HYDRATE', 'Hidratación del Manto', 'Tratamiento hidratante para el pelaje.', 'variable', 0.0, 'treatment', 50.0),
+                ('ACCESSORY', 'Accesorios (Moño / Pañoleta)', 'Accesorios opcionales que pueden no tener costo.', 'variable', 0.0, 'accessory', 50.0),
             ]
-            for code, name, desc, mode, price, cat in defaults:
-                st = ServiceType(code=code, name=name, description=desc, pricing_mode=mode, base_price=price, category=cat)
+            for code, name, desc, mode, price, cat, profit_pct in defaults:
+                st = ServiceType(
+                    code=code, 
+                    name=name, 
+                    description=desc, 
+                    pricing_mode=mode, 
+                    base_price=price, 
+                    category=cat,
+                    profit_percentage=profit_pct
+                )
                 db.session.add(st)
             db.session.commit()
 

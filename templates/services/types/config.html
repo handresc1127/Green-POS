@@ -2,7 +2,7 @@
 {% block title %}Configuración de Tipos de Servicio{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div id="serviceTypesContainer" class="container-fluid">
     <!-- Breadcrumb -->
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -16,10 +16,10 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-cog"></i> Configuración de Tipos de Servicio</h2>
         <div>
-            <a href="{{ url_for('appointment_list') }}" class="btn btn-secondary">
+            <a href="{{ url_for('appointment_list') }}" id="backToAppointmentsBtn" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Volver a Citas
             </a>
-            <a href="{{ url_for('service_type_new') }}" class="btn btn-primary">
+            <a href="{{ url_for('service_type_new') }}" id="newServiceTypeBtn" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Nuevo Tipo
             </a>
         </div>
@@ -40,10 +40,10 @@
     <!-- Filtros -->
     <div class="card mb-3">
         <div class="card-body">
-            <form method="get" class="row g-3">
+            <form id="serviceTypesFilterForm" method="get" class="row g-3">
                 <div class="col-md-3">
-                    <label for="category" class="form-label">Categoría</label>
-                    <select name="category" id="category" class="form-select" onchange="this.form.submit()">
+                    <label for="categoryFilter" class="form-label">Categoría</label>
+                    <select name="category" id="categoryFilter" class="form-select" onchange="this.form.submit()">
                         <option value="">Todas las categorías</option>
                         <option value="grooming" {{ 'selected' if category=='grooming' else '' }}>Grooming</option>
                         <option value="hygiene" {{ 'selected' if category=='hygiene' else '' }}>Higiene</option>
@@ -53,23 +53,23 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="pricing_mode" class="form-label">Modo de Precio</label>
-                    <select name="pricing_mode" id="pricing_mode" class="form-select" onchange="this.form.submit()">
+                    <label for="pricingModeFilter" class="form-label">Modo de Precio</label>
+                    <select name="pricing_mode" id="pricingModeFilter" class="form-select" onchange="this.form.submit()">
                         <option value="">Todos los modos</option>
                         <option value="fixed" {{ 'selected' if pricing_mode=='fixed' else '' }}>Precio Fijo</option>
                         <option value="variable" {{ 'selected' if pricing_mode=='variable' else '' }}>Precio Variable</option>
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="active" class="form-label">Estado</label>
-                    <select name="active" id="active" class="form-select" onchange="this.form.submit()">
+                    <label for="activeFilter" class="form-label">Estado</label>
+                    <select name="active" id="activeFilter" class="form-select" onchange="this.form.submit()">
                         <option value="">Todos</option>
                         <option value="1" {{ 'selected' if active=='1' else '' }}>Activos</option>
                         <option value="0" {{ 'selected' if active=='0' else '' }}>Inactivos</option>
                     </select>
                 </div>
                 <div class="col-md-3 d-flex align-items-end">
-                    <a href="{{ url_for('service_type_list') }}" class="btn btn-outline-secondary w-100">
+                    <a href="{{ url_for('service_type_list') }}" id="clearFiltersBtn" class="btn btn-outline-secondary w-100">
                         <i class="fas fa-times"></i> Limpiar Filtros
                     </a>
                 </div>
@@ -92,6 +92,7 @@
                             <th>Descripción</th>
                             <th>Modo Precio</th>
                             <th>Precio Base</th>
+                            <th>% Utilidad</th>
                             <th>Categoría</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -122,6 +123,14 @@
                             </td>
                             <td>
                                 <strong>{{ type.base_price | currency_co }}</strong>
+                            </td>
+                            <td>
+                                <span class="badge bg-success">
+                                    <i class="bi bi-percent"></i> {{ "%.1f"|format(type.profit_percentage) }}%
+                                </span>
+                                <small class="text-muted d-block mt-1">
+                                    Costo: {{ "%.1f"|format(100 - type.profit_percentage) }}%
+                                </small>
                             </td>
                             <td>
                                 {% if type.category == 'grooming' %}
@@ -160,7 +169,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
+                            <td colspan="9" class="text-center text-muted py-4">
                                 <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                                 <p>No hay tipos de servicio registrados</p>
                                 <a href="{{ url_for('service_type_new') }}" class="btn btn-primary">
@@ -205,25 +214,27 @@
 </div>
 
 <!-- Modal de Confirmación de Eliminación -->
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="serviceTypeDeleteModal" tabindex="-1" aria-labelledby="serviceTypeDeleteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación</h5>
+                <h5 class="modal-title" id="serviceTypeDeleteModalLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>¿Está seguro de eliminar el tipo de servicio <strong id="deleteServiceName"></strong>?</p>
+                <p>¿Está seguro de eliminar el tipo de servicio <strong id="deleteServiceTypeName"></strong>?</p>
                 <p class="text-danger small">
                     <i class="fas fa-exclamation-circle"></i> Esta acción no se puede deshacer.
                 </p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelDeleteServiceTypeBtn">
                     <i class="fas fa-times"></i> Cancelar
                 </button>
-                <form id="deleteForm" method="POST" class="d-inline">
-                    <button type="submit" class="btn btn-danger">
+                <form id="deleteServiceTypeForm" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-danger" id="confirmDeleteServiceTypeBtn">
                         <i class="fas fa-trash"></i> Eliminar
                     </button>
                 </form>
@@ -257,9 +268,9 @@ $(document).ready(function() {
  * @param {string} name - Nombre del tipo de servicio
  */
 function confirmDelete(id, name) {
-    $('#deleteServiceName').text(name);
-    $('#deleteForm').attr('action', `/services/types/delete/${id}`);
-    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    document.getElementById('deleteServiceTypeName').textContent = name;
+    document.getElementById('deleteServiceTypeForm').action = `/services/types/delete/${id}`;
+    const deleteModal = new bootstrap.Modal(document.getElementById('serviceTypeDeleteModal'));
     deleteModal.show();
 }
 </script>

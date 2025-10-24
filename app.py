@@ -8,7 +8,7 @@ from models.models import (
     db, Product, Customer, Invoice, InvoiceItem, Setting, User, 
     Pet, PetService, ServiceType, Appointment, ProductStockLog
 )
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from functools import wraps
@@ -278,8 +278,32 @@ def product_list():
         Product,
         func.coalesce(func.sum(InvoiceItem.quantity), 0).label('sales_count')
     ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id)
+    
     if query:
-        base_query = base_query.filter(or_(Product.name.contains(query), Product.code.contains(query)))
+        # Búsqueda mejorada: divide el query en palabras individuales
+        search_terms = query.strip().split()
+        
+        if len(search_terms) == 1:
+            # Búsqueda simple: una sola palabra
+            term = search_terms[0]
+            base_query = base_query.filter(
+                or_(
+                    Product.name.ilike(f'%{term}%'),
+                    Product.code.ilike(f'%{term}%')
+                )
+            )
+        else:
+            # Búsqueda múltiple: cada palabra debe estar presente en nombre o código
+            filters = []
+            for term in search_terms:
+                filters.append(
+                    or_(
+                        Product.name.ilike(f'%{term}%'),
+                        Product.code.ilike(f'%{term}%')
+                    )
+                )
+            # Aplicar todos los filtros (AND lógico)
+            base_query = base_query.filter(and_(*filters))
     
     # Agrupar por producto
     base_query = base_query.group_by(Product.id)
@@ -844,10 +868,20 @@ def service_type_new():
         base_price_raw = request.form.get('base_price','0')
         category = request.form.get('category','general')
         active = True if request.form.get('active') == 'on' else False
+        profit_percentage_raw = request.form.get('profit_percentage', '50.0')
+        
         try:
             base_price = float(base_price_raw or 0)
         except ValueError:
             base_price = 0.0
+        
+        try:
+            profit_percentage = float(profit_percentage_raw or 50.0)
+            if profit_percentage < 0 or profit_percentage > 100:
+                flash('El porcentaje de utilidad debe estar entre 0 y 100', 'danger')
+                return render_template('services/types/form.html', st=None)
+        except ValueError:
+            profit_percentage = 50.0
         
         if ServiceType.query.filter_by(code=code).first():
             flash('El código ya existe', 'danger')
@@ -855,7 +889,8 @@ def service_type_new():
         
         st = ServiceType(code=code, name=name, description=description, 
                         pricing_mode=pricing_mode, base_price=base_price, 
-                        category=category, active=active)
+                        category=category, active=active, 
+                        profit_percentage=profit_percentage)
         db.session.add(st)
         db.session.commit()
         flash('Tipo de servicio creado exitosamente', 'success')
@@ -874,10 +909,22 @@ def service_type_edit(id):
         st.description = request.form.get('description','')
         st.pricing_mode = request.form.get('pricing_mode','fixed')
         base_price_raw = request.form.get('base_price','0')
+        profit_percentage_raw = request.form.get('profit_percentage', '50.0')
+        
         try:
             st.base_price = float(base_price_raw or 0)
         except ValueError:
             st.base_price = 0.0
+        
+        try:
+            profit_percentage = float(profit_percentage_raw or 50.0)
+            if profit_percentage < 0 or profit_percentage > 100:
+                flash('El porcentaje de utilidad debe estar entre 0 y 100', 'danger')
+                return render_template('services/types/form.html', st=st)
+            st.profit_percentage = profit_percentage
+        except ValueError:
+            st.profit_percentage = 50.0
+            
         st.category = request.form.get('category','general')
         st.active = True if request.form.get('active') == 'on' else False
         db.session.commit()
@@ -989,15 +1036,20 @@ def service_new():
             prod_code = f"SERV-{code.upper()}"
             product = Product.query.filter_by(code=prod_code).first()
             
+            # Obtener el ServiceType para calcular costo basado en profit_percentage
+            st = ServiceType.query.filter_by(code=code).first()
+            
             if not product:
-                st = ServiceType.query.filter_by(code=code).first()
                 prod_name = st.name if st else f'Servicio {code}'
+                # Calcular purchase_price usando el método calculate_cost del ServiceType
+                purchase_price = st.calculate_cost(price) if (st and price) else 0
+                
                 product = Product(
                     code=prod_code,
                     name=prod_name,
                     description='Servicio de mascota',
                     sale_price=price or 0,
-                    purchase_price=0,
+                    purchase_price=purchase_price,
                     stock=0,
                     category='Servicios'
                 )
@@ -1005,8 +1057,12 @@ def service_new():
                 db.session.flush()
             
             # Actualizar precio si es variable
-            if mode == 'variable' and price and price > 0 and product.sale_price != price:
-                product.sale_price = price
+            if mode == 'variable' and price and price > 0:
+                if product.sale_price != price:
+                    product.sale_price = price
+                # Recalcular purchase_price con el nuevo precio
+                if st:
+                    product.purchase_price = st.calculate_cost(price)
 
             # Crear el servicio
             pet_service = PetService(
@@ -1387,6 +1443,13 @@ def appointment_finish(id):
             product = Product.query.filter_by(code=prod_code).first()
             
             if product:
+                # Verificar y actualizar purchase_price si es necesario
+                service_type = ServiceType.query.filter_by(code=pet_service.service_type).first()
+                if service_type and pet_service.price:
+                    correct_purchase_price = service_type.calculate_cost(pet_service.price)
+                    if product.purchase_price != correct_purchase_price:
+                        product.purchase_price = correct_purchase_price
+                
                 invoice_item = InvoiceItem(
                     invoice_id=invoice.id,
                     product_id=product.id,
@@ -1582,6 +1645,7 @@ def reports():
     ]
     
     # ========== PRODUCTOS MÁS VENDIDOS ==========
+    # Excluye servicios (código SERV-*)
     top_products = db.session.query(
         Product.name,
         Product.code,
@@ -1593,12 +1657,13 @@ def reports():
         Invoice, InvoiceItem.invoice_id == Invoice.id
     ).filter(
         Invoice.date >= start_datetime,
-        Invoice.date <= end_datetime
+        Invoice.date <= end_datetime,
+        ~Product.code.like('SERV-%')  # Excluir servicios
     ).group_by(
         Product.id
     ).order_by(
         func.sum(InvoiceItem.quantity).desc()
-    ).limit(10).all()
+    ).limit(20).all()
     
     top_products_list = [
         {
@@ -1610,9 +1675,45 @@ def reports():
         for prod in top_products
     ]
     
+    # ========== PRODUCTOS MÁS RENTABLES ==========
+    # Excluye servicios y calcula la utilidad total por producto
+    most_profitable_products = db.session.query(
+        Product.name,
+        Product.code,
+        Product.sale_price,
+        Product.purchase_price,
+        func.sum(InvoiceItem.quantity).label('quantity_sold'),
+        func.sum((InvoiceItem.price - Product.purchase_price) * InvoiceItem.quantity).label('total_profit')
+    ).join(
+        InvoiceItem, Product.id == InvoiceItem.product_id
+    ).join(
+        Invoice, InvoiceItem.invoice_id == Invoice.id
+    ).filter(
+        Invoice.date >= start_datetime,
+        Invoice.date <= end_datetime,
+        ~Product.code.like('SERV-%')  # Excluir servicios
+    ).group_by(
+        Product.id
+    ).order_by(
+        func.sum((InvoiceItem.price - Product.purchase_price) * InvoiceItem.quantity).desc()
+    ).limit(20).all()
+    
+    most_profitable_list = [
+        {
+            'name': prod.name,
+            'code': prod.code,
+            'sale_price': prod.sale_price,
+            'purchase_price': prod.purchase_price,
+            'quantity_sold': prod.quantity_sold,
+            'total_profit': prod.total_profit,
+            'profit_margin': ((prod.sale_price - prod.purchase_price) / prod.sale_price * 100) if prod.sale_price > 0 else 0
+        }
+        for prod in most_profitable_products
+    ]
+    
     # ========== ESTADO DE INVENTARIO ==========
-    # Productos con stock bajo (< 10 unidades)
-    low_stock_products = Product.query.filter(Product.stock < 10).order_by(Product.stock.asc()).all()
+    # Productos con stock bajo (< 3 unidades)
+    low_stock_products = Product.query.filter(Product.stock < 3).order_by(Product.stock.asc()).all()
     
     # Valor total del inventario (stock * precio_compra)
     inventory_value = db.session.query(
@@ -1636,6 +1737,7 @@ def reports():
         payment_methods=payment_methods,
         peak_hours=peak_hours,
         top_products=top_products_list,
+        most_profitable=most_profitable_list,
         low_stock_products=low_stock_products,
         inventory_value=inventory_value,
         inventory_potential=inventory_potential,

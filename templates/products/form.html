@@ -31,7 +31,8 @@
                     <div class="input-group">
                         <span class="input-group-text">$</span>
                         <input type="number" id="purchase_price" name="purchase_price" class="form-control" step="0.01" min="0" 
-                               value="{{ product.purchase_price if product else 0 }}">
+                               value="{{ product.purchase_price if product else 0 }}"
+                               oninput="calculateProfitMargin()">
                     </div>
                 </div>
                 
@@ -40,10 +41,11 @@
                     <div class="input-group">
                         <span class="input-group-text">$</span>
                         <input type="number" id="sale_price" name="sale_price" class="form-control" step="0.01" min="0" 
-                               value="{{ product.sale_price if product else 0 }}" required>
+                               value="{{ product.sale_price if product else 0 }}" required
+                               oninput="calculateProfitMargin()">
                     </div>
                 </div>
-                
+                               
                 <div class="col-md-4 mb-3">
                     <label for="stock" class="form-label">Existencias</label>
                     <input type="number" id="stock" name="stock" class="form-control" min="0" 
@@ -51,6 +53,17 @@
                            {% if product %}onchange="toggleStockReason()"{% endif %}>
                 </div>
                 
+                <div class="col-md-8 mb-3">
+                    <label for="category" class="form-label">Categoría</label>
+                    <input type="text" id="category" name="category" class="form-control" list="categoryOptions"
+                           value="{{ product.category if product else '' }}">
+                    <datalist id="categoryOptions">
+                        <option value="Alimento">
+                        <option value="Medicamento">
+                        <option value="Accesorios">
+                        <option value="Higiene">
+                    </datalist>
+                </div>
                 {% if product %}
                 <div class="col-md-12 mb-3" id="stock-reason-container" style="display: none;">
                     <div class="alert alert-warning">
@@ -67,31 +80,108 @@
                     </small>
                 </div>
                 {% endif %}
-                
-                <div class="col-md-6 mb-3">
-                    <label for="category" class="form-label">Categoría</label>
-                    <input type="text" id="category" name="category" class="form-control" list="categoryOptions"
-                           value="{{ product.category if product else '' }}">
-                    <datalist id="categoryOptions">
-                        <option value="Alimento">
-                        <option value="Medicamento">
-                        <option value="Accesorios">
-                        <option value="Higiene">
-                    </datalist>
-                </div>
             </div>
             
-            <div class="d-flex justify-content-between mt-4">
+            <div class="d-flex justify-content-between align-items-center mt-4 gap-3">
+                <!-- Botón Volver -->
                 <a href="{{ url_for('product_list') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i> Volver a la lista
+                    <i class="bi bi-arrow-left"></i> Volver
                 </a>
+
+                <!-- Margen de Utilidad - Centro -->
+                <div class="flex-grow-1 d-flex justify-content-center">
+                    <div class="card border-0 shadow-sm" style="max-width: 180px; width: 100%;">
+                        <div class="card-body p-2">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="me-2">
+                                    <small class="text-muted d-block mb-0" style="font-size: 0.7rem;">
+                                        <i class="bi bi-graph-up-arrow"></i> Utilidad
+                                    </small>
+                                    <h5 class="mb-0 fw-bold" id="profit_margin_display" style="color: #6c757d;">
+                                        0.0%
+                                    </h5>
+                                </div>
+                                <div class="text-center" id="profit-badge" style="font-size: 1.5rem;">
+                                    <i class="bi bi-info-circle text-muted"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botón Guardar -->
                 <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-save"></i> {{ 'Actualizar Producto' if product else 'Crear Producto' }}
+                    <i class="bi bi-save"></i> {{ 'Actualizar' if product else 'Crear' }}
                 </button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+    /**
+     * Calcula y muestra el margen de utilidad en tiempo real
+     */
+    function calculateProfitMargin() {
+        const purchasePrice = parseFloat(document.getElementById('purchase_price').value) || 0;
+        const salePrice = parseFloat(document.getElementById('sale_price').value) || 0;
+        const displayField = document.getElementById('profit_margin_display');
+        const badge = document.getElementById('profit-badge');
+        
+        if (salePrice > 0) {
+            // Fórmula: ((Precio Venta - Precio Compra) / Precio Venta) * 100
+            const margin = ((salePrice - purchasePrice) / salePrice) * 100;
+            
+            // Formatear con 1 decimal
+            displayField.textContent = margin.toFixed(1) + '%';
+            
+            // Cambiar color y emoji según el margen
+            if (margin >= 30) {
+                displayField.style.color = '#198754'; // Verde (excelente)
+                badge.innerHTML = '<i class="bi bi-emoji-heart-eyes-fill text-success"></i>';
+                badge.title = '¡Excelente margen! ⭐';
+            } else if (margin >= 22) {
+                displayField.style.color = '#0d6efd'; // Azul (bueno)
+                badge.innerHTML = '<i class="bi bi-emoji-smile-fill text-primary"></i>';
+                badge.title = 'Buen margen 😊';
+            } else if (margin >= 19) {
+                displayField.style.color = '#ffc107'; // Amarillo (bajo)
+                badge.innerHTML = '<i class="bi bi-emoji-neutral text-warning"></i>';
+                badge.title = 'Margen bajo 😐';
+            } else if (margin >= 15) {
+                displayField.style.color = 'rgb(255, 124, 7)'; // Naranja (muy bajo)
+                badge.innerHTML = '<i class="bi bi-emoji-frown" style="color: rgb(255, 124, 7);"></i>';
+                badge.title = 'Margen muy bajo 😟';
+            } else if (margin >= 12) {
+                displayField.style.color = '#dc3545'; // Rojo (extra bajo)
+                badge.innerHTML = '<i class="bi bi-emoji-dizzy-fill text-danger"></i>';
+                badge.title = 'Margen extra bajo 😵';
+            } else if (margin >= 10) {
+                displayField.style.color = '#dc3545'; // Rojo (crítico)
+                badge.innerHTML = '<i class="bi bi-emoji-tear-fill text-danger"></i>';
+                badge.title = 'Margen crítico 😢';
+            } else if (margin >= 0) {
+                displayField.style.color = '#dc3545'; // Rojo oscuro (pérdida)
+                badge.innerHTML = '<i class="bi bi-emoji-frown-fill text-danger"></i>';
+                badge.title = 'Casi sin ganancia 😭';
+            } else {
+                displayField.style.color = '#000000'; // Negro (muerte)
+                badge.innerHTML = '<i class="bi bi-emoji-dizzy-fill text-dark"></i>';
+                badge.title = '☠️ ¡Pérdida! Precio de venta < costo';
+            }
+        } else {
+            displayField.textContent = '0.0%';
+            displayField.style.color = '#6c757d'; // Gris
+            badge.innerHTML = '<i class="bi bi-info-circle text-muted"></i>';
+            badge.title = 'Ingrese los precios para calcular';
+        }
+    }
+    
+    // Calcular al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        calculateProfitMargin();
+    });
+</script>
 
 {% if product %}
 <script>

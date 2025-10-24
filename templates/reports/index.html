@@ -288,7 +288,7 @@
 </div>
 {% endif %}
 
-<!-- Productos más vendidos -->
+<!-- Productos más vendidos (excluye servicios) -->
 {% if top_products %}
 <div class="card mb-4">
   <div class="card-header bg-light">
@@ -297,7 +297,7 @@
               type="button" 
               data-bs-toggle="collapse" 
               data-bs-target="#collapseTopProducts">
-        <span><i class="bi bi-trophy me-2"></i>Productos Más Vendidos (Top 10)</span>
+        <span><i class="bi bi-trophy me-2"></i>Productos Más Vendidos (Top 20) - Inventario Físico</span>
         <i class="bi bi-chevron-down"></i>
       </button>
     </h5>
@@ -334,6 +334,80 @@
 </div>
 {% endif %}
 
+<!-- Productos más rentables -->
+{% if most_profitable %}
+<div class="card mb-4">
+  <div class="card-header bg-light bg-gradient">
+    <h5 class="mb-0">
+      <button class="btn btn-link text-decoration-none text-dark w-100 text-start d-flex justify-content-between align-items-center p-0" 
+              type="button" 
+              data-bs-toggle="collapse" 
+              data-bs-target="#collapseMostProfitable">
+        <span><i class="bi bi-currency-dollar me-2"></i>Productos Más Rentables (Top 20) - Mayor Utilidad</span>
+        <i class="bi bi-chevron-down"></i>
+      </button>
+    </h5>
+  </div>
+  <div class="collapse show" id="collapseMostProfitable">
+    <div class="card-body">
+      <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Utilidad Total:</strong> Ganancia generada en el período por cada producto (Precio Venta - Precio Compra) × Cantidad Vendida
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Código</th>
+              <th>Producto</th>
+              <th class="text-end">Unidades</th>
+              <th class="text-end">Margen %</th>
+              <th class="text-end">Utilidad Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for prod in most_profitable %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td><span class="badge bg-success">{{ prod.code }}</span></td>
+              <td>
+                {{ prod.name }}
+                <br>
+                <small class="text-muted">
+                  Compra: {{ prod.purchase_price|currency_co }} → 
+                  Venta: {{ prod.sale_price|currency_co }}
+                </small>
+              </td>
+              <td class="text-end">
+                <strong>{{ prod.quantity_sold }}</strong>
+              </td>
+              <td class="text-end">
+                <span class="badge {% if prod.profit_margin >= 50 %}bg-success{% elif prod.profit_margin >= 30 %}bg-warning{% else %}bg-secondary{% endif %}">
+                  {{ "%.1f"|format(prod.profit_margin) }}%
+                </span>
+              </td>
+              <td class="text-end text-success">
+                <strong>{{ prod.total_profit|currency_co }}</strong>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="table-active">
+              <td colspan="5" class="text-end"><strong>Utilidad Total de Top 20:</strong></td>
+              <td class="text-end text-success">
+                <strong>{{ most_profitable|sum(attribute='total_profit')|currency_co }}</strong>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Productos con stock bajo -->
 {% if low_stock_products %}
 <div class="card mb-4">
@@ -343,7 +417,7 @@
               type="button" 
               data-bs-toggle="collapse" 
               data-bs-target="#collapseLowStock">
-        <span><i class="bi bi-exclamation-triangle-fill me-2"></i>Productos con Stock Bajo (< 10 unidades)</span>
+        <span><i class="bi bi-exclamation-triangle-fill me-2"></i>Productos con Stock Bajo (< 3 unidades)</span>
         <i class="bi bi-chevron-down"></i>
       </button>
     </h5>
