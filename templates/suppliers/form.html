@@ -1,0 +1,272 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if supplier %}Editar{% else %}Nuevo{% endif %} Proveedor{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('supplier_list') }}">Proveedores</a></li>
+            <li class="breadcrumb-item active" aria-current="page">
+                {% if supplier %}Editar{% else %}Nuevo{% endif %}
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Título -->
+    <div class="mb-4">
+        <h2>
+            <i class="bi bi-{% if supplier %}pencil{% else %}plus-circle{% endif %}"></i>
+            {% if supplier %}Editar Proveedor{% else %}Nuevo Proveedor{% endif %}
+        </h2>
+    </div>
+
+    <!-- Formulario -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" class="needs-validation" novalidate id="supplierForm">
+                        <!-- Información Básica -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2 mb-3">
+                                    <i class="bi bi-building"></i> Información Básica
+                                </h5>
+                            </div>
+
+                            <!-- Nombre del Proveedor -->
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">
+                                    Nombre del Proveedor <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="supplierNameInput"
+                                       name="name" 
+                                       value="{{ supplier.name if supplier else '' }}"
+                                       required
+                                       maxlength="150"
+                                       placeholder="Ej: Distribuidora Colombiana de Alimentos">
+                                <div class="invalid-feedback">
+                                    El nombre del proveedor es requerido
+                                </div>
+                            </div>
+
+                            <!-- NIT -->
+                            <div class="col-md-6 mb-3">
+                                <label for="nit" class="form-label">
+                                    NIT / RUT
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="supplierNitInput"
+                                       name="nit" 
+                                       value="{{ supplier.nit if supplier else '' }}"
+                                       maxlength="30"
+                                       placeholder="Ej: 900.123.456-7">
+                                <small class="text-muted">Número de identificación tributaria</small>
+                            </div>
+                        </div>
+
+                        <!-- Información de Contacto -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2 mb-3">
+                                    <i class="bi bi-person"></i> Información de Contacto
+                                </h5>
+                            </div>
+
+                            <!-- Nombre del Contacto -->
+                            <div class="col-md-6 mb-3">
+                                <label for="contact_name" class="form-label">
+                                    Persona de Contacto
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="supplierContactNameInput"
+                                       name="contact_name" 
+                                       value="{{ supplier.contact_name if supplier else '' }}"
+                                       maxlength="100"
+                                       placeholder="Ej: María González">
+                            </div>
+
+                            <!-- Teléfono -->
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label">
+                                    Teléfono
+                                </label>
+                                <input type="tel" 
+                                       class="form-control" 
+                                       id="supplierPhoneInput"
+                                       name="phone" 
+                                       value="{{ supplier.phone if supplier else '' }}"
+                                       maxlength="20"
+                                       placeholder="Ej: 3001234567">
+                                <small class="text-muted">Número de contacto directo</small>
+                            </div>
+
+                            <!-- Email -->
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">
+                                    Email
+                                </label>
+                                <input type="email" 
+                                       class="form-control" 
+                                       id="supplierEmailInput"
+                                       name="email" 
+                                       value="{{ supplier.email if supplier else '' }}"
+                                       maxlength="120"
+                                       placeholder="Ej: ventas@proveedor.com">
+                            </div>
+
+                            <!-- Dirección -->
+                            <div class="col-md-6 mb-3">
+                                <label for="address" class="form-label">
+                                    Dirección
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="supplierAddressInput"
+                                       name="address" 
+                                       value="{{ supplier.address if supplier else '' }}"
+                                       maxlength="255"
+                                       placeholder="Ej: Calle 123 #45-67, Bogotá">
+                            </div>
+                        </div>
+
+                        <!-- Información Adicional -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2 mb-3">
+                                    <i class="bi bi-file-text"></i> Información Adicional
+                                </h5>
+                            </div>
+
+                            <!-- Notas -->
+                            <div class="col-12 mb-3">
+                                <label for="notes" class="form-label">
+                                    Notas
+                                </label>
+                                <textarea class="form-control" 
+                                          id="supplierNotesInput"
+                                          name="notes" 
+                                          rows="4"
+                                          placeholder="Información adicional: días de entrega, términos de pago, descuentos, etc.">{{ supplier.notes if supplier else '' }}</textarea>
+                                <small class="text-muted">Puede incluir información sobre horarios, términos comerciales, etc.</small>
+                            </div>
+
+                            <!-- Estado Activo -->
+                            <div class="col-12 mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="supplierActiveCheckbox"
+                                           name="active"
+                                           {% if not supplier or supplier.active %}checked{% endif %}>
+                                    <label class="form-check-label" for="active">
+                                        <strong>Proveedor Activo</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            Los proveedores inactivos no aparecerán en los selectores de productos
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div class="d-flex justify-content-between border-top pt-3">
+                            <a href="{{ url_for('supplier_list') }}" class="btn btn-secondary" id="btnCancelSupplier">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="btnSaveSupplier">
+                                <i class="bi bi-save"></i> 
+                                {% if supplier %}Actualizar{% else %}Guardar{% endif %} Proveedor
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Ayuda -->
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-info-circle"></i> Información
+                    </h5>
+                    <p class="small">
+                        Los proveedores son las empresas o personas que suministran los productos que vendes en tu tienda.
+                    </p>
+                    <hr>
+                    <h6 class="small"><strong>Campos obligatorios:</strong></h6>
+                    <ul class="small">
+                        <li><strong>Nombre:</strong> Nombre de la empresa proveedora</li>
+                    </ul>
+                    <hr>
+                    <h6 class="small"><strong>Campos opcionales:</strong></h6>
+                    <ul class="small">
+                        <li><strong>NIT:</strong> Identificación tributaria</li>
+                        <li><strong>Contacto:</strong> Persona de contacto</li>
+                        <li><strong>Teléfono:</strong> Número de contacto</li>
+                        <li><strong>Email:</strong> Correo electrónico</li>
+                        <li><strong>Dirección:</strong> Ubicación física</li>
+                        <li><strong>Notas:</strong> Información adicional útil</li>
+                    </ul>
+                    <hr>
+                    <h6 class="small"><strong>Consejos:</strong></h6>
+                    <ul class="small">
+                        <li>Registra toda la información de contacto disponible para facilitar los pedidos</li>
+                        <li>Usa las notas para guardar términos de pago, días de entrega, etc.</li>
+                        <li>Desactiva proveedores temporalmente en lugar de eliminarlos</li>
+                    </ul>
+                </div>
+            </div>
+
+            {% if supplier and supplier.products %}
+            {% set product_count = supplier.products|length %}
+            {% if product_count > 0 %}
+            <div class="card mt-3 border-primary">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-box"></i> Productos Asociados
+                    </h6>
+                    <p class="mb-2">
+                        Este proveedor tiene <strong>{{ product_count }}</strong> producto(s) asociado(s).
+                    </p>
+                    <a href="{{ url_for('supplier_products', id=supplier.id) }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-eye"></i> Ver Productos
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Validación del formulario Bootstrap
+(function() {
+    'use strict';
+    
+    const form = document.getElementById('supplierForm');
+    
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        
+        form.classList.add('was-validated');
+    }, false);
+    
+    // Auto-focus en el campo nombre
+    document.getElementById('supplierNameInput').focus();
+})();
+</script>
+{% endblock %}

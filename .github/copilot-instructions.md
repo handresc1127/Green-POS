@@ -2203,7 +2203,7 @@ Testing:
 - **Análisis por método de pago**: Agrupación con count, total y porcentaje
 - **Horas pico de ventas**: Top 5 horas con más ventas (agrupado por hora local CO_TZ)
 - **Top 10 productos más vendidos**: Cantidad vendida e ingresos generados
-- **Productos con stock bajo**: Listado de productos con < 10 unidades
+- **Productos con stock bajo**: Listado de productos con <= 3 unidades
 - **Últimas 20 facturas** del período con detalles
 - **UI**: Cards para métricas, tablas responsivas, filtros de fecha, botón de impresión
 - **Patrón**: Repository Pattern con queries complejas usando SQLAlchemy func

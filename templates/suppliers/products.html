@@ -1,0 +1,362 @@
+{% extends "layout.html" %}
+
+{% block title %}Productos de {{ supplier.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table thead th a {
+        display: block;
+        color: inherit;
+        user-select: none;
+        padding: 0.5rem;
+        margin: -0.5rem;
+    }
+    .table thead th a:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+        cursor: pointer;
+    }
+    .table thead th {
+        position: relative;
+    }
+    .table thead th a i {
+        font-size: 0.8em;
+        margin-left: 4px;
+    }
+    @media print {
+        .btn, .breadcrumb, .card-footer, th a i {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('supplier_list') }}">Proveedores</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Productos</li>
+        </ol>
+    </nav>
+
+    <!-- Información del Proveedor -->
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="bi bi-truck"></i> {{ supplier.name }}
+                </h4>
+                <div>
+                    {% if supplier.active %}
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle"></i> Activo
+                        </span>
+                    {% else %}
+                        <span class="badge bg-secondary">
+                            <i class="bi bi-x-circle"></i> Inactivo
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Información de Contacto -->
+                <div class="col-md-8">
+                    <div class="row small">
+                        {% if supplier.contact_name %}
+                        <div class="col-md-6 mb-2">
+                            <strong><i class="bi bi-person"></i> Contacto:</strong> {{ supplier.contact_name }}
+                        </div>
+                        {% endif %}
+                        
+                        {% if supplier.phone %}
+                        <div class="col-md-6 mb-2">
+                            <strong><i class="bi bi-telephone"></i> Teléfono:</strong> 
+                            <a href="tel:{{ supplier.phone }}" class="text-decoration-none">{{ supplier.phone }}</a>
+                        </div>
+                        {% endif %}
+                        
+                        {% if supplier.email %}
+                        <div class="col-md-6 mb-2">
+                            <strong><i class="bi bi-envelope"></i> Email:</strong> 
+                            <a href="mailto:{{ supplier.email }}" class="text-decoration-none">{{ supplier.email }}</a>
+                        </div>
+                        {% endif %}
+                        
+                        {% if supplier.nit %}
+                        <div class="col-md-6 mb-2">
+                            <strong><i class="bi bi-card-text"></i> NIT:</strong> {{ supplier.nit }}
+                        </div>
+                        {% endif %}
+                        
+                        {% if supplier.address %}
+                        <div class="col-12 mb-2">
+                            <strong><i class="bi bi-geo-alt"></i> Dirección:</strong> {{ supplier.address }}
+                        </div>
+                        {% endif %}
+                        
+                        {% if supplier.notes %}
+                        <div class="col-12">
+                            <strong><i class="bi bi-file-text"></i> Notas:</strong>
+                            <p class="mb-0 text-muted">{{ supplier.notes }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Acciones Rápidas -->
+                <div class="col-md-4">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('supplier_edit', id=supplier.id) }}" class="btn btn-warning btn-sm" id="btnEditSupplier">
+                            <i class="bi bi-pencil"></i> Editar Proveedor
+                        </a>
+                        <a href="{{ url_for('supplier_list') }}" class="btn btn-outline-secondary btn-sm" id="btnBackToList">
+                            <i class="bi bi-arrow-left"></i> Volver a Proveedores
+                        </a>
+                        <button onclick="window.print()" class="btn btn-outline-primary btn-sm" id="btnPrintProducts">
+                            <i class="bi bi-printer"></i> Imprimir Lista
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Productos del Proveedor -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-box"></i> Productos Suministrados
+                </h5>
+                <span class="badge bg-primary" id="productCountBadge">
+                    {{ products|length }} producto(s)
+                </span>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if products %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm small align-middle mb-0" id="supplierProductsTable">
+                    <thead>
+                        <tr>
+                            <th>
+                                <a href="{{ url_for('supplier_products', id=supplier.id, sort_by='code', sort_order='desc' if sort_by == 'code' and sort_order == 'asc' else 'asc') }}" 
+                                   class="text-decoration-none text-dark">
+                                    Código
+                                    {% if sort_by == 'code' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('supplier_products', id=supplier.id, sort_by='name', sort_order='desc' if sort_by == 'name' and sort_order == 'asc' else 'asc') }}" 
+                                   class="text-decoration-none text-dark">
+                                    Nombre
+                                    {% if sort_by == 'name' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ url_for('supplier_products', id=supplier.id, sort_by='category', sort_order='desc' if sort_by == 'category' and sort_order == 'asc' else 'asc') }}" 
+                                   class="text-decoration-none text-dark">
+                                    Categoría
+                                    {% if sort_by == 'category' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th class="text-end">
+                                <a href="{{ url_for('supplier_products', id=supplier.id, sort_by='purchase_price', sort_order='desc' if sort_by == 'purchase_price' and sort_order == 'asc' else 'asc') }}" 
+                                   class="text-decoration-none text-dark">
+                                    Precio Compra
+                                    {% if sort_by == 'purchase_price' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th class="text-end">
+                                <a href="{{ url_for('supplier_products', id=supplier.id, sort_by='sale_price', sort_order='desc' if sort_by == 'sale_price' and sort_order == 'asc' else 'asc') }}" 
+                                   class="text-decoration-none text-dark">
+                                    Precio Venta
+                                    {% if sort_by == 'sale_price' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th class="text-center">
+                                <a href="{{ url_for('supplier_products', id=supplier.id, sort_by='stock', sort_order='desc' if sort_by == 'stock' and sort_order == 'asc' else 'asc') }}" 
+                                   class="text-decoration-none text-dark">
+                                    Stock
+                                    {% if sort_by == 'stock' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                        <tr id="productRow-{{ product.id }}">
+                            <td>
+                                <code id="productCode-{{ product.id }}">{{ product.code }}</code>
+                            </td>
+                            <td>
+                                <strong id="productName-{{ product.id }}">{{ product.name }}</strong>
+                            </td>
+                            <td id="productCategory-{{ product.id }}">
+                                {{ product.category or '-' }}
+                            </td>
+                            <td class="text-end" id="productPurchasePrice-{{ product.id }}">
+                                ${{ "{:,.0f}".format(product.purchase_price or 0) }}
+                            </td>
+                            <td class="text-end" id="productSalePrice-{{ product.id }}">
+                                ${{ "{:,.0f}".format(product.sale_price or 0) }}
+                            </td>
+                            <td class="text-center">
+                                {% if product.stock == 0 %}
+                                    <span class="badge bg-danger" id="productStock-{{ product.id }}">
+                                        {{ product.stock }}
+                                    </span>
+                                {% elif product.stock <= 3 %}
+                                    <span class="badge bg-warning text-dark" id="productStock-{{ product.id }}">
+                                        {{ product.stock }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-success" id="productStock-{{ product.id }}">
+                                        {{ product.stock }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if product.stock == 0 %}
+                                    <span class="badge bg-danger" id="productStockStatus-{{ product.id }}">
+                                        <i class="bi bi-exclamation-triangle"></i> Agotado
+                                    </span>
+                                {% elif product.stock <= 3 %}
+                                    <span class="badge bg-warning text-dark" id="productStockStatus-{{ product.id }}">
+                                        <i class="bi bi-exclamation-circle"></i> Medio
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-success" id="productStockStatus-{{ product.id }}">
+                                        <i class="bi bi-check-circle"></i> OK
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('product_edit', id=product.id) }}" 
+                                       class="btn btn-outline-warning" 
+                                       id="btnEditProduct-{{ product.id }}"
+                                       title="Editar producto">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td colspan="5" class="text-end"><strong>Totales:</strong></td>
+                            <td class="text-center">
+                                <strong id="totalStockSum">
+                                    {{ products|sum(attribute='stock') }}
+                                </strong>
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Resumen de Stock -->
+            <div class="mt-3 p-3 bg-light rounded">
+                <div class="row text-center small">
+                    <div class="col-md-4">
+                        <div class="border-end">
+                            <h6 class="text-danger mb-1">
+                                <i class="bi bi-exclamation-triangle"></i> Agotado
+                            </h6>
+                            <p class="mb-0 fs-4" id="lowStockCount">
+                                {{ products|selectattr('stock', 'eq', 0)|list|length }}
+                            </p>
+                            <small class="text-muted">0 unidades</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border-end">
+                            <h6 class="text-warning mb-1">
+                                <i class="bi bi-exclamation-circle"></i> Stock Medio
+                            </h6>
+                            <p class="mb-0 fs-4" id="mediumStockCount">
+                                {{ products|selectattr('stock', 'ge', 1)|selectattr('stock', 'le', 3)|list|length }}
+                            </p>
+                            <small class="text-muted">1-3 unidades</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-success mb-1">
+                            <i class="bi bi-check-circle"></i> Stock OK
+                        </h6>
+                        <p class="mb-0 fs-4" id="goodStockCount">
+                            {{ products|selectattr('stock', 'gt', 3)|list|length }}
+                        </p>
+                        <small class="text-muted">> 3 unidades</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ayuda para Pedidos -->
+            <div class="alert alert-info mt-3 mb-0" role="alert">
+                <h6 class="alert-heading">
+                    <i class="bi bi-lightbulb"></i> Crear Pedido
+                </h6>
+                <p class="small mb-0">
+                    <strong>Sugerencia:</strong> Revisa los productos <span class="badge bg-danger">agotados</span> (0 unidades) 
+                    y con <span class="badge bg-warning text-dark">stock medio</span> (1-3 unidades) para determinar qué necesitas pedir. 
+                    Puedes imprimir esta lista usando el botón "Imprimir Lista" arriba.
+                </p>
+            </div>
+
+            {% else %}
+            <!-- Estado Vacío -->
+            <div class="text-center py-5" id="emptyProductsState">
+                <i class="bi bi-box" style="font-size: 4rem; color: #ccc;"></i>
+                <h4 class="mt-3 text-muted">No hay productos asociados</h4>
+                <p class="text-muted">Este proveedor aún no tiene productos asociados.</p>
+                <a href="{{ url_for('product_list') }}" class="btn btn-primary mt-2" id="btnGoToProducts">
+                    <i class="bi bi-box"></i> Ir a Productos
+                </a>
+                <p class="small text-muted mt-2">
+                    Para asociar productos, edita un producto y selecciona este proveedor.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn, .breadcrumb, .card-header .badge, .alert, nav {
+        display: none !important;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .table {
+        font-size: 10pt;
+    }
+}
+</style>
+{% endblock %}

@@ -64,6 +64,48 @@
                         <option value="Higiene">
                     </datalist>
                 </div>
+                
+                <!-- Sección de Proveedores -->
+                <div class="col-md-12 mb-3">
+                    <label class="form-label">
+                        <i class="bi bi-truck"></i> Proveedores
+                    </label>
+                    <div class="card">
+                        <div class="card-body">
+                            {% if suppliers %}
+                            <div class="row">
+                                {% for supplier in suppliers %}
+                                <div class="col-md-4 col-sm-6 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" 
+                                               type="checkbox" 
+                                               name="supplier_ids" 
+                                               value="{{ supplier.id }}" 
+                                               id="supplierCheckbox-{{ supplier.id }}"
+                                               {% if product and supplier in product.suppliers.all() %}checked{% endif %}>
+                                        <label class="form-check-label" for="supplierCheckbox-{{ supplier.id }}">
+                                            {{ supplier.name }}
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> 
+                                Selecciona uno o más proveedores que suministran este producto.
+                                Esto facilitará la búsqueda de productos por proveedor al hacer pedidos.
+                            </small>
+                            {% else %}
+                            <p class="text-muted mb-0">
+                                <i class="bi bi-exclamation-circle"></i> 
+                                No hay proveedores registrados. 
+                                <a href="{{ url_for('supplier_new') }}" target="_blank">Crear el primero</a>
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
                 {% if product %}
                 <div class="col-md-12 mb-3" id="stock-reason-container" style="display: none;">
                     <div class="alert alert-warning">

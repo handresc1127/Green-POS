@@ -6,7 +6,7 @@ from flask import Flask, render_template, redirect, url_for, request, flash, jso
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models.models import (
     db, Product, Customer, Invoice, InvoiceItem, Setting, User, 
-    Pet, PetService, ServiceType, Appointment, ProductStockLog
+    Pet, PetService, ServiceType, Appointment, ProductStockLog, Supplier, product_supplier
 )
 from sqlalchemy import func, or_, and_
 from datetime import datetime, timezone, timedelta
@@ -242,14 +242,14 @@ def index():
     invoice_count = Invoice.query.count()
     recent_invoices = Invoice.query.order_by(Invoice.created_at.desc()).limit(5).all()
     
-    # Productos con poco stock (<10 unidades)
+    # Productos con poco stock (<=3 unidades)
     # Ordenados por: 1) Stock ascendente (menos stock primero)
     #                2) Ventas descendentes (más vendidos primero en empate)
     low_stock_query = db.session.query(
         Product,
         func.coalesce(func.sum(InvoiceItem.quantity), 0).label('sales_count')
     ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id).filter(
-        Product.stock < 10,
+        Product.stock <= 3,
         Product.category != 'Servicios'
     ).group_by(Product.id).order_by(
         Product.stock.asc(),  # Primero: menos stock
@@ -283,10 +283,11 @@ def index():
 @app.route('/products')
 @role_required('admin')
 def product_list():
-    """Lista de productos con búsqueda y ordenamiento."""
+    """Lista de productos con búsqueda, ordenamiento y filtro por proveedor."""
     query = request.args.get('query', '')
     sort_by = request.args.get('sort_by', 'name')
     sort_order = request.args.get('sort_order', 'asc')
+    supplier_id = request.args.get('supplier_id', '')
     
     sort_columns = {
         'code': Product.code,
@@ -302,6 +303,18 @@ def product_list():
         Product,
         func.coalesce(func.sum(InvoiceItem.quantity), 0).label('sales_count')
     ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id)
+    
+    # Filtro por proveedor
+    if supplier_id:
+        supplier = Supplier.query.get(supplier_id)
+        if supplier:
+            # Filtrar productos de este proveedor
+            product_ids = [p.id for p in supplier.products]
+            if product_ids:
+                base_query = base_query.filter(Product.id.in_(product_ids))
+            else:
+                # Si el proveedor no tiene productos, devolver vacío
+                base_query = base_query.filter(Product.id == -1)
     
     if query:
         # Búsqueda mejorada: divide el query en palabras individuales
@@ -355,12 +368,17 @@ def product_list():
     for product, sales_count in products:
         product.sales_count = sales_count
         products_with_sales.append(product)
-        
+    
+    # Obtener todos los proveedores para el filtro
+    suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
+    
     return render_template('products/list.html', 
                          products=products_with_sales, 
                          query=query,
                          sort_by=sort_by,
-                         sort_order=sort_order)
+                         sort_order=sort_order,
+                         suppliers=suppliers,
+                         supplier_id=supplier_id)
 
 @app.route('/products/new', methods=['GET', 'POST'])
 @role_required('admin')
@@ -378,7 +396,8 @@ def product_new():
         existing_product = Product.query.filter_by(code=code).first()
         if existing_product:
             flash('El código del producto ya existe', 'danger')
-            return render_template('products/form.html', product=None)
+            suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
+            return render_template('products/form.html', product=None, suppliers=suppliers)
 
         product = Product(
             code=code,
@@ -391,12 +410,24 @@ def product_new():
         )
 
         db.session.add(product)
+        db.session.flush()  # Para obtener el ID del producto
+        
+        # Asociar proveedores seleccionados
+        supplier_ids = request.form.getlist('supplier_ids')
+        if supplier_ids:
+            for supplier_id in supplier_ids:
+                supplier = Supplier.query.get(int(supplier_id))
+                if supplier:
+                    product.suppliers.append(supplier)
+        
         db.session.commit()
         db.session.remove()  # Ensure session is closed to release lock
         flash('Producto creado exitosamente', 'success')
         return redirect(url_for('product_list'))
     
-    return render_template('products/form.html', product=None)
+    # GET - Mostrar formulario con lista de proveedores
+    suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
+    return render_template('products/form.html', product=None, suppliers=suppliers)
 
 @app.route('/products/edit/<int:id>', methods=['GET', 'POST'])
 @role_required('admin')
@@ -420,7 +451,8 @@ def product_edit(id):
             
             if not reason:
                 flash('Debe proporcionar una razón para el cambio en las existencias', 'warning')
-                return render_template('products/form.html', product=product)
+                suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
+                return render_template('products/form.html', product=product, suppliers=suppliers)
             
             # Calcular diferencia y tipo de movimiento
             quantity_diff = new_stock - old_stock
@@ -441,12 +473,26 @@ def product_edit(id):
         product.stock = new_stock
         product.category = request.form.get('category', '')
         
+        # Actualizar proveedores asociados
+        # Primero eliminar todas las asociaciones actuales
+        product.suppliers = []
+        
+        # Agregar nuevas asociaciones
+        supplier_ids = request.form.getlist('supplier_ids')
+        if supplier_ids:
+            for supplier_id in supplier_ids:
+                supplier = Supplier.query.get(int(supplier_id))
+                if supplier:
+                    product.suppliers.append(supplier)
+        
         db.session.commit()
         
         flash('Producto actualizado exitosamente', 'success')
         return redirect(url_for('product_list'))
     
-    return render_template('products/form.html', product=product)
+    # GET - Mostrar formulario con proveedores
+    suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
+    return render_template('products/form.html', product=product, suppliers=suppliers)
 
 @app.route('/products/delete/<int:id>', methods=['POST'])
 @role_required('admin')
@@ -476,6 +522,146 @@ def product_stock_history(id):
         .all()
     
     return render_template('products/stock_history.html', product=product, logs=logs)
+
+# =====================
+# Supplier routes (Proveedores)
+# =====================
+
+@app.route('/suppliers')
+@login_required
+def supplier_list():
+    """Lista todos los proveedores con búsqueda opcional"""
+    query = request.args.get('query', '')
+    
+    if query:
+        suppliers = Supplier.query.filter(
+            or_(
+                Supplier.name.ilike(f'%{query}%'),
+                Supplier.nit.ilike(f'%{query}%'),
+                Supplier.contact_name.ilike(f'%{query}%')
+            )
+        ).order_by(Supplier.name.asc()).all()
+    else:
+        suppliers = Supplier.query.order_by(Supplier.name.asc()).all()
+    
+    # Contar productos por proveedor
+    for supplier in suppliers:
+        supplier.product_count = len(supplier.products)
+    
+    return render_template('suppliers/list.html', suppliers=suppliers, query=query)
+
+@app.route('/suppliers/new', methods=['GET', 'POST'])
+@login_required
+def supplier_new():
+    """Crear nuevo proveedor"""
+    if request.method == 'POST':
+        try:
+            supplier = Supplier(
+                name=request.form.get('name'),
+                contact_name=request.form.get('contact_name'),
+                phone=request.form.get('phone'),
+                email=request.form.get('email'),
+                address=request.form.get('address'),
+                nit=request.form.get('nit'),
+                notes=request.form.get('notes'),
+                active=request.form.get('active') == 'on'
+            )
+            
+            db.session.add(supplier)
+            db.session.commit()
+            
+            flash('Proveedor creado exitosamente', 'success')
+            return redirect(url_for('supplier_list'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error creando proveedor: {str(e)}')
+            flash('Error al crear el proveedor', 'danger')
+    
+    return render_template('suppliers/form.html')
+
+@app.route('/suppliers/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def supplier_edit(id):
+    """Editar proveedor existente"""
+    supplier = Supplier.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        try:
+            supplier.name = request.form.get('name')
+            supplier.contact_name = request.form.get('contact_name')
+            supplier.phone = request.form.get('phone')
+            supplier.email = request.form.get('email')
+            supplier.address = request.form.get('address')
+            supplier.nit = request.form.get('nit')
+            supplier.notes = request.form.get('notes')
+            supplier.active = request.form.get('active') == 'on'
+            supplier.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            flash('Proveedor actualizado exitosamente', 'success')
+            return redirect(url_for('supplier_list'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error actualizando proveedor: {str(e)}')
+            flash('Error al actualizar el proveedor', 'danger')
+    
+    return render_template('suppliers/form.html', supplier=supplier)
+
+@app.route('/suppliers/delete/<int:id>', methods=['POST'])
+@login_required
+def supplier_delete(id):
+    """Eliminar proveedor"""
+    try:
+        supplier = Supplier.query.get_or_404(id)
+        
+        # Verificar si tiene productos asociados
+        if len(supplier.products) > 0:
+            flash(f'No se puede eliminar el proveedor porque tiene {len(supplier.products)} producto(s) asociado(s)', 'warning')
+            return redirect(url_for('supplier_list'))
+        
+        db.session.delete(supplier)
+        db.session.commit()
+        
+        flash('Proveedor eliminado exitosamente', 'success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f'Error eliminando proveedor: {str(e)}')
+        flash('Error al eliminar el proveedor', 'danger')
+    
+    return redirect(url_for('supplier_list'))
+
+@app.route('/suppliers/<int:id>/products')
+@login_required
+def supplier_products(id):
+    """Ver productos de un proveedor específico con ordenamiento"""
+    supplier = Supplier.query.get_or_404(id)
+    
+    # Obtener parámetros de ordenamiento (por defecto: stock ascendente)
+    sort_by = request.args.get('sort_by', 'stock')
+    sort_order = request.args.get('sort_order', 'asc')
+    
+    # Validar campos permitidos para ordenar
+    allowed_fields = ['code', 'name', 'category', 'purchase_price', 'sale_price', 'stock']
+    if sort_by not in allowed_fields:
+        sort_by = 'stock'
+    
+    # Obtener productos y ordenar
+    products_query = Product.query.join(product_supplier).filter(
+        product_supplier.c.supplier_id == id
+    )
+    
+    # Aplicar ordenamiento
+    if sort_order == 'desc':
+        products = products_query.order_by(getattr(Product, sort_by).desc()).all()
+    else:
+        products = products_query.order_by(getattr(Product, sort_by).asc()).all()
+    
+    return render_template('suppliers/products.html', 
+                         supplier=supplier, 
+                         products=products,
+                         sort_by=sort_by,
+                         sort_order=sort_order)
 
 # Customer routes
 @app.route('/customers')
@@ -1736,8 +1922,8 @@ def reports():
     ]
     
     # ========== ESTADO DE INVENTARIO ==========
-    # Productos con stock bajo (< 3 unidades)
-    low_stock_products = Product.query.filter(Product.stock < 3).order_by(Product.stock.asc()).all()
+    # Productos con stock bajo (<= 3 unidades)
+    low_stock_products = Product.query.filter(Product.stock <= 3).order_by(Product.stock.asc()).all()
     
     # Valor total del inventario (stock * precio_compra)
     inventory_value = db.session.query(

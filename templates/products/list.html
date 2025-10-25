@@ -35,18 +35,54 @@
 <div class="card mb-4" id="productsSearchCard">
     <div class="card-body">
         <form action="{{ url_for('product_list') }}" method="get" id="productsSearchForm">
-            <div class="input-group">
-                <input type="text" name="query" class="form-control" id="productSearchInput" 
-                       placeholder="Buscar por nombre o código..." value="{{ query }}">
-                <button class="btn btn-primary" type="submit" id="searchProductBtn">
-                    <i class="bi bi-search"></i> Buscar
-                </button>
-                {% if query %}
-                    <a href="{{ url_for('product_list') }}" class="btn btn-outline-secondary" id="clearSearchBtn">
-                        <i class="bi bi-x-circle"></i> Limpiar
-                    </a>
+            <div class="row g-3">
+                <!-- Búsqueda por texto -->
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <input type="text" name="query" class="form-control" id="productSearchInput" 
+                               placeholder="Buscar por nombre o código..." value="{{ query }}">
+                        <button class="btn btn-primary" type="submit" id="searchProductBtn">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                        {% if query or supplier_id %}
+                            <a href="{{ url_for('product_list') }}" class="btn btn-outline-secondary" id="clearSearchBtn">
+                                <i class="bi bi-x-circle"></i> Limpiar todo
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Filtro por Proveedor -->
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <label class="input-group-text" for="supplierFilter">
+                            <i class="bi bi-truck"></i> Proveedor
+                        </label>
+                        <select name="supplier_id" class="form-select" id="supplierFilterSelect" onchange="this.form.submit()">
+                            <option value="">-- Todos los Proveedores --</option>
+                            {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}" {% if supplier_id == supplier.id|string %}selected{% endif %}>
+                                    {{ supplier.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Información de filtros activos -->
+                {% if supplier_id %}
+                <div class="col-12">
+                    <div class="alert alert-info py-2 mb-0" role="alert">
+                        <i class="bi bi-funnel"></i> 
+                        Filtrando por proveedor: <strong>{{ suppliers|selectattr('id', 'equalto', supplier_id|int)|map(attribute='name')|first }}</strong>
+                    </div>
+                </div>
                 {% endif %}
             </div>
+            
+            <!-- Campos ocultos para mantener el orden -->
+            <input type="hidden" name="sort_by" value="{{ sort_by }}">
+            <input type="hidden" name="sort_order" value="{{ sort_order }}">
         </form>
     </div>
 </div>
@@ -59,7 +95,7 @@
                     <thead id="productsTableHead">
                         <tr>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, sort_by='code', sort_order='desc' if sort_by == 'code' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='code', sort_order='desc' if sort_by == 'code' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByCode">
                                     Código 
                                     {% if sort_by == 'code' %}
@@ -68,7 +104,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, sort_by='name', sort_order='desc' if sort_by == 'name' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='name', sort_order='desc' if sort_by == 'name' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByName">
                                     Nombre 
                                     {% if sort_by == 'name' %}
@@ -77,7 +113,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, sort_by='category', sort_order='desc' if sort_by == 'category' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='category', sort_order='desc' if sort_by == 'category' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByCategory">
                                     Categoría 
                                     {% if sort_by == 'category' %}
@@ -86,7 +122,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, sort_by='purchase_price', sort_order='desc' if sort_by == 'purchase_price' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='purchase_price', sort_order='desc' if sort_by == 'purchase_price' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByPurchasePrice">
                                     Precio Compra 
                                     {% if sort_by == 'purchase_price' %}
@@ -95,7 +131,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, sort_by='sale_price', sort_order='desc' if sort_by == 'sale_price' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='sale_price', sort_order='desc' if sort_by == 'sale_price' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortBySalePrice">
                                     Precio Venta 
                                     {% if sort_by == 'sale_price' %}
@@ -104,7 +140,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, sort_by='stock', sort_order='desc' if sort_by == 'stock' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='stock', sort_order='desc' if sort_by == 'stock' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByStock">
                                     Stock 
                                     {% if sort_by == 'stock' %}
@@ -113,7 +149,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, sort_by='sales_count', sort_order='desc' if sort_by == 'sales_count' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='sales_count', sort_order='desc' if sort_by == 'sales_count' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortBySalesCount">
                                     Vendidos 
                                     {% if sort_by == 'sales_count' %}
@@ -134,9 +170,9 @@
                                 <td id="productSalePrice-{{ product.id }}">{{ product.sale_price | currency_co }}</td>
                                 <td>
                                     {% set badge_class = 'success' %}
-                                    {% if product.stock < 0 %}
+                                    {% if product.stock == 0 %}
                                         {% set badge_class = 'danger' %}
-                                    {% elif product.stock == 0 %}
+                                    {% elif product.stock <= 3 %}
                                         {% set badge_class = 'warning' %}
                                     {% endif %}
                                     <span class="badge bg-{{ badge_class }}" id="productStock-{{ product.id }}">{{ product.stock }}</span>

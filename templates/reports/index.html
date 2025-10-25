@@ -441,8 +441,8 @@
             <td><span class="badge bg-secondary">{{ prod.code }}</span></td>
             <td>{{ prod.name }}</td>
             <td class="text-end">
-              <span class="badge {% if prod.stock == 0 %}bg-danger{% elif prod.stock < 5 %}bg-warning{% else %}bg-info{% endif %}">
-                {{ prod.stock }}
+              <span class="badge {% if prod.stock == 0 %}bg-danger{% elif prod.stock <= 3 %}bg-warning{% else %}bg-success{% endif %}">
+                {% if prod.stock == 0 %}Agotado{% else %}{{ prod.stock }}{% endif %}
               </span>
             </td>
             <td class="text-end">{{ prod.sale_price|currency_co }}</td>

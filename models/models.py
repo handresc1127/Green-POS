@@ -36,6 +36,36 @@ class Setting(db.Model):
     def document_label(self):
         return 'Factura' if self.document_type == 'invoice' else 'Documento Equivalente POS'
 
+# Tabla de asociación Many-to-Many entre Product y Supplier
+product_supplier = db.Table('product_supplier',
+    db.Column('product_id', db.Integer, db.ForeignKey('product.id'), primary_key=True),
+    db.Column('supplier_id', db.Integer, db.ForeignKey('supplier.id'), primary_key=True),
+    db.Column('created_at', db.DateTime, default=datetime.utcnow)
+)
+
+class Supplier(db.Model):
+    """Proveedor de productos"""
+    __tablename__ = 'supplier'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    contact_name = db.Column(db.String(100))
+    phone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    address = db.Column(db.String(255))
+    nit = db.Column(db.String(30))
+    notes = db.Column(db.Text)
+    active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relación Many-to-Many con Product
+    products = db.relationship('Product', secondary=product_supplier, 
+                              backref=db.backref('suppliers', lazy='dynamic'))
+
+    def __repr__(self):
+        return f"<Supplier {self.name}>"
+
 class Product(db.Model):
     __tablename__ = 'product'
     
