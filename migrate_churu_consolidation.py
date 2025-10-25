@@ -105,16 +105,16 @@ def create_backup():
     print_section("PASO 0: CREANDO BACKUP")
     
     if not os.path.exists(DB_PATH):
-        print(f"❌ Error: No se encuentra la base de datos en {DB_PATH}")
+        print(f"[ERROR] No se encuentra la base de datos en {DB_PATH}")
         return False
     
     import shutil
     try:
         shutil.copy2(DB_PATH, BACKUP_PATH)
-        print(f"✅ Backup creado: {BACKUP_PATH}")
+        print(f"[OK] Backup creado: {BACKUP_PATH}")
         return True
     except Exception as e:
-        print(f"❌ Error creando backup: {e}")
+        print(f"[ERROR] Error creando backup: {e}")
         return False
 
 def get_or_create_products(conn):

@@ -1,5 +1,13 @@
+# -*- coding: utf-8 -*-
 import sqlite3
 from datetime import datetime
+import sys
+import io
+
+# Configurar encoding UTF-8 para Windows
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # Conectar a la base de datos
 conn = sqlite3.connect('instance/app.db')
