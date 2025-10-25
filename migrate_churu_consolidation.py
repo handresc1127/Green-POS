@@ -52,7 +52,7 @@ MIGRATION_MAP = {
     244: '855958006662-2', # CHURU WITH TUNA Y SALMON INDIVIDUALES
     
     # Churu Dog X4 (ya existe como 413, solo actualizar)
-    414: '850006715398',   # CHURU DOG POLLO CON QUESO X4 → migra a 413
+    414: '850006715398',   # CHURU DOG POLLO CON QUESO X4 -> migra a 413
     # 413 ya tiene código 850006715398, solo se actualiza el nombre
     
     # Churu Dog X1 (nuevo, sin migración de ventas previas)
@@ -146,7 +146,7 @@ def get_or_create_products(conn):
                 product['category'],
                 product_id
             ))
-            print(f"✅ Actualizado: {product['code']} - {product['name']} (ID: {product_id})")
+            print(f"[OK] Actualizado: {product['code']} - {product['name']} (ID: {product_id})")
         else:
             # Crear producto nuevo
             cursor.execute("""
@@ -161,7 +161,7 @@ def get_or_create_products(conn):
                 product['category']
             ))
             product_id = cursor.lastrowid
-            print(f"✅ Creado: {product['code']} - {product['name']} (ID: {product_id})")
+            print(f"[OK] Creado: {product['code']} - {product['name']} (ID: {product_id})")
         
         product_ids[product['code']] = product_id
     
@@ -193,11 +193,11 @@ def migrate_sales(conn, product_ids):
                 SET product_id = ?
                 WHERE product_id = ?
             """, (new_id, old_id))
-            print(f"  ✅ Migradas {count} ventas: Producto {old_id} → {new_id}")
+            print(f"  [OK] Migradas {count} ventas: Producto {old_id} -> {new_id}")
             total_migrated += count
     
     conn.commit()
-    print(f"\n📊 Total de registros de venta migrados: {total_migrated}")
+    print(f"\n[INFO] Total de registros de venta migrados: {total_migrated}")
 
 def calculate_consolidated_stock(conn, product_ids):
     """Calcula el stock consolidado de los nuevos productos."""
@@ -228,10 +228,10 @@ def calculate_consolidated_stock(conn, product_ids):
                 old_stock = result[0] or 0
                 if old_stock != 0:
                     stock_by_new_product[new_code] += old_stock
-                    print(f"  ➕ Producto {old_id}: {old_stock} unidades → {new_code}")
+                    print(f"  [+] Producto {old_id}: {old_stock} unidades -> {new_code}")
     
     # Actualizar stock en productos nuevos
-    print("\n🔄 Actualizando stock consolidado:")
+    print("\n[PROCESO] Actualizando stock consolidado:")
     for new_code, total_stock in stock_by_new_product.items():
         if new_code in product_ids:
             cursor.execute("""
@@ -239,7 +239,7 @@ def calculate_consolidated_stock(conn, product_ids):
                 SET stock = ?
                 WHERE id = ?
             """, (total_stock, product_ids[new_code]))
-            print(f"  ✅ {new_code}: {total_stock} unidades")
+            print(f"  [OK] {new_code}: {total_stock} unidades")
     
     conn.commit()
     return stock_by_new_product
@@ -273,7 +273,7 @@ def create_stock_movements(conn, product_ids, stock_by_product):
                 total_stock,
                 datetime.now()
             ))
-            print(f"  ✅ Movimiento creado: {new_code} (+{total_stock} unidades)")
+            print(f"  [OK] Movimiento creado: {new_code} (+{total_stock} unidades)")
     
     conn.commit()
 
@@ -290,7 +290,7 @@ def migrate_suppliers(conn, product_ids):
     """)
     
     if not cursor.fetchone():
-        print("⚠️  Tabla product_supplier no existe, saltando migración de proveedores")
+        print("[ADVERTENCIA]  Tabla product_supplier no existe, saltando migración de proveedores")
         return
     
     # Construir mapeo de IDs
@@ -329,7 +329,7 @@ def migrate_suppliers(conn, product_ids):
                     total_migrated += 1
     
     conn.commit()
-    print(f"📊 Total de asociaciones de proveedor migradas: {total_migrated}")
+    print(f"[INFO] Total de asociaciones de proveedor migradas: {total_migrated}")
 
 def delete_old_products(conn, product_ids):
     """Elimina los productos antiguos (excepto los que fueron actualizados)."""
@@ -348,7 +348,7 @@ def delete_old_products(conn, product_ids):
         conn.commit()
         return
     
-    print("⚠️  Se eliminarán los siguientes productos:")
+    print("[ADVERTENCIA]  Se eliminarán los siguientes productos:")
     for old_id in old_product_ids:
         cursor.execute("SELECT code, name FROM product WHERE id = ?", (old_id,))
         result = cursor.fetchone()
@@ -360,7 +360,7 @@ def delete_old_products(conn, product_ids):
     if cursor.fetchone():
         placeholders = ','.join('?' * len(old_product_ids))
         cursor.execute(f"DELETE FROM product_supplier WHERE product_id IN ({placeholders})", old_product_ids)
-        print(f"  ✅ Asociaciones de proveedores eliminadas")
+        print(f"  [OK] Asociaciones de proveedores eliminadas")
     
     # Eliminar productos
     placeholders = ','.join('?' * len(old_product_ids))
@@ -368,7 +368,7 @@ def delete_old_products(conn, product_ids):
     deleted = cursor.rowcount
     
     conn.commit()
-    print(f"\n✅ Productos antiguos eliminados: {deleted}")
+    print(f"\n[OK] Productos antiguos eliminados: {deleted}")
 
 def verify_migration(conn, product_ids):
     """Verifica que la migración fue exitosa."""
@@ -376,7 +376,7 @@ def verify_migration(conn, product_ids):
     
     cursor = conn.cursor()
     
-    print("\n📊 PRODUCTOS CONSOLIDADOS:")
+    print("\n[INFO] PRODUCTOS CONSOLIDADOS:")
     print("-" * 80)
     for code, product_id in product_ids.items():
         cursor.execute("""
@@ -398,11 +398,11 @@ def verify_migration(conn, product_ids):
             
             print(f"\n{code} - {name}")
             print(f"  Stock actual: {stock} unidades")
-            print(f"  Precio: ${purchase:,.0f} → ${sale:,.0f}")
+            print(f"  Precio: ${purchase:,.0f} -> ${sale:,.0f}")
             print(f"  Ventas: {num_sales} facturas, {qty_sold} unidades vendidas")
     
     print("\n" + "=" * 80)
-    print("✅ MIGRACIÓN COMPLETADA EXITOSAMENTE")
+    print("[OK] MIGRACIÓN COMPLETADA EXITOSAMENTE")
     print("=" * 80)
 
 def main():
@@ -418,15 +418,15 @@ def main():
     print("  5. Migrar proveedores")
     print("  6. Eliminar 11 productos antiguos")
     
-    response = input("\n⚠️  ¿Deseas continuar? (escribe 'SI' para confirmar): ")
+    response = input("\n[ADVERTENCIA]  ¿Deseas continuar? (escribe 'SI' para confirmar): ")
     
     if response.upper() != 'SI':
-        print("\n❌ Operación cancelada por el usuario")
+        print("\n[ERROR] Operación cancelada por el usuario")
         return
     
     # Crear backup
     if not create_backup():
-        print("\n❌ Error creando backup. Abortando migración.")
+        print("\n[ERROR] Error creando backup. Abortando migración.")
         return
     
     try:
@@ -444,12 +444,12 @@ def main():
         
         conn.close()
         
-        print(f"\n💾 Backup guardado en: {BACKUP_PATH}")
+        print(f"\n[BACKUP] Backup guardado en: {BACKUP_PATH}")
         print("   (Puedes restaurarlo si algo salió mal)")
         
     except Exception as e:
-        print(f"\n❌ ERROR durante la migración: {e}")
-        print(f"\n🔄 Para restaurar el backup:")
+        print(f"\n[ERROR] ERROR durante la migración: {e}")
+        print(f"\n[PROCESO] Para restaurar el backup:")
         print(f"   copy {BACKUP_PATH} {DB_PATH}")
         raise
 

@@ -98,7 +98,7 @@ if stock_logs:
     print(f"{'Producto':<30} {'Tipo':>12} {'Cant':>6} {'Stock Ant':>10} {'Stock Nuevo':>12} {'Razón':<30} {'Fecha':<20} {'Usuario':<10}")
     print("-" * 100)
     for log in stock_logs:
-        tipo = "➕ INGRESO" if log[1] == 'addition' else "➖ EGRESO"
+        tipo = "[+] INGRESO" if log[1] == 'addition' else "➖ EGRESO"
         print(f"{log[0][:30]:<30} {tipo:>12} {log[2]:>6} {log[3]:>10} {log[4]:>12} {log[5][:30]:<30} {log[6]:<20} {log[7]:<10}")
     print(f"\nÚltimos 20 movimientos de stock mostrados")
 else:
@@ -172,7 +172,7 @@ if suppliers:
     print(f"{'Proveedor':<30} {'Contacto':<25} {'Teléfono':<15} {'Email':<30} {'Productos':>10} {'Estado':<10}")
     print("-" * 100)
     for sup in suppliers:
-        estado = "✓ Activo" if sup[5] else "✗ Inactivo"
+        estado = "[OK] Activo" if sup[5] else "[X] Inactivo"
         print(f"{sup[0]:<30} {sup[1] or 'N/A':<25} {sup[2] or 'N/A':<15} {sup[3] or 'N/A':<30} {sup[4]:>10} {estado:<10}")
 else:
     print("No se encontraron proveedores para productos Churu")
