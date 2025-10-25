@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Script de Consolidación de Productos Churu
 ==========================================
@@ -20,6 +21,13 @@ Ejecutar: python migrate_churu_consolidation.py
 import sqlite3
 from datetime import datetime
 import os
+import sys
+
+# Configurar encoding UTF-8 para Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # Configuración
 DB_PATH = 'instance/app.db'
