@@ -113,28 +113,43 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}"
-                                            class="btn btn-outline-primary" title="Ver">
-                                            <i class="bi bi-eye"></i>
-                                        </a>
-                                        {% if current_user.role == 'admin' %}
-                                        {% if invoice.status == 'pending' %}
-                                        <form method="post" action="{{ url_for('invoice_validate', id=invoice.id) }}"
-                                            onsubmit="return confirm('Validar esta venta?');">
-                                            <button type="submit" class="btn btn-outline-success" title="Validar">
-                                                <i class="bi bi-check2-circle"></i>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('invoice_view', id=invoice.id) }}"
+                                                class="btn btn-outline-primary" title="Ver">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if current_user.role == 'admin' %}
+                                            {% if invoice.status == 'pending' %}
+                                            <form method="post" action="{{ url_for('invoice_validate', id=invoice.id) }}"
+                                                onsubmit="return confirm('Validar esta venta?');">
+                                                <button type="submit" class="btn btn-outline-success" title="Validar">
+                                                    <i class="bi bi-check2-circle"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                            {% if invoice.status != 'validated' %}
+                                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
+                                                data-bs-target="#deleteModal" data-id="{{ invoice.id }}"
+                                                data-number="{{ invoice.number }}" title="Eliminar">
+                                                <i class="bi bi-trash"></i>
                                             </button>
-                                        </form>
-                                        {% endif %}
-                                        {% if invoice.status != 'validated' %}
-                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
-                                            data-bs-target="#deleteModal" data-id="{{ invoice.id }}"
-                                            data-number="{{ invoice.number }}" title="Eliminar">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                        {% endif %}
-                                        {% endif %}
+                                            {% endif %}
+                                            {% endif %}
+                                        </div>
+                                        <span class="fs-5" title="{{ 'Efectivo' if invoice.payment_method == 'cash' else ('Transferencia' if invoice.payment_method == 'transfer' else ('Tarjeta' if invoice.payment_method == 'card' else 'Mixto')) }}">
+                                            {% if invoice.payment_method == 'cash' %}
+                                                💵
+                                            {% elif invoice.payment_method == 'transfer' %}
+                                                💳
+                                            {% elif invoice.payment_method == 'card' %}
+                                                💳
+                                            {% elif invoice.payment_method == 'mixed' %}
+                                                💵💳
+                                            {% else %}
+                                                💵
+                                            {% endif %}
+                                        </span>
                                     </div>
                                 </td>
                             </tr>
