@@ -156,6 +156,11 @@
                                                 🐾
                                             </span>
                                             {% endif %}
+                                            {% if invoice.discount and invoice.discount > 0 %}
+                                            <span class="fs-5" title="Descuento aplicado: {{ invoice.discount|currency_co }}">
+                                                🏷️
+                                            </span>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </td>

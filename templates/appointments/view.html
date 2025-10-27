@@ -134,6 +134,21 @@
             </div>
           </div>
 
+          <div class="mb-3">
+            <label for="discount" class="form-label">
+              <strong>Descuento Especial:</strong>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input type="number" class="form-control" id="discount" name="discount" 
+                     min="0" max="{{ appointment.total_price or 0 }}" step="100" value="0"
+                     oninput="updateFinalTotal()">
+            </div>
+            <div class="form-text">
+              Descuento promocional a aplicar (opcional)
+            </div>
+          </div>
+
           <div class="card bg-light">
             <div class="card-body">
               <h6 class="card-title">Resumen de la Cita:</h6>
@@ -141,7 +156,9 @@
                 <li><strong>Mascota:</strong> {{ appointment.pet.name if appointment.pet else 'N/A' }}</li>
                 <li><strong>Cliente:</strong> {{ appointment.customer.name if appointment.customer else 'N/A' }}</li>
                 <li><strong>Servicios:</strong> {{ appointment.services|length }}</li>
-                <li><strong>Total:</strong> {{ (appointment.total_price or 0)|currency_co }}</li>
+                <li><strong>Subtotal:</strong> <span id="subtotal-display">{{ (appointment.total_price or 0)|currency_co }}</span></li>
+                <li><strong>Descuento:</strong> <span id="discount-display" class="text-danger">$0</span></li>
+                <li class="border-top pt-2 mt-2"><strong>Total a Pagar:</strong> <span id="total-display" class="fs-5 text-success">{{ (appointment.total_price or 0)|currency_co }}</span></li>
               </ul>
             </div>
           </div>
@@ -163,6 +180,32 @@
 
 {% block extra_js %}
 <script>
+// Variables globales para el cálculo del total
+const appointmentSubtotal = {{ appointment.total_price or 0 }};
+
+/**
+ * Actualiza el total final según el descuento aplicado
+ */
+function updateFinalTotal() {
+    const discountInput = document.getElementById('discount');
+    const discount = parseFloat(discountInput.value) || 0;
+    
+    // Validar que el descuento no sea mayor al subtotal
+    if (discount > appointmentSubtotal) {
+        discountInput.value = appointmentSubtotal;
+        discount = appointmentSubtotal;
+    }
+    
+    const finalTotal = appointmentSubtotal - discount;
+    
+    // Actualizar displays
+    document.getElementById('discount-display').textContent = 
+        new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(discount);
+    
+    document.getElementById('total-display').textContent = 
+        new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(finalTotal);
+}
+
 /**
  * Imprime el consentimiento informado
  */

@@ -1618,12 +1618,20 @@ def appointment_finish(id):
             flash('La cita ya estaba finalizada', 'info')
         return redirect(url_for('appointment_view', id=id))
     
-    # Obtener método de pago del formulario
+    # Obtener método de pago y descuento del formulario
     payment_method = request.form.get('payment_method', 'cash')
+    discount = float(request.form.get('discount', 0))
+    
     # Validar que sea un método válido
     valid_methods = ['cash', 'transfer', 'card', 'mixed']
     if payment_method not in valid_methods:
         payment_method = 'cash'
+    
+    # Validar que el descuento no sea negativo ni mayor al total
+    if discount < 0:
+        discount = 0
+    if discount > appointment.total_price:
+        discount = appointment.total_price
     
     # Generar la factura al finalizar la cita
     try:
@@ -1683,6 +1691,11 @@ def appointment_finish(id):
         
         # Calcular totales de la factura
         invoice.calculate_totals()
+        
+        # Aplicar descuento si existe
+        if discount > 0:
+            invoice.discount = discount
+            invoice.total = invoice.total - discount
         
         # Asociar la factura a la cita
         appointment.invoice_id = invoice.id

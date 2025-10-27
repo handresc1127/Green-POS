@@ -139,6 +139,7 @@ class Invoice(db.Model):
     date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     subtotal = db.Column(db.Float, default=0.0)
     tax = db.Column(db.Float, default=0.0)
+    discount = db.Column(db.Float, default=0.0)
     total = db.Column(db.Float, default=0.0)
     status = db.Column(db.String(20), default='pending')
     payment_method = db.Column(db.String(50), default='cash')
