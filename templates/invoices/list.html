@@ -75,6 +75,15 @@
                                 {% if transferencia > 0 %}
                                 <span class="ms-2 text-primary">💳 Transferencias: {{ transferencia|currency_co }}</span>
                                 {% endif %}
+                                {% set total_groomer = namespace(value=0) %}
+                                {% for inv in invoices %}
+                                    {% if inv.notes and ('Servicios de mascota' in inv.notes or 'Cita' in inv.notes) %}
+                                        {% set total_groomer.value = total_groomer.value + (inv.subtotal / 2) %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% if total_groomer.value > 0 %}
+                                <span class="ms-2" style="color: #8b5cf6;">🐾 Groomer: {{ total_groomer.value|currency_co }}</span>
+                                {% endif %}
                             </small>
                         </span>
                     </button>
@@ -152,7 +161,7 @@
                                                 {% endif %}
                                             </span>
                                             {% if invoice.notes and ('Servicios de mascota' in invoice.notes or 'Cita' in invoice.notes) %}
-                                            <span class="fs-5" title="Incluye servicios de mascota">
+                                            <span class="fs-5" style="color: #8b5cf6;" title="Groomer: {{ (invoice.subtotal / 2)|currency_co }} (50% del subtotal)">
                                                 🐾
                                             </span>
                                             {% endif %}
