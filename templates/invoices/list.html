@@ -138,6 +138,18 @@
                                             </form>
                                             {% endif %}
                                             {% if invoice.status != 'validated' %}
+                                            <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal"
+                                                data-bs-target="#editModal" 
+                                                data-id="{{ invoice.id }}"
+                                                data-number="{{ invoice.number }}"
+                                                data-payment-method="{{ invoice.payment_method }}"
+                                                data-discount="{{ invoice.discount or 0 }}"
+                                                data-subtotal="{{ invoice.subtotal }}"
+                                                data-tax="{{ invoice.tax }}"
+                                                data-total="{{ invoice.total }}"
+                                                title="Editar">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
                                             <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal"
                                                 data-bs-target="#deleteModal" data-id="{{ invoice.id }}"
                                                 data-number="{{ invoice.number }}" title="Eliminar">
@@ -147,15 +159,11 @@
                                             {% endif %}
                                         </div>
                                         <div class="d-flex gap-1">
-                                            <span class="fs-5" title="{{ 'Efectivo' if invoice.payment_method == 'cash' else ('Transferencia' if invoice.payment_method == 'transfer' else ('Tarjeta' if invoice.payment_method == 'card' else 'Mixto')) }}">
+                                            <span class="fs-5" title="{{ 'Efectivo' if invoice.payment_method == 'cash' else ('Transferencia' if invoice.payment_method == 'transfer' else 'Efectivo') }}">
                                                 {% if invoice.payment_method == 'cash' %}
                                                     💵
                                                 {% elif invoice.payment_method == 'transfer' %}
                                                     💳
-                                                {% elif invoice.payment_method == 'card' %}
-                                                    💳
-                                                {% elif invoice.payment_method == 'mixed' %}
-                                                    💵💳
                                                 {% else %}
                                                     💵
                                                 {% endif %}
@@ -191,6 +199,83 @@
             {% endif %}
         </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- Modal para editar factura -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">
+                    <i class="bi bi-pencil-square"></i> Editar Venta <strong id="editInvoiceNumber"></strong>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editForm" action="" method="post">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> Los cambios quedarán registrados en las notas de la factura.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_payment_method" class="form-label">
+                            <strong>Método de Pago:</strong> <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="edit_payment_method" name="payment_method" required>
+                            <option value="cash">Efectivo</option>
+                            <option value="transfer">Transferencia</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_discount" class="form-label">
+                            <strong>Ajuste de Valor (Descuento o Incremento):</strong>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="edit_discount" name="discount" 
+                                   step="100" value="0"
+                                   oninput="updateEditTotal()">
+                        </div>
+                        <div class="form-text">
+                            Valor negativo = descuento, Valor positivo = incremento (opcional)
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_reason" class="form-label">
+                            <strong>Razón del Cambio:</strong> <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="edit_reason" name="reason" rows="3" required
+                                  placeholder="Ej: Cliente cambió forma de pago, descuento por fidelidad, etc."></textarea>
+                        <div class="form-text">
+                            Explica por qué se está realizando este cambio
+                        </div>
+                    </div>
+
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title">Resumen de la Venta:</h6>
+                            <ul class="mb-0">
+                                <li><strong>Subtotal:</strong> <span id="edit-subtotal-display">$0</span></li>
+                                <li><strong>IVA:</strong> <span id="edit-tax-display">$0</span></li>
+                                <li><strong>Ajuste:</strong> <span id="edit-discount-display">$0</span></li>
+                                <li class="border-top pt-2 mt-2"><strong>Total a Pagar:</strong> <span id="edit-total-display" class="fs-5 text-success">$0</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -275,6 +360,61 @@
             document.getElementById('invoiceNumber').textContent = number;
             document.getElementById('deleteForm').action = "{{ url_for('invoice_delete', id=0) }}".replace('0', id);
         });
+
+        // Set up edit modal
+        const editModal = document.getElementById('editModal');
+        let editSubtotal = 0;
+        let editTax = 0;
+        
+        editModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const id = button.dataset.id;
+            const number = button.dataset.number;
+            const paymentMethod = button.dataset.paymentMethod;
+            const discount = parseFloat(button.dataset.discount) || 0;
+            const subtotal = parseFloat(button.dataset.subtotal) || 0;
+            const tax = parseFloat(button.dataset.tax) || 0;
+            const total = parseFloat(button.dataset.total) || 0;
+            
+            // Store values for calculation
+            editSubtotal = subtotal;
+            editTax = tax;
+            
+            // Set form values
+            document.getElementById('editInvoiceNumber').textContent = number;
+            document.getElementById('edit_payment_method').value = paymentMethod;
+            document.getElementById('edit_discount').value = discount;
+            document.getElementById('edit_reason').value = '';
+            
+            // Update displays
+            document.getElementById('edit-subtotal-display').textContent = 
+                new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(subtotal);
+            document.getElementById('edit-tax-display').textContent = 
+                new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(tax);
+            document.getElementById('edit-discount-display').textContent = 
+                new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(discount);
+            document.getElementById('edit-total-display').textContent = 
+                new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(total);
+            
+            // Set form action
+            document.getElementById('editForm').action = "{{ url_for('invoice_edit', id=0) }}".replace('0', id);
+        });
+        
+        // Update edit total function
+        window.updateEditTotal = function() {
+            const discountInput = document.getElementById('edit_discount');
+            const discount = parseFloat(discountInput.value) || 0;
+            
+            // Calcular el total final (permite valores negativos y positivos)
+            const finalTotal = editSubtotal + editTax - discount;
+            
+            // Update displays
+            document.getElementById('edit-discount-display').textContent = 
+                new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(discount);
+            
+            document.getElementById('edit-total-display').textContent = 
+                new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(finalTotal);
+        };
     });
 </script>
 {% endblock %}

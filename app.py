@@ -837,6 +837,91 @@ def invoice_validate(id):
         flash('Venta validada exitosamente', 'success')
     return redirect(url_for('invoice_list'))
 
+@app.route('/invoices/edit/<int:id>', methods=['POST'])
+@login_required
+def invoice_edit(id):
+    """Edita método de pago y descuento de una factura no validada."""
+    invoice = Invoice.query.get_or_404(id)
+    
+    if invoice.status == 'validated':
+        flash('No se puede editar una venta validada', 'danger')
+        return redirect(url_for('invoice_list'))
+    
+    try:
+        # Obtener valores del formulario
+        new_payment_method = request.form.get('payment_method')
+        new_discount = float(request.form.get('discount', 0))
+        reason = request.form.get('reason', '').strip()
+        
+        # Validar razón obligatoria
+        if not reason:
+            flash('La razón del cambio es obligatoria', 'warning')
+            return redirect(url_for('invoice_list'))
+        
+        # Construir mensaje de log
+        log_messages = []
+        
+        # Registrar cambio de método de pago
+        if new_payment_method != invoice.payment_method:
+            old_method_label = {
+                'cash': 'Efectivo',
+                'transfer': 'Transferencia'
+            }.get(invoice.payment_method, invoice.payment_method)
+            
+            new_method_label = {
+                'cash': 'Efectivo',
+                'transfer': 'Transferencia'
+            }.get(new_payment_method, new_payment_method)
+            
+            log_messages.append(f"Cambio de método de pago de {old_method_label} a {new_method_label}")
+            invoice.payment_method = new_payment_method
+        
+        # Calcular nuevo total con ajuste (descuento negativo o incremento positivo)
+        new_total = invoice.subtotal + invoice.tax - new_discount
+        old_total = invoice.total
+        old_discount = invoice.discount or 0
+        
+        # Registrar cambio de valor/ajuste
+        if new_discount != old_discount or new_total != old_total:
+            # Determinar el tipo de ajuste
+            adjustment_type = "descuento" if new_discount > 0 else ("incremento" if new_discount < 0 else "ajuste")
+            old_adjustment_type = "descuento" if old_discount > 0 else ("incremento" if old_discount < 0 else "sin ajuste")
+            
+            log_messages.append(
+                f"Cambio de valor total: antes ${old_total:,.0f} ({old_adjustment_type}: ${old_discount:,.0f}), "
+                f"ahora ${new_total:,.0f} ({adjustment_type}: ${new_discount:,.0f})"
+            )
+            invoice.discount = new_discount
+            invoice.total = new_total
+        
+        # Agregar nota completa si hubo cambios
+        if log_messages:
+            timestamp = datetime.now(CO_TZ).strftime('%Y-%m-%d %H:%M:%S')
+            log_entry = f"\n--- EDICIÓN {timestamp} ---\n"
+            log_entry += "\n".join(log_messages)
+            log_entry += f"\nRazón: {reason}"
+            log_entry += f"\nEditado por: {current_user.username}"
+            
+            if invoice.notes:
+                invoice.notes += log_entry
+            else:
+                invoice.notes = log_entry
+            
+            db.session.commit()
+            flash('Venta editada exitosamente', 'success')
+        else:
+            flash('No se realizaron cambios', 'info')
+        
+    except ValueError as e:
+        db.session.rollback()
+        flash(f'Error en los valores ingresados: {str(e)}', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f'Error editando venta: {str(e)}')
+        flash('Error al editar la venta', 'danger')
+    
+    return redirect(url_for('invoice_list'))
+
 @app.route('/invoices/delete/<int:id>', methods=['POST'])
 def invoice_delete(id):
     invoice = Invoice.query.get_or_404(id)
