@@ -1429,7 +1429,13 @@ def appointment_list():
     # Ordenar el diccionario por fecha de manera descendente
     appointments_by_date = dict(sorted(appointments_by_date.items(), reverse=True))
     
-    return render_template('appointments/list.html', appointments_by_date=appointments_by_date, status=status)
+    # Obtener fecha actual en zona horaria local para comparación
+    today_str = datetime.now(CO_TZ).strftime('%Y-%m-%d')
+    
+    return render_template('appointments/list.html', 
+                         appointments_by_date=appointments_by_date,
+                         status=status,
+                         today=today_str)
 
 @app.route('/appointments/<int:id>')
 @login_required
