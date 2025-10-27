@@ -1612,6 +1612,13 @@ def appointment_finish(id):
             flash('La cita ya estaba finalizada', 'info')
         return redirect(url_for('appointment_view', id=id))
     
+    # Obtener método de pago del formulario
+    payment_method = request.form.get('payment_method', 'cash')
+    # Validar que sea un método válido
+    valid_methods = ['cash', 'transfer', 'card', 'mixed']
+    if payment_method not in valid_methods:
+        payment_method = 'cash'
+    
     # Generar la factura al finalizar la cita
     try:
         setting = Setting.get()
@@ -1631,12 +1638,12 @@ def appointment_finish(id):
         if appointment.consent_text:
             composed_notes += f"\nConsentimiento:\n{appointment.consent_text.strip()}"
         
-        # Crear la factura
+        # Crear la factura con el método de pago seleccionado
         invoice = Invoice(
             number=number,
             customer_id=appointment.customer_id,
             user_id=current_user.id,
-            payment_method='cash',
+            payment_method=payment_method,
             notes=composed_notes
         )
         db.session.add(invoice)

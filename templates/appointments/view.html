@@ -10,11 +10,9 @@
     </a>
   {% endif %}
   {% if appointment.status != 'done' and appointment.status != 'cancelled' %}
-    <form action="{{ url_for('appointment_finish', id=appointment.id) }}" method="post" class="d-inline" onsubmit="return confirm('¿Finalizar cita y generar factura?');">
-      <button class="btn btn-sm btn-success">
-        <i class="bi bi-check-circle"></i> Finalizar Cita y Generar Factura
-      </button>
-    </form>
+    <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#finishAppointmentModal">
+      <i class="bi bi-check-circle"></i> Finalizar Cita y Generar Factura
+    </button>
   {% endif %}
   {% if appointment.status == 'pending' %}
     <form action="{{ url_for('appointment_cancel', id=appointment.id) }}" method="post" class="d-inline" onsubmit="return confirm('Cancelar cita y sub-servicios?');">
@@ -106,6 +104,61 @@
   {% endfor %}
   </tbody>
 </table>
+
+<!-- Modal para seleccionar método de pago al finalizar cita -->
+<div class="modal fade" id="finishAppointmentModal" tabindex="-1" aria-labelledby="finishAppointmentModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="finishAppointmentModalLabel">
+          <i class="bi bi-check-circle"></i> Finalizar Cita y Generar Factura
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('appointment_finish', id=appointment.id) }}" method="post">
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Se generará una factura con los servicios de esta cita.
+          </div>
+          
+          <div class="mb-3">
+            <label for="payment_method" class="form-label">
+              <strong>Método de Pago:</strong> <span class="text-danger">*</span>
+            </label>
+            <select class="form-select" id="payment_method" name="payment_method" required>
+              <option value="cash" selected>Efectivo</option>
+              <option value="transfer">Transferencia</option>
+            </select>
+            <div class="form-text">
+              Selecciona cómo pagará el cliente
+            </div>
+          </div>
+
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title">Resumen de la Cita:</h6>
+              <ul class="mb-0">
+                <li><strong>Mascota:</strong> {{ appointment.pet.name if appointment.pet else 'N/A' }}</li>
+                <li><strong>Cliente:</strong> {{ appointment.customer.name if appointment.customer else 'N/A' }}</li>
+                <li><strong>Servicios:</strong> {{ appointment.services|length }}</li>
+                <li><strong>Total:</strong> {{ (appointment.total_price or 0)|currency_co }}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle"></i> Cancelar
+          </button>
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-circle"></i> Confirmar y Generar Factura
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
