@@ -137,19 +137,26 @@
                                             {% endif %}
                                             {% endif %}
                                         </div>
-                                        <span class="fs-5" title="{{ 'Efectivo' if invoice.payment_method == 'cash' else ('Transferencia' if invoice.payment_method == 'transfer' else ('Tarjeta' if invoice.payment_method == 'card' else 'Mixto')) }}">
-                                            {% if invoice.payment_method == 'cash' %}
-                                                💵
-                                            {% elif invoice.payment_method == 'transfer' %}
-                                                💳
-                                            {% elif invoice.payment_method == 'card' %}
-                                                💳
-                                            {% elif invoice.payment_method == 'mixed' %}
-                                                💵💳
-                                            {% else %}
-                                                💵
+                                        <div class="d-flex gap-1">
+                                            <span class="fs-5" title="{{ 'Efectivo' if invoice.payment_method == 'cash' else ('Transferencia' if invoice.payment_method == 'transfer' else ('Tarjeta' if invoice.payment_method == 'card' else 'Mixto')) }}">
+                                                {% if invoice.payment_method == 'cash' %}
+                                                    💵
+                                                {% elif invoice.payment_method == 'transfer' %}
+                                                    💳
+                                                {% elif invoice.payment_method == 'card' %}
+                                                    💳
+                                                {% elif invoice.payment_method == 'mixed' %}
+                                                    💵💳
+                                                {% else %}
+                                                    💵
+                                                {% endif %}
+                                            </span>
+                                            {% if invoice.notes and ('Servicios de mascota' in invoice.notes or 'Cita' in invoice.notes) %}
+                                            <span class="fs-5" title="Incluye servicios de mascota">
+                                                🐾
+                                            </span>
                                             {% endif %}
-                                        </span>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
