@@ -1511,6 +1511,12 @@ def appointment_list():
             appointments_by_date[date_str] = []
         appointments_by_date[date_str].append(appointment)
     
+    # Ordenar cada grupo de citas por hora (scheduled_at o created_at)
+    for date_str in appointments_by_date:
+        appointments_by_date[date_str].sort(
+            key=lambda a: (a.scheduled_at if a.scheduled_at else a.created_at)
+        )
+    
     # Ordenar el diccionario por fecha de manera descendente
     appointments_by_date = dict(sorted(appointments_by_date.items(), reverse=True))
     
