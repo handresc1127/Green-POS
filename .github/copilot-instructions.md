@@ -4,6 +4,69 @@
 ## 📋 Descripción General
 Green-POS es un Sistema de Punto de Venta completo desarrollado en Flask que incluye gestión de inventario, facturación, clientes y servicios de mascotas (grooming, veterinaria).
 
+## 🤖 Sistema de Copilot Agents Especializados
+
+Este proyecto utiliza **tres agents ejecutables en Copilot Agent Mode** para desarrollo modular:
+
+### Agents Disponibles (VS Code Insiders)
+
+- **🎨 @green-pos-frontend** (`.github/agents/green-pos-frontend.agent.md`)
+  - Templates Jinja2, Bootstrap 5.3+, JavaScript Vanilla
+  - Componentes UI, responsive design, validación cliente
+  - **Subagents**: scaffold_page, table_datatable, accessibility_audit
+  
+- **🐍 @green-pos-backend** (`.github/agents/green-pos-backend.agent.md`)
+  - Rutas Flask, lógica de negocio, APIs JSON
+  - Autenticación, validación servidor, transacciones
+  - **Subagents**: generate_crud, add_validation, create_api
+  
+- **🗄️ @green-pos-database** (`.github/agents/green-pos-database.agent.md`)
+  - Modelos SQLAlchemy, relaciones, migraciones
+  - Optimización queries, constraints, índices
+  - **Subagents**: generate_model, create_migration, optimize_queries
+
+**Guías de uso**: 
+- Completa: `.github/agents/README.md`
+- Referencia rápida: `.github/agents/QUICK_REFERENCE.md`
+
+**Documentación técnica** (para humanos):
+- Frontend: `.github/instructions/frontend-html-agent.instructions.md`
+- Backend: `.github/instructions/backend-python-agent.instructions.md`
+- Database: `.github/instructions/database-sqlite-agent.instructions.md`
+
+### Cómo Invocar los Agents
+
+**Uso básico**:
+```
+@green-pos-frontend crea templates/suppliers/list.html con DataTable
+@green-pos-backend implementa CRUD completo para Supplier
+@green-pos-database crea modelo Supplier con relación a Product
+```
+
+**Con subagents**:
+```
+@green-pos-frontend 
+#runSubagent <subagent_scaffold_page> pathOut=templates/reports/sales.html pageTitle="Ventas"
+
+@green-pos-backend 
+#runSubagent <subagent_generate_crud> entityName=Supplier routePrefix=suppliers
+
+@green-pos-database 
+#runSubagent <subagent_generate_model> entityName=Category fields=[...]
+```
+
+**Workflow multi-agent** (CRUD completo):
+```bash
+# Paso 1: Crear modelo
+@green-pos-database crea modelo Supplier con campos code, name, phone, email
+
+# Paso 2: Crear rutas
+@green-pos-backend implementa CRUD para Supplier con validación
+
+# Paso 3: Crear vistas
+@green-pos-frontend crea templates/suppliers/list.html, form.html, view.html
+```
+
 ## 🏗️ Stack Tecnológico Principal
 - **Backend**: Flask 3.0+ + SQLAlchemy + Flask-Login
 - **Frontend**: HTML5 + Bootstrap 5.3+ (sin jQuery) + Vanilla JavaScript
