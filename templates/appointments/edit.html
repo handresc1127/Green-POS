@@ -252,16 +252,16 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
-    <li class="breadcrumb-item"><a href="{{ url_for('appointment_list') }}">Citas</a></li>
-    <li class="breadcrumb-item"><a href="{{ url_for('appointment_view', id=appointment.id) }}">Cita #{{ appointment.id }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('services.appointment_list') }}">Citas</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('services.appointment_view', id=appointment.id) }}">Cita #{{ appointment.id }}</a></li>
     <li class="breadcrumb-item active">Editar</li>
   </ol>
 </nav>
 
 <h1 class="h4 mb-4"><i class="bi bi-pencil-square"></i> Editar Cita #{{ appointment.id }}</h1>
 
-<form id="appointmentEditForm" method="POST" action="{{ url_for('appointment_update', id=appointment.id) }}" class="row g-3">
+<form id="appointmentEditForm" method="POST" action="{{ url_for('services.appointment_update', id=appointment.id) }}" class="row g-3">
   <div class="col-12">
     <div class="row g-3">
       <div class="col-md-6">
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function(){
     <button type="submit" class="btn btn-primary">
       <i class="bi bi-check-circle"></i> Guardar Cambios
     </button>
-    <a href="{{ url_for('appointment_view', id=appointment.id) }}" class="btn btn-secondary">
+    <a href="{{ url_for('services.appointment_view', id=appointment.id) }}" class="btn btn-secondary">
       <i class="bi bi-x-circle"></i> Cancelar
     </a>
   </div>

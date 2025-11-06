@@ -7,7 +7,7 @@
     <!-- Breadcrumb -->
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Inicio</a></li>
             <li class="breadcrumb-item active" aria-current="page">Proveedores</li>
         </ol>
     </nav>
@@ -15,7 +15,7 @@
     <!-- Título y Botón Nuevo -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-truck"></i> Proveedores</h2>
-        <a href="{{ url_for('supplier_new') }}" class="btn btn-primary" id="btnNewSupplier">
+        <a href="{{ url_for('suppliers.new') }}" class="btn btn-primary" id="btnNewSupplier">
             <i class="bi bi-plus-circle"></i> Nuevo Proveedor
         </a>
     </div>
@@ -23,7 +23,7 @@
     <!-- Formulario de Búsqueda -->
     <div class="card mb-4">
         <div class="card-body">
-            <form method="get" action="{{ url_for('supplier_list') }}" class="row g-3" id="supplierSearchForm">
+            <form method="get" action="{{ url_for('suppliers.list') }}" class="row g-3" id="supplierSearchForm">
                 <div class="col-md-10">
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
@@ -96,7 +96,7 @@
                             </td>
                             <td class="text-center">
                                 {% if supplier.product_count > 0 %}
-                                    <a href="{{ url_for('supplier_products', id=supplier.id) }}" 
+                                    <a href="{{ url_for('suppliers.products', id=supplier.id) }}" 
                                        class="badge bg-primary text-decoration-none"
                                        id="supplierProductCount-{{ supplier.id }}"
                                        title="Ver productos de este proveedor">
@@ -119,13 +119,13 @@
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{{ url_for('supplier_products', id=supplier.id) }}" 
+                                    <a href="{{ url_for('suppliers.products', id=supplier.id) }}" 
                                        class="btn btn-outline-info" 
                                        id="btnViewProducts-{{ supplier.id }}"
                                        title="Ver productos">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <a href="{{ url_for('supplier_edit', id=supplier.id) }}" 
+                                    <a href="{{ url_for('suppliers.edit', id=supplier.id) }}" 
                                        class="btn btn-outline-warning" 
                                        id="btnEditSupplier-{{ supplier.id }}"
                                        title="Editar">
@@ -152,7 +152,7 @@
                 Mostrando {{ suppliers|length }} proveedor(es)
                 {% if query %}
                     con la búsqueda: <strong>"{{ query }}"</strong>
-                    <a href="{{ url_for('supplier_list') }}" class="btn btn-sm btn-outline-secondary ms-2" id="btnClearSearch">
+                    <a href="{{ url_for('suppliers.list') }}" class="btn btn-sm btn-outline-secondary ms-2" id="btnClearSearch">
                         <i class="bi bi-x"></i> Limpiar búsqueda
                     </a>
                 {% endif %}
@@ -165,12 +165,12 @@
                 <h4 class="mt-3 text-muted">No hay proveedores registrados</h4>
                 {% if query %}
                     <p class="text-muted">No se encontraron resultados para: <strong>"{{ query }}"</strong></p>
-                    <a href="{{ url_for('supplier_list') }}" class="btn btn-outline-secondary">
+                    <a href="{{ url_for('suppliers.list') }}" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left"></i> Ver todos los proveedores
                     </a>
                 {% else %}
                     <p class="text-muted">Registra tu primer proveedor para comenzar a gestionar tus productos</p>
-                    <a href="{{ url_for('supplier_new') }}" class="btn btn-primary mt-2">
+                    <a href="{{ url_for('suppliers.new') }}" class="btn btn-primary mt-2">
                         <i class="bi bi-plus-circle"></i> Crear Primer Proveedor
                     </a>
                 {% endif %}

@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function(){
   </div>
   <div class="col-12">
   <button id="saveServiceBtn" class="btn btn-primary">Guardar Cita</button>
-  <a id="cancelServiceBtn" href="{{ url_for('appointment_list') }}" class="btn btn-secondary">Cancelar</a>
+  <a id="cancelServiceBtn" href="{{ url_for('services.appointment_list') }}" class="btn btn-secondary">Cancelar</a>
   </div>
 </form>
 {% include 'partials/customer_modal.html' %}

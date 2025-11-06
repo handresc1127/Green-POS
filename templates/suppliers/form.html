@@ -7,8 +7,8 @@
     <!-- Breadcrumb -->
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('supplier_list') }}">Proveedores</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('suppliers.list') }}">Proveedores</a></li>
             <li class="breadcrumb-item active" aria-current="page">
                 {% if supplier %}Editar{% else %}Nuevo{% endif %}
             </li>
@@ -179,7 +179,7 @@
 
                         <!-- Botones de Acción -->
                         <div class="d-flex justify-content-between border-top pt-3">
-                            <a href="{{ url_for('supplier_list') }}" class="btn btn-secondary" id="btnCancelSupplier">
+                            <a href="{{ url_for('suppliers.list') }}" class="btn btn-secondary" id="btnCancelSupplier">
                                 <i class="bi bi-x-circle"></i> Cancelar
                             </a>
                             <button type="submit" class="btn btn-primary" id="btnSaveSupplier">
@@ -238,7 +238,7 @@
                     <p class="mb-2">
                         Este proveedor tiene <strong>{{ product_count }}</strong> producto(s) asociado(s).
                     </p>
-                    <a href="{{ url_for('supplier_products', id=supplier.id) }}" class="btn btn-sm btn-outline-primary w-100">
+                    <a href="{{ url_for('suppliers.products', id=supplier.id) }}" class="btn btn-sm btn-outline-primary w-100">
                         <i class="bi bi-eye"></i> Ver Productos
                     </a>
                 </div>

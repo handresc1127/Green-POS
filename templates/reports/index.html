@@ -53,7 +53,7 @@
 <!-- Breadcrumb -->
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Inicio</a></li>
     <li class="breadcrumb-item active">Reportes</li>
   </ol>
 </nav>
@@ -66,7 +66,7 @@
 <!-- Formulario de filtro de fechas -->
 <div class="card mb-4">
   <div class="card-body">
-    <form method="get" action="{{ url_for('reports') }}" class="row g-3 align-items-end">
+    <form method="get" action="{{ url_for('reports.index') }}" class="row g-3 align-items-end">
       <div class="col-md-4">
         <label for="start_date" class="form-label">Fecha Inicio</label>
         <input type="date" class="form-control" id="start_date" name="start_date" 
@@ -81,7 +81,7 @@
         <button type="submit" class="btn btn-primary">
           <i class="bi bi-funnel me-1"></i> Filtrar
         </button>
-        <a href="{{ url_for('reports') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
           <i class="bi bi-arrow-clockwise me-1"></i> Resetear
         </a>
       </div>
@@ -447,7 +447,7 @@
             </td>
             <td class="text-end">{{ prod.sale_price|currency_co }}</td>
             <td>
-              <a href="{{ url_for('product_edit', id=prod.id) }}" 
+              <a href="{{ url_for('products.edit', id=prod.id) }}" 
                  class="btn btn-sm btn-outline-primary" 
                  title="Editar producto">
                 <i class="bi bi-pencil-square"></i>
@@ -511,7 +511,7 @@
               {% endif %}
             </td>
             <td>
-              <a href="{{ url_for('invoice_view', id=invoice.id) }}" 
+              <a href="{{ url_for('invoices.view', id=invoice.id) }}" 
                  class="btn btn-sm btn-outline-primary" 
                  title="Ver detalle">
                 <i class="bi bi-eye"></i>
@@ -536,7 +536,7 @@
 
 <!-- Botones de acción -->
 <div class="d-flex justify-content-between mt-4">
-  <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+  <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
     <i class="bi bi-arrow-left me-1"></i> Volver al Inicio
   </a>
   

@@ -5,7 +5,7 @@
 {% block page_title %}Clientes{% endblock %}
 
 {% block page_actions %}
-<a href="{{ url_for('customer_new') }}" id="newCustomerBtn" class="btn btn-primary">
+<a href="{{ url_for('customers.new') }}" id="newCustomerBtn" class="btn btn-primary">
     <i class="bi bi-plus-circle"></i> Nuevo Cliente
 </a>
 {% endblock %}
@@ -14,14 +14,14 @@
 <!-- Search Bar -->
 <div class="card mb-4">
     <div class="card-body">
-        <form id="customerSearchForm" action="{{ url_for('customer_list') }}" method="get">
+        <form id="customerSearchForm" action="{{ url_for('customers.list') }}" method="get">
             <div class="input-group">
                 <input type="text" id="customerSearchInput" name="query" class="form-control" placeholder="Buscar por nombre, documento o email..." value="{{ query }}">
                 <button class="btn btn-primary" id="searchCustomersBtn" type="submit">
                     <i class="bi bi-search"></i> Buscar
                 </button>
                 {% if query %}
-                    <a href="{{ url_for('customer_list') }}" id="clearSearchBtn" class="btn btn-outline-secondary">
+                    <a href="{{ url_for('customers.list') }}" id="clearSearchBtn" class="btn btn-outline-secondary">
                         <i class="bi bi-x-circle"></i> Limpiar
                     </a>
                 {% endif %}
@@ -54,7 +54,7 @@
                                 <td id="customerPhone-{{ customer.id }}">{{ customer.phone }}</td>
                                 <td id="customerActions-{{ customer.id }}">
                                     <div class="btn-group btn-group-sm">
-                                        <a href="{{ url_for('customer_edit', id=customer.id) }}" 
+                                        <a href="{{ url_for('customers.edit', id=customer.id) }}" 
                                            id="editCustomer-{{ customer.id }}"
                                            class="btn btn-outline-primary"
                                            title="Editar">
@@ -82,7 +82,7 @@
                 {% if query %}
                     No se encontraron clientes para "{{ query }}".
                 {% else %}
-                    No hay clientes registrados. <a href="{{ url_for('customer_new') }}">Crear el primer cliente</a>.
+                    No hay clientes registrados. <a href="{{ url_for('customers.new') }}">Crear el primer cliente</a>.
                 {% endif %}
             </div>
         {% endif %}
@@ -123,7 +123,7 @@
             const name = button.dataset.name;
             
             document.getElementById('deleteCustomerName').textContent = name;
-            document.getElementById('deleteCustomerForm').action = "{{ url_for('customer_delete', id=0) }}".replace('0', id);
+            document.getElementById('deleteCustomerForm').action = "{{ url_for('customers.delete', id=0) }}".replace('0', id);
         });
     });
 </script>

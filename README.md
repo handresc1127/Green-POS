@@ -134,8 +134,29 @@ tzdata>=2024.1            # Timezone data (Windows)
 
 ```
 Green-POS/
-├── app.py                      # Aplicación principal (rutas, lógica de negocio, filtros Jinja)
+├── app.py                      # ⭐ Aplicación principal refactorizada (Factory Pattern + Blueprints)
+├── config.py                   # Configuración por ambientes (dev, prod, test)
+├── extensions.py               # Extensiones Flask (db, login_manager)
 ├── requirements.txt            # Dependencias
+│
+├── routes/                     # 🎯 Blueprints modulares (11 módulos)
+│   ├── auth.py                # Login, logout, profile
+│   ├── dashboard.py           # Dashboard principal con estadísticas
+│   ├── api.py                 # Endpoints JSON para búsquedas
+│   ├── products.py            # CRUD productos + historial de stock
+│   ├── suppliers.py           # CRUD proveedores
+│   ├── customers.py           # CRUD clientes
+│   ├── pets.py                # CRUD mascotas
+│   ├── invoices.py            # CRUD facturas
+│   ├── services.py            # CRUD servicios, citas y tipos de servicio
+│   ├── reports.py             # Módulo de reportes y análisis
+│   └── settings.py            # Configuración del negocio
+│
+├── utils/                      # Utilidades compartidas
+│   ├── filters.py             # Filtros Jinja2 (currency_co, format_time_co)
+│   ├── decorators.py          # Decoradores (@role_required)
+│   └── constants.py           # Constantes globales
+│
 ├── models/
 │   └── models.py               # Todos los modelos SQLAlchemy (Producto, Cliente, Mascota, Servicio, Appointment, Invoice, etc.)
 ├── static/
@@ -192,11 +213,37 @@ Green-POS/
 | Pet           | Mascota asociada a Customer | name, breed, customer_id |
 | ServiceType   | Catálogo de sub-servicios | code, name, base_price, pricing_mode |
 | Appointment   | Cita agregadora | id, scheduled_at, customer_id, pet_id, technician |
-| PetService (si aplica nombre) | Instancia de servicio aplicado en la cita | appointment_id, service_type_id, price |
+| PetService    | Instancia de servicio aplicado en la cita | appointment_id, service_type_id, price |
 | Invoice       | Documento de venta | number, date, total, status, payment_method |
 | InvoiceItem   | Ítems facturados | invoice_id, product_id, quantity, price |
-| User          | Autenticación y roles | username, role (admin/user) |
+| User          | Autenticación y roles | username, role (admin/vendedor) |
 | Setting       | Configuración empresa | business_name, nit, iva_responsable, logo_path |
+
+## 🏗️ Arquitectura de Blueprints
+
+El proyecto está **100% refactorizado** en módulos independientes:
+
+### Blueprints Implementados (11)
+
+1. **Auth** (`/login`, `/logout`, `/profile`) - Autenticación y perfiles
+2. **Dashboard** (`/`) - Panel principal con estadísticas en tiempo real
+3. **API** (`/api/*`) - Endpoints JSON para búsquedas AJAX
+4. **Products** (`/products/*`) - Gestión de inventario con trazabilidad
+5. **Suppliers** (`/suppliers/*`) - Gestión de proveedores
+6. **Customers** (`/customers/*`) - Base de datos de clientes
+7. **Pets** (`/pets/*`) - Registro de mascotas por cliente
+8. **Invoices** (`/invoices/*`) - Sistema de facturación completo
+9. **Services** (`/services/*`) - Servicios, citas y tipos de servicio (módulo más complejo)
+10. **Reports** (`/reports/*`) - Análisis y reportes de ventas
+11. **Settings** (`/settings/*`) - Configuración del negocio
+
+### Ventajas de la Arquitectura Modular
+
+- ✅ **Mantenibilidad**: ~200 líneas por módulo vs 2107 líneas monolíticas
+- ✅ **Escalabilidad**: Fácil agregar nuevos módulos sin afectar existentes
+- ✅ **Testabilidad**: Tests unitarios por blueprint independientes
+- ✅ **Claridad**: Separación clara de responsabilidades (Single Responsibility Principle)
+- ✅ **Colaboración**: Múltiples desarrolladores pueden trabajar en paralelo
 
 ## Flujo de Creación de Cita & Factura
 
@@ -211,6 +258,13 @@ Green-POS/
 ## Filtro de Formato de Moneda
 
 `currency_co` → Formatea valores a pesos colombianos sin decimales y con separador de miles.
+
+## 📚 Documentación Adicional
+
+- **[REFACTORING.md](REFACTORING.md)** - Documentación completa de la refactorización
+- **[docs/CLEANUP_SUMMARY.md](docs/CLEANUP_SUMMARY.md)** - Resumen de limpieza post-refactor
+- **[docs/DEPLOY_WINDOWS.md](docs/DEPLOY_WINDOWS.md)** - Guía de despliegue en Windows
+- **[.github/copilot-instructions.md](.github/copilot-instructions.md)** - Guía para desarrollo con Copilot
 
 ## Ejecución Rápida (Resumen)
 

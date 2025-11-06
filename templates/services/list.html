@@ -3,9 +3,9 @@
 {% block page_title %}Servicios{% endblock %}
 {% block page_actions %}
 {% if current_user.role == 'admin' %}
-<a href="{{ url_for('service_type_list') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-gear"></i> Configurar</a>
+<a href="{{ url_for('services.service_type_list') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-gear"></i> Configurar</a>
 {% endif %}
-<a href="{{ url_for('service_new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nuevo Servicio</a>
+<a href="{{ url_for('services.service_new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nuevo Servicio</a>
 {% endblock %}
 {% block content %}
 <form class="row g-2 mb-3">
@@ -40,13 +40,13 @@
       </td>
       <td>
         {% if s.invoice_id %}
-        <a href="{{ url_for('invoice_view', id=s.invoice_id) }}" class="text-decoration-none"><i class="bi bi-receipt"></i></a>
+        <a href="{{ url_for('invoices.view', id=s.invoice_id) }}" class="text-decoration-none"><i class="bi bi-receipt"></i></a>
         {% else %}-{% endif %}
       </td>
       <td class="text-end">
-        <a href="{{ url_for('service_view', id=s.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+        <a href="{{ url_for('services.service_view', id=s.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
         {% if current_user.role=='admin' %}
-        <form action="{{ url_for('service_delete', id=s.id) }}" method="post" class="d-inline" onsubmit="return confirm('Eliminar servicio?')">
+        <form action="{{ url_for('services.service_delete', id=s.id) }}" method="post" class="d-inline" onsubmit="return confirm('Eliminar servicio?')">
           <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
         </form>
         {% endif %}

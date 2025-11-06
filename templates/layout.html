@@ -22,7 +22,7 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-success">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') if current_user.is_authenticated else url_for('login') }}">
+            <a class="navbar-brand" href="{{ url_for('dashboard.index') if current_user.is_authenticated else url_for('auth.login') }}">
                 <i class="bi bi-shop"></i> Green-POS
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -32,55 +32,55 @@
                 <ul class="navbar-nav me-auto">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="{{ url_for('index') }}">
+                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="{{ url_for('dashboard.index') }}">
                             <i class="bi bi-house-door"></i> Inicio
                         </a>
                     </li>
                     {% if current_user.role == 'admin' %}
                     <li class="nav-item">
-                        <a class="nav-link {% if '/products' in request.path %}active{% endif %}" href="{{ url_for('product_list') }}">
+                        <a class="nav-link {% if '/products' in request.path %}active{% endif %}" href="{{ url_for('products.list') }}">
                             <i class="bi bi-box-seam"></i> Productos
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if '/suppliers' in request.path %}active{% endif %}" href="{{ url_for('supplier_list') }}">
+                        <a class="nav-link {% if '/suppliers' in request.path %}active{% endif %}" href="{{ url_for('suppliers.list') }}">
                             <i class="bi bi-truck"></i> Proveedores
                         </a>
                     </li>
                     {% endif %}
                     <li class="nav-item">
-                        <a class="nav-link {% if '/customers' in request.path %}active{% endif %}" href="{{ url_for('customer_list') }}">
+                        <a class="nav-link {% if '/customers' in request.path %}active{% endif %}" href="{{ url_for('customers.list') }}">
                             <i class="bi bi-people"></i> Clientes
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if '/invoices' in request.path %}active{% endif %}" href="{{ url_for('invoice_list') }}">
+                        <a class="nav-link {% if '/invoices' in request.path %}active{% endif %}" href="{{ url_for('invoices.list') }}">
                             <i class="bi bi-receipt"></i> Ventas
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if '/pets' in request.path %}active{% endif %}" href="{{ url_for('pet_list') }}">
+                        <a class="nav-link {% if '/pets' in request.path %}active{% endif %}" href="{{ url_for('pets.list') }}">
                             <i class="bi bi-heart"></i> Mascotas
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if '/services' in request.path %}active{% endif %}" href="{{ url_for('service_list') }}">
+                        <a class="nav-link {% if '/services' in request.path %}active{% endif %}" href="{{ url_for('services.service_list') }}">
                             <i class="bi bi-scissors"></i> Servicios
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if '/appointments' in request.path %}active{% endif %}" href="{{ url_for('appointment_list') }}">
+                        <a class="nav-link {% if '/appointments' in request.path %}active{% endif %}" href="{{ url_for('services.appointment_list') }}">
                             <i class="bi bi-calendar-event"></i> Citas
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if '/reports' in request.path %}active{% endif %}" href="{{ url_for('reports') }}">
+                        <a class="nav-link {% if '/reports' in request.path %}active{% endif %}" href="{{ url_for('reports.index') }}">
                             <i class="bi bi-graph-up-arrow"></i> Reportes
                         </a>
                     </li>
                     {% if current_user.role == 'admin' %}
                     <li class="nav-item">
-                        <a class="nav-link {% if '/settings' in request.path %}active{% endif %}" href="{{ url_for('settings_view') }}">
+                        <a class="nav-link {% if '/settings' in request.path %}active{% endif %}" href="{{ url_for('settings.index') }}">
                             <i class="bi bi-gear"></i> Configuración
                         </a>
                     </li>
@@ -89,7 +89,7 @@
                 </ul>
                 <div class="d-flex">
                     {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('invoice_new') }}" class="btn btn-light me-2">
+                    <a href="{{ url_for('invoices.new') }}" class="btn btn-light me-2">
                         <i class="bi bi-plus-circle"></i> Nueva Venta
                     </a>
                     <div class="dropdown">
@@ -98,13 +98,13 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><span class="dropdown-item-text small text-muted">Rol: {{ current_user.role }}</span></li>
-                            <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i class="bi bi-person"></i> Perfil</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}"><i class="bi bi-person"></i> Perfil</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-right"></i> Salir</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> Salir</a></li>
                         </ul>
                     </div>
                     {% else %}
-                    <a href="{{ url_for('login') }}" class="btn btn-light">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-light">
                         <i class="bi bi-box-arrow-in-right"></i> Ingresar
                     </a>
                     {% endif %}

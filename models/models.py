@@ -1,9 +1,21 @@
-from flask_sqlalchemy import SQLAlchemy
+"""Green-POS - Modelos de Base de Datos
+Modelos SQLAlchemy para la aplicación.
+
+IMPORTANTE: Este módulo importa db de extensions.py para evitar instancias múltiples.
+"""
+
 from datetime import datetime, date, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
-db = SQLAlchemy()
+# CRÍTICO: Importar db desde extensions, no crear instancia nueva
+try:
+    from extensions import db
+except ImportError:
+    # Fallback para compatibilidad con app.py.backup
+    from flask_sqlalchemy import SQLAlchemy
+    db = SQLAlchemy()
+
 
 class Setting(db.Model):
     __tablename__ = 'setting'

@@ -2,14 +2,14 @@
 {% block title %}Servicio #{{ service.id }}{% endblock %}
 {% block page_title %}Servicio #{{ service.id }}{% endblock %}
 {% block page_actions %}
-<a href="{{ url_for('service_list') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+<a href="{{ url_for('services.service_list') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
 {% if service.status=='pending' %}
-<form action="{{ url_for('service_finish', id=service.id) }}" method="post" class="d-inline">
+<form action="{{ url_for('services.service_finish', id=service.id) }}" method="post" class="d-inline">
   <button class="btn btn-outline-success"><i class="bi bi-check2"></i> Finalizar</button>
 </form>
 {% endif %}
 {% if current_user.role=='admin' and service.status!='cancelled' %}
-<form action="{{ url_for('service_cancel', id=service.id) }}" method="post" class="d-inline" onsubmit="return confirm('Cancelar servicio?')">
+<form action="{{ url_for('services.service_cancel', id=service.id) }}" method="post" class="d-inline" onsubmit="return confirm('Cancelar servicio?')">
   <button class="btn btn-outline-warning"><i class="bi bi-x-circle"></i> Cancelar</button>
 </form>
 {% endif %}
@@ -26,7 +26,7 @@
         {% if service.technician %}<p class="mb-1"><strong>Técnico:</strong> {{ service.technician }}</p>{% endif %}
         <p class="mb-1"><strong>Creado:</strong> {{ service.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
         {% if service.invoice_id %}
-          <p class="mb-1"><strong>Factura:</strong> <a href="{{ url_for('invoice_view', id=service.invoice_id) }}">Ver</a></p>
+          <p class="mb-1"><strong>Factura:</strong> <a href="{{ url_for('invoices.view', id=service.invoice_id) }}">Ver</a></p>
         {% endif %}
       </div>
       <div class="col-md-6">
@@ -52,7 +52,7 @@
         Estado: {% if service.consent_signed %}<span class="badge bg-success">Firmado</span> ({{ service.consent_signed_at.strftime('%d/%m/%Y %H:%M') if service.consent_signed_at else '' }}){% else %}<span class="badge bg-secondary">No firmado</span>{% endif %}
       </p>
       {% if not service.consent_signed %}
-      <form action="{{ url_for('service_consent_sign', id=service.id) }}" method="post" onsubmit="return confirm('Confirmar firma del consentimiento?')">
+      <form action="{{ url_for('services.service_consent_sign', id=service.id) }}" method="post" onsubmit="return confirm('Confirmar firma del consentimiento?')">
         <button class="btn btn-sm btn-outline-primary">Marcar como Firmado</button>
       </form>
       {% endif %}

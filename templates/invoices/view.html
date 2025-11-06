@@ -32,7 +32,7 @@ endblock %}
     <button class="btn btn-outline-primary" onclick="window.print()">
         <i class="bi bi-printer"></i> Imprimir
     </button>
-    <a href="{{ url_for('invoice_list') }}" class="btn btn-outline-secondary">
+    <a href="{{ url_for('invoices.list') }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Volver
     </a>
 </div>
@@ -403,7 +403,7 @@ endblock %}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <form action="{{ url_for('invoice_delete', id=invoice.id) }}" method="post">
+                <form action="{{ url_for('invoices.delete', id=invoice.id) }}" method="post">
                     <button type="submit" class="btn btn-danger">Eliminar</button>
                 </form>
             </div>

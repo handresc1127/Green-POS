@@ -5,7 +5,7 @@
 {% block page_title %}Productos{% endblock %}
 
 {% block page_actions %}
-<a href="{{ url_for('product_new') }}" class="btn btn-primary" id="newProductBtn">
+<a href="{{ url_for('products.new') }}" class="btn btn-primary" id="newProductBtn">
     <i class="bi bi-plus-circle"></i> Nuevo Producto
 </a>
 {% endblock %}
@@ -34,7 +34,7 @@
 {% block content %}
 <div class="card mb-4" id="productsSearchCard">
     <div class="card-body">
-        <form action="{{ url_for('product_list') }}" method="get" id="productsSearchForm">
+        <form action="{{ url_for('products.list') }}" method="get" id="productsSearchForm">
             <div class="row g-3">
                 <!-- Búsqueda por texto -->
                 <div class="col-md-8">
@@ -45,7 +45,7 @@
                             <i class="bi bi-search"></i> Buscar
                         </button>
                         {% if query or supplier_id %}
-                            <a href="{{ url_for('product_list') }}" class="btn btn-outline-secondary" id="clearSearchBtn">
+                            <a href="{{ url_for('products.list') }}" class="btn btn-outline-secondary" id="clearSearchBtn">
                                 <i class="bi bi-x-circle"></i> Limpiar todo
                             </a>
                         {% endif %}
@@ -95,7 +95,7 @@
                     <thead id="productsTableHead">
                         <tr>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='code', sort_order='desc' if sort_by == 'code' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('products.list', query=query, supplier_id=supplier_id, sort_by='code', sort_order='desc' if sort_by == 'code' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByCode">
                                     Código 
                                     {% if sort_by == 'code' %}
@@ -104,7 +104,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='name', sort_order='desc' if sort_by == 'name' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('products.list', query=query, supplier_id=supplier_id, sort_by='name', sort_order='desc' if sort_by == 'name' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByName">
                                     Nombre 
                                     {% if sort_by == 'name' %}
@@ -113,7 +113,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='category', sort_order='desc' if sort_by == 'category' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('products.list', query=query, supplier_id=supplier_id, sort_by='category', sort_order='desc' if sort_by == 'category' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByCategory">
                                     Categoría 
                                     {% if sort_by == 'category' %}
@@ -122,7 +122,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='purchase_price', sort_order='desc' if sort_by == 'purchase_price' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('products.list', query=query, supplier_id=supplier_id, sort_by='purchase_price', sort_order='desc' if sort_by == 'purchase_price' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByPurchasePrice">
                                     Precio Compra 
                                     {% if sort_by == 'purchase_price' %}
@@ -131,7 +131,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='sale_price', sort_order='desc' if sort_by == 'sale_price' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('products.list', query=query, supplier_id=supplier_id, sort_by='sale_price', sort_order='desc' if sort_by == 'sale_price' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortBySalePrice">
                                     Precio Venta 
                                     {% if sort_by == 'sale_price' %}
@@ -140,7 +140,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='stock', sort_order='desc' if sort_by == 'stock' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('products.list', query=query, supplier_id=supplier_id, sort_by='stock', sort_order='desc' if sort_by == 'stock' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortByStock">
                                     Stock 
                                     {% if sort_by == 'stock' %}
@@ -149,7 +149,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="{{ url_for('product_list', query=query, supplier_id=supplier_id, sort_by='sales_count', sort_order='desc' if sort_by == 'sales_count' and sort_order == 'asc' else 'asc') }}" 
+                                <a href="{{ url_for('products.list', query=query, supplier_id=supplier_id, sort_by='sales_count', sort_order='desc' if sort_by == 'sales_count' and sort_order == 'asc' else 'asc') }}" 
                                    class="text-decoration-none text-dark" id="sortBySalesCount">
                                     Vendidos 
                                     {% if sort_by == 'sales_count' %}
@@ -182,13 +182,13 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" id="productActions-{{ product.id }}">
-                                        <a href="{{ url_for('product_stock_history', id=product.id) }}" 
+                                        <a href="{{ url_for('products.stock_history', id=product.id) }}" 
                                            class="btn btn-outline-info" 
                                            id="historyBtn-{{ product.id }}"
                                            title="Ver historial de inventario">
                                             <i class="bi bi-clock-history"></i>
                                         </a>
-                                        <a href="{{ url_for('product_edit', id=product.id) }}" 
+                                        <a href="{{ url_for('products.edit', id=product.id) }}" 
                                            class="btn btn-outline-primary"
                                            id="editProductBtn-{{ product.id }}"
                                            title="Editar producto">
@@ -215,7 +215,7 @@
                 {% if query %}
                     No se encontraron productos para "{{ query }}".
                 {% else %}
-                    No hay productos registrados. <a href="{{ url_for('product_new') }}" id="createFirstProductLink">Crear el primer producto</a>.
+                    No hay productos registrados. <a href="{{ url_for('products.new') }}" id="createFirstProductLink">Crear el primer producto</a>.
                 {% endif %}
             </div>
         {% endif %}
@@ -256,7 +256,7 @@
             const name = button.dataset.name;
             
             document.getElementById('deleteProductName').textContent = name;
-            document.getElementById('deleteProductForm').action = "{{ url_for('product_delete', id=0) }}".replace('0', id);
+            document.getElementById('deleteProductForm').action = "{{ url_for('products.delete', id=0) }}".replace('0', id);
         });
     });
 </script>

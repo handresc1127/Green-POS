@@ -5,7 +5,7 @@
 {% block page_title %}Ventas ({{ setting.document_label }}s){% endblock %}
 
 {% block page_actions %}
-<a href="{{ url_for('invoice_new') }}" class="btn btn-primary">
+<a href="{{ url_for('invoices.new') }}" class="btn btn-primary">
     <i class="bi bi-plus-circle"></i> Nueva Venta
 </a>
 {% endblock %}
@@ -31,7 +31,7 @@
 {% block content %}
 <div class="card mb-4">
     <div class="card-body">
-        <form action="{{ url_for('invoice_list') }}" method="get">
+        <form action="{{ url_for('invoices.list') }}" method="get">
             <div class="input-group">
                 <input type="text" name="query" class="form-control"
                     placeholder="Buscar por número, cliente o documento..." value="{{ query }}">
@@ -39,7 +39,7 @@
                     <i class="bi bi-search"></i> Buscar
                 </button>
                 {% if query %}
-                <a href="{{ url_for('invoice_list') }}" class="btn btn-outline-secondary">
+                <a href="{{ url_for('invoices.list') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-x-circle"></i> Limpiar
                 </a>
                 {% endif %}
@@ -124,13 +124,13 @@
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ url_for('invoice_view', id=invoice.id) }}"
+                                            <a href="{{ url_for('invoices.view', id=invoice.id) }}"
                                                 class="btn btn-outline-primary" title="Ver">
                                                 <i class="bi bi-eye"></i>
                                             </a>
                                             {% if current_user.role == 'admin' %}
                                             {% if invoice.status == 'pending' %}
-                                            <form method="post" action="{{ url_for('invoice_validate', id=invoice.id) }}"
+                                            <form method="post" action="{{ url_for('invoices.validate', id=invoice.id) }}"
                                                 onsubmit="return confirm('Validar esta venta?');">
                                                 <button type="submit" class="btn btn-outline-success" title="Validar">
                                                     <i class="bi bi-check2-circle"></i>
@@ -195,7 +195,7 @@
             {% if query %}
             No se encontraron ventas para "{{ query }}".
             {% else %}
-            No hay ventas registradas. <a href="{{ url_for('invoice_new') }}">Crear la primera</a>.
+            No hay ventas registradas. <a href="{{ url_for('invoices.new') }}">Crear la primera</a>.
             {% endif %}
         </div>
         {% endif %}
@@ -358,7 +358,7 @@
             const id = button.dataset.id;
             const number = button.dataset.number;
             document.getElementById('invoiceNumber').textContent = number;
-            document.getElementById('deleteForm').action = "{{ url_for('invoice_delete', id=0) }}".replace('0', id);
+            document.getElementById('deleteForm').action = "{{ url_for('invoices.delete', id=0) }}".replace('0', id);
         });
 
         // Set up edit modal
@@ -397,7 +397,7 @@
                 new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(total);
             
             // Set form action
-            document.getElementById('editForm').action = "{{ url_for('invoice_edit', id=0) }}".replace('0', id);
+            document.getElementById('editForm').action = "{{ url_for('invoices.edit', id=0) }}".replace('0', id);
         });
         
         // Update edit total function

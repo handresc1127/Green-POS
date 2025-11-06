@@ -6,8 +6,8 @@
     <!-- Breadcrumb -->
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Inicio</a></li>
-            <li class="breadcrumb-item"><a href="{{ url_for('appointment_list') }}">Citas</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('services.appointment_list') }}">Citas</a></li>
             <li class="breadcrumb-item active">Configuración de Tipos de Servicio</li>
         </ol>
     </nav>
@@ -16,10 +16,10 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-cog"></i> Configuración de Tipos de Servicio</h2>
         <div>
-            <a href="{{ url_for('appointment_list') }}" id="backToAppointmentsBtn" class="btn btn-secondary">
+            <a href="{{ url_for('services.appointment_list') }}" id="backToAppointmentsBtn" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Volver a Citas
             </a>
-            <a href="{{ url_for('service_type_new') }}" id="newServiceTypeBtn" class="btn btn-primary">
+            <a href="{{ url_for('services.service_type_new') }}" id="newServiceTypeBtn" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Nuevo Tipo
             </a>
         </div>
@@ -69,7 +69,7 @@
                     </select>
                 </div>
                 <div class="col-md-3 d-flex align-items-end">
-                    <a href="{{ url_for('service_type_list') }}" id="clearFiltersBtn" class="btn btn-outline-secondary w-100">
+                    <a href="{{ url_for('services.service_type_list') }}" id="clearFiltersBtn" class="btn btn-outline-secondary w-100">
                         <i class="fas fa-times"></i> Limpiar Filtros
                     </a>
                 </div>
@@ -154,7 +154,7 @@
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{{ url_for('service_type_edit', id=type.id) }}" 
+                                    <a href="{{ url_for('services.service_type_edit', id=type.id) }}" 
                                        class="btn btn-sm btn-warning" 
                                        title="Editar">
                                         <i class="fas fa-edit"></i>
@@ -172,7 +172,7 @@
                             <td colspan="9" class="text-center text-muted py-4">
                                 <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
                                 <p>No hay tipos de servicio registrados</p>
-                                <a href="{{ url_for('service_type_new') }}" class="btn btn-primary">
+                                <a href="{{ url_for('services.service_type_new') }}" class="btn btn-primary">
                                     <i class="fas fa-plus"></i> Crear Primer Tipo
                                 </a>
                             </td>

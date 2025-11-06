@@ -2,7 +2,7 @@
 {% block title %}Mascotas{% endblock %}
 {% block page_title %}Mascotas{% endblock %}
 {% block page_actions %}
-<a href="{{ url_for('pet_new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nueva Mascota</a>
+<a href="{{ url_for('pets.new') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Nueva Mascota</a>
 {% endblock %}
 {% block content %}
 <div class="row g-3 mb-3 align-items-end">
@@ -55,9 +55,9 @@
         </td>
         <td>{{ p.weight_kg or '' }}</td>
         <td class="text-end">
-          <a href="{{ url_for('pet_edit', id=p.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+          <a href="{{ url_for('pets.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
           {% if current_user.role == 'admin' %}
-          <form action="{{ url_for('pet_delete', id=p.id) }}" method="post" class="d-inline" onsubmit="return confirm('Eliminar mascota?')">
+          <form action="{{ url_for('pets.delete', id=p.id) }}" method="post" class="d-inline" onsubmit="return confirm('Eliminar mascota?')">
             <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
           </form>
           {% endif %}
@@ -75,7 +75,7 @@
 {% block extra_js %}
 <script>
   function go(customerId){
-    const base = "{{ url_for('pet_list') }}";
+    const base = "{{ url_for('pets.list') }}";
     const url = customerId ? base + '?customer_id=' + encodeURIComponent(customerId) : base;
     window.location.href = url;
   }

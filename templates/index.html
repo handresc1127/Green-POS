@@ -18,7 +18,7 @@
                         <i class="bi bi-box-seam fs-1" id="productsStatIcon"></i>
                     </div>
                 </div>
-                <a href="{{ url_for('product_list') }}" class="text-white" id="viewAllProductsLink">Ver todos <i class="bi bi-arrow-right"></i></a>
+                <a href="{{ url_for('products.list') }}" class="text-white" id="viewAllProductsLink">Ver todos <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>
@@ -35,7 +35,8 @@
                         <i class="bi bi-people fs-1" id="customersStatIcon"></i>
                     </div>
                 </div>
-                <a href="{{ url_for('customer_list') }}" class="text-white" id="viewAllCustomersLink">Ver todos <i class="bi bi-arrow-right"></i></a>
+                {# Temporary: Show customer count until customers.list is available #}
+                <a href="{{ url_for('customers.list') }}" class="text-white" id="viewAllCustomersLink">Ver todos <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>
@@ -52,7 +53,7 @@
                         <i class="bi bi-receipt fs-1" id="salesStatIcon"></i>
                     </div>
                 </div>
-                <a href="{{ url_for('invoice_list') }}" class="text-white" id="viewAllSalesLink">Ver todas <i class="bi bi-arrow-right"></i></a>
+                <a href="{{ url_for('invoices.list') }}" class="text-white" id="viewAllSalesLink">Ver todas <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>
@@ -87,7 +88,7 @@
                                     <td id="recentInvoiceDate-{{ invoice.id }}"><span class="utc-date" data-utc="{{ invoice.date.isoformat() }}">{{ invoice.date.isoformat() }}</span></td>
                                     <td id="recentInvoiceTotal-{{ invoice.id }}">{{ invoice.total | currency_co }}</td>
                                     <td id="recentInvoiceActions-{{ invoice.id }}">
-                                        <a href="{{ url_for('invoice_view', id=invoice.id) }}" 
+                                        <a href="{{ url_for('invoices.view', id=invoice.id) }}" 
                                            class="btn btn-sm btn-outline-primary"
                                            id="viewInvoiceBtn-{{ invoice.id }}">
                                             <i class="bi bi-eye"></i>
@@ -103,8 +104,8 @@
                 {% endif %}
             </div>
             <div class="card-footer bg-light" id="recentInvoicesFooter">
-                <a href="{{ url_for('invoice_list') }}" class="btn btn-sm btn-outline-secondary" id="viewAllInvoicesBtn">Ver todas</a>
-                <a href="{{ url_for('invoice_new') }}" class="btn btn-sm btn-primary float-end" id="newInvoiceBtn">Nueva Venta</a>
+                <a href="{{ url_for('invoices.list') }}" class="btn btn-sm btn-outline-secondary" id="viewAllInvoicesBtn">Ver todas</a>
+                <a href="{{ url_for('invoices.new') }}" class="btn btn-sm btn-primary float-end" id="newInvoiceBtn">Nueva Venta</a>
             </div>
         </div>
 
@@ -156,12 +157,13 @@
                                         {% endif %}
                                     </td>
                                     <td id="upcomingAppointmentActions-{{ appointment.id }}">
-                                        <a href="{{ url_for('appointment_view', id=appointment.id) }}" 
+                                        {# <a href="{{ url_for('services.appointment_view', id=appointment.id) }}" 
                                            class="btn btn-sm btn-outline-primary" 
                                            title="Ver detalles"
                                            id="viewUpcomingAppointmentBtn-{{ appointment.id }}">
                                             <i class="bi bi-eye"></i>
-                                        </a>
+                                        </a> #}
+                                        <span class="text-muted small">ID: {{ appointment.id }}</span>
                                         {% if appointment.customer and appointment.customer.phone %}
                                         {% set phone_clean = appointment.customer.phone.replace(' ', '').replace('-', '') %}
                                         {% set first_name = appointment.customer.name.split()[0] if appointment.customer.name else '' %}
@@ -188,8 +190,9 @@
                 {% endif %}
             </div>
             <div class="card-footer bg-light" id="upcomingAppointmentsFooter">
-                <a href="{{ url_for('appointment_list') }}" class="btn btn-sm btn-outline-secondary" id="viewAllAppointmentsBtn">Ver todas</a>
-                <a href="{{ url_for('service_new') }}" class="btn btn-sm btn-primary float-end" id="newAppointmentBtn">Nueva Cita</a>
+                {# <a href="{{ url_for('services.appointment_list') }}" class="btn btn-sm btn-outline-secondary" id="viewAllAppointmentsBtn">Ver todas</a>
+                <a href="{{ url_for('services.new') }}" class="btn btn-sm btn-primary float-end" id="newAppointmentBtn">Nueva Cita</a> #}
+                <span class="text-muted small">Módulo de servicios en migración</span>
             </div>
         </div>
     </div>
@@ -234,7 +237,7 @@
                                 </td>
                                 <td id="lowStockProductActions-{{ product.id }}" class="text-center">
                                     {% if current_user.is_authenticated and current_user.role == 'admin' %}
-                                        <a href="{{ url_for('product_edit', id=product.id) }}" 
+                                        <a href="{{ url_for('products.edit', id=product.id) }}" 
                                            class="btn btn-sm btn-outline-primary" 
                                            title="Editar producto"
                                            id="editLowStockProductBtn-{{ product.id }}">
@@ -253,8 +256,8 @@
             </div>
              {% if current_user.is_authenticated and current_user.role == 'admin' %}
                 <div class="card-footer bg-light" id="lowStockProductsFooter">
-                    <a href="{{ url_for('product_list') }}" class="btn btn-sm btn-outline-secondary" id="viewAllProductsBtn">Ver todos</a>
-                    <a href="{{ url_for('product_new') }}" class="btn btn-sm btn-primary float-end" id="newProductBtn">Nuevo Producto</a>
+                    <a href="{{ url_for('products.list') }}" class="btn btn-sm btn-outline-secondary" id="viewAllProductsBtn">Ver todos</a>
+                    <a href="{{ url_for('products.new') }}" class="btn btn-sm btn-primary float-end" id="newProductBtn">Nuevo Producto</a>
                 </div>
              {% endif %}
         </div>
