@@ -253,13 +253,10 @@
   </div>
   <div class="collapse show" id="collapsePeakHours">
     <div class="card-body">
-    
-    <!-- Gráfico de barras -->
     <div class="chart-container mb-4">
       <canvas id="peakHoursChart"></canvas>
     </div>
     
-    <!-- Tabla de datos -->
     <div class="table-responsive">
       <table class="table table-hover table-sm align-middle mb-0">
         <thead>
@@ -283,6 +280,68 @@
           {% endfor %}
         </tbody>
       </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Análisis de Ventas Totales por Día (con marcadores de semana) -->
+{% if daily_sales_chart and daily_sales_chart.labels %}
+<div class="card mb-4">
+  <div class="card-header bg-light">
+    <h5 class="mb-0">
+      <button class="btn btn-link text-decoration-none text-dark w-100 text-start d-flex justify-content-between align-items-center p-0" 
+              type="button" 
+              data-bs-toggle="collapse" 
+              data-bs-target="#collapseDailySales">
+        <span>
+          <i class="bi bi-calendar-check me-2"></i>Análisis de Ventas Totales por Día
+          <small class="text-muted ms-2">(Líneas verticales = Domingos)</small>
+        </span>
+        <i class="bi bi-chevron-down"></i>
+      </button>
+    </h5>
+  </div>
+  <div class="collapse show" id="collapseDailySales">
+    <div class="card-body">
+      <div class="alert alert-info d-flex align-items-center mb-3">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <small>
+          Las <strong>líneas verticales rojas</strong> marcan los <strong>domingos</strong>, 
+          permitiendo visualizar el inicio y fin de cada semana. 
+          Identifica patrones de ventas semanales fácilmente.
+        </small>
+      </div>
+      
+      <div class="chart-container mb-3" style="height: 400px;">
+        <canvas id="dailySalesTotalChart"></canvas>
+      </div>
+      
+      <div class="row mt-3">
+        <div class="col-md-6">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title"><i class="bi bi-graph-up text-success"></i> Mayor Venta</h6>
+              <p class="mb-0">
+                <strong>{{ daily_sales_chart.data|max|currency_co }}</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="card-title"><i class="bi bi-calendar3 text-primary"></i> Domingos en Período</h6>
+              <p class="mb-0">
+                <strong>{{ daily_sales_chart.sundays|length }}</strong> domingos
+                {% if daily_sales_chart.sunday_dates %}
+                <br><small class="text-muted">{{ daily_sales_chart.sunday_dates|join(', ') }}</small>
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -550,10 +609,12 @@
 {% block extra_js %}
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Chart.js Annotation Plugin para líneas de domingos -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 
-<script>
-// Gráfico de Horas Pico
+<!-- Gráfico de Horas Pico -->
 {% if peak_hours %}
+<script>
 document.addEventListener('DOMContentLoaded', function() {
   const ctx = document.getElementById('peakHoursChart');
   
@@ -710,6 +771,225 @@ document.addEventListener('DOMContentLoaded', function() {
   // Crear el gráfico
   new Chart(ctx, config);
 });
-{% endif %}
 </script>
+{% endif %}
+
+<!-- Gráfico de Ventas Totales por Día con Marcadores de Domingo -->
+{% if daily_sales_chart and daily_sales_chart.labels %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const ctx = document.getElementById('dailySalesTotalChart');
+  if (!ctx) return;
+  
+  // Datos del gráfico
+  const labels = {{ daily_sales_chart.labels|tojson }};
+  const data = {{ daily_sales_chart.data|tojson }};
+  const movingAvg = {{ daily_sales_chart.moving_avg_7days|tojson }};
+  const sundayIndexes = {{ daily_sales_chart.sundays|tojson }};
+  
+  // Configurar anotaciones para marcar domingos
+  const annotations = {};
+  sundayIndexes.forEach((index, i) => {
+    annotations[`sunday${i}`] = {
+      type: 'line',
+      xMin: index,
+      xMax: index,
+      borderColor: 'rgba(220, 53, 69, 0.7)',  // Rojo semi-transparente
+      borderWidth: 2,
+      borderDash: [5, 5],
+      label: {
+        display: true,
+        content: 'DOM',
+        position: 'start',
+        backgroundColor: 'rgba(220, 53, 69, 0.9)',
+        color: 'white',
+        font: {
+          size: 10,
+          weight: 'bold'
+        },
+        padding: 4,
+        cornerRadius: 4
+      }
+    };
+  });
+  
+  const config = {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Total Vendido',
+          data: data,
+          borderColor: 'rgb(13, 110, 253)',
+          backgroundColor: 'rgba(13, 110, 253, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 5,
+          pointHoverRadius: 8,
+          pointBackgroundColor: 'rgb(13, 110, 253)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverBackgroundColor: 'rgb(13, 110, 253)',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 3,
+          order: 2
+        },
+        {
+          label: 'Promedio Móvil 7 Días',
+          data: movingAvg,
+          borderColor: 'rgb(25, 135, 84)',
+          backgroundColor: 'rgba(25, 135, 84, 0.05)',
+          borderWidth: 3,
+          fill: false,
+          tension: 0.4,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: 'rgb(25, 135, 84)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverBackgroundColor: 'rgb(25, 135, 84)',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2,
+          borderDash: [],
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: {
+              size: 12
+            }
+          }
+        },
+        title: {
+          display: true,
+          text: 'Evolución de Ventas Totales por Día',
+          font: {
+            size: 16,
+            weight: 'bold'
+          },
+          padding: {
+            bottom: 20
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.parsed.y;
+              const datasetLabel = context.dataset.label;
+              
+              if (datasetLabel === 'Promedio Móvil 7 Días') {
+                return 'Promedio 7d: ' + new Intl.NumberFormat('es-CO', {
+                  style: 'currency',
+                  currency: 'COP',
+                  minimumFractionDigits: 0
+                }).format(value);
+              } else {
+                return 'Total: ' + new Intl.NumberFormat('es-CO', {
+                  style: 'currency',
+                  currency: 'COP',
+                  minimumFractionDigits: 0
+                }).format(value);
+              }
+            }
+          },
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          titleFont: {
+            size: 14,
+            weight: 'bold'
+          },
+          bodyFont: {
+            size: 13
+          },
+          padding: 12,
+          cornerRadius: 8,
+          displayColors: true
+        },
+        annotation: {
+          annotations: annotations
+        }
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Fecha (DD/MM/YYYY)',
+            font: {
+              size: 14,
+              weight: 'bold'
+            }
+          },
+          grid: {
+            display: false
+          },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: {
+              size: 10
+            },
+            callback: function(value, index) {
+              // Resaltar domingos en el eje X
+              const label = this.getLabelForValue(value);
+              if (sundayIndexes.includes(index)) {
+                return '🔴 ' + label;
+              }
+              return label;
+            }
+          }
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Total Vendido (COP)',
+            font: {
+              size: 14,
+              weight: 'bold'
+            }
+          },
+          ticks: {
+            callback: function(value) {
+              if (value >= 1000000) {
+                return '$' + (value / 1000000).toFixed(1) + 'M';
+              } else if (value >= 1000) {
+                return '$' + (value / 1000).toFixed(0) + 'K';
+              }
+              return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+              }).format(value);
+            }
+          }
+        }
+      },
+      animation: {
+        duration: 1200,
+        easing: 'easeInOutQuart'
+      }
+    }
+  };
+  
+  new Chart(ctx, config);
+});
+</script>
+{% endif %}
+
 {% endblock %}

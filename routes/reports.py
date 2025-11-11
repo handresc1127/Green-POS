@@ -55,9 +55,7 @@ def index():
     start_datetime = start_datetime_local.astimezone(timezone.utc)
     end_datetime = end_datetime_local.astimezone(timezone.utc)
     
-    # ========== MÉTRICAS PRINCIPALES ==========
-    
-    # 1. Número de ventas (facturas) en el rango
+    # Consultar facturas en el rango de fechas
     invoices_query = Invoice.query.filter(
         Invoice.date >= start_datetime,
         Invoice.date <= end_datetime
@@ -65,7 +63,7 @@ def index():
     total_invoices = invoices_query.count()
     invoices = invoices_query.order_by(Invoice.date.desc()).all()
     
-    # 2. Total de ingresos (suma de totales de facturas)
+    # Calcular ingresos totales
     total_revenue = db.session.query(
         func.sum(Invoice.total)
     ).filter(
@@ -73,7 +71,7 @@ def index():
         Invoice.date <= end_datetime
     ).scalar() or 0.0
     
-    # 3. Cálculo de utilidades (ingresos - costos)
+    # Calcular utilidades (precio venta - precio compra)
     profit_query = db.session.query(
         func.sum(
             (InvoiceItem.price - Product.purchase_price) * InvoiceItem.quantity
@@ -89,13 +87,11 @@ def index():
     
     total_profit = profit_query or 0.0
     
-    # 4. Margen de utilidad (%)
+    # Métricas derivadas
     profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0.0
-    
-    # 5. Ticket promedio (total_revenue / num_ventas)
     avg_ticket = (total_revenue / total_invoices) if total_invoices > 0 else 0.0
     
-    # ========== ANÁLISIS POR MÉTODO DE PAGO ==========
+    # Análisis por método de pago
     payment_methods_data = db.session.query(
         Invoice.payment_method,
         func.count(Invoice.id).label('count'),
@@ -115,17 +111,20 @@ def index():
         for pm in payment_methods_data
     ]
     
-    # ========== ANÁLISIS POR HORA ==========
+    # Análisis de ventas por hora del día
     invoices_with_hours = []
     for invoice in invoices:
         if invoice.date:
-            local_time = invoice.date.astimezone(CO_TZ)
+            if invoice.date.tzinfo is None:
+                local_time = invoice.date.replace(tzinfo=timezone.utc).astimezone(CO_TZ)
+            else:
+                local_time = invoice.date.astimezone(CO_TZ)
+            
             invoices_with_hours.append({
                 'hour': local_time.hour,
                 'total': invoice.total
             })
     
-    # Agrupar por hora
     hours_data = {}
     for inv in invoices_with_hours:
         hour = inv['hour']
@@ -144,7 +143,59 @@ def index():
         for hour, data in sorted(hours_data.items())
     ]
     
-    # ========== PRODUCTOS MÁS VENDIDOS ==========
+    # Distribución de ventas por día
+    invoices_by_day = {}
+    for invoice in invoices:
+        if invoice.date:
+            if invoice.date.tzinfo is None:
+                local_time = invoice.date.replace(tzinfo=timezone.utc).astimezone(CO_TZ)
+            else:
+                local_time = invoice.date.astimezone(CO_TZ)
+            
+            day_key = local_time.date()
+            
+            if day_key not in invoices_by_day:
+                invoices_by_day[day_key] = {'count': 0, 'total': 0.0}
+            invoices_by_day[day_key]['count'] += 1
+            invoices_by_day[day_key]['total'] += invoice.total
+    
+    sales_by_day = [
+        {
+            'date': day.strftime('%Y-%m-%d'),
+            'date_formatted': day.strftime('%d/%m/%Y'),
+            'day_name': day.strftime('%A'),  # Nombre del día (Monday, Tuesday, etc.)
+            'weekday': day.weekday(),  # 0=Monday, 6=Sunday
+            'is_sunday': day.weekday() == 6,  # True si es domingo
+            'count': data['count'],
+            'total': data['total'],
+            'avg': data['total'] / data['count'] if data['count'] > 0 else 0
+        }
+        for day, data in sorted(invoices_by_day.items())
+    ]
+    
+    # Calcular promedio móvil de 7 días
+    moving_avg_7days = []
+    data_values = [day['total'] for day in sales_by_day]
+    
+    for i in range(len(data_values)):
+        if i < 7:
+            # Para los primeros 7 días: promediar desde el inicio hasta el día actual
+            avg = sum(data_values[:i+1]) / (i + 1)
+        else:
+            # Para el resto: promediar los últimos 7 días
+            avg = sum(data_values[i-6:i+1]) / 7
+        moving_avg_7days.append(round(avg, 2))
+    
+    # Preparar datos para gráfico de ventas totales por día (con marcadores de domingo)
+    daily_sales_chart = {
+        'labels': [day['date_formatted'] for day in sales_by_day],
+        'data': [day['total'] for day in sales_by_day],
+        'moving_avg_7days': moving_avg_7days,
+        'sundays': [i for i, day in enumerate(sales_by_day) if day['is_sunday']],
+        'sunday_dates': [day['date_formatted'] for day in sales_by_day if day['is_sunday']]
+    }
+    
+    # Top productos más vendidos
     top_products = db.session.query(
         Product.name,
         Product.code,
@@ -174,7 +225,7 @@ def index():
         for prod in top_products
     ]
     
-    # ========== PRODUCTOS MÁS RENTABLES ==========
+    # Productos más rentables por margen
     most_profitable_products = db.session.query(
         Product.name,
         Product.code,
@@ -209,7 +260,7 @@ def index():
         for prod in most_profitable_products
     ]
     
-    # ========== ESTADO DE INVENTARIO ==========
+    # Estado actual de inventario
     low_stock_products = Product.query.filter(Product.stock <= 3).order_by(Product.stock.asc()).all()
     
     inventory_value = db.session.query(
@@ -231,6 +282,8 @@ def index():
         avg_ticket=avg_ticket,
         payment_methods=payment_methods,
         peak_hours=peak_hours,
+        sales_by_day=sales_by_day,
+        daily_sales_chart=daily_sales_chart,
         top_products=top_products_list,
         most_profitable=most_profitable_list,
         low_stock_products=low_stock_products,
