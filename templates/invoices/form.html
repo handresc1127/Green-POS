@@ -503,7 +503,6 @@
             }
         };
 
-        const originalSubmitHandler = document.getElementById('invoiceForm').onsubmit;
         document.getElementById('invoiceForm').addEventListener('submit', function(e){
             if (!customerIdInput.value) {
                 e.preventDefault();

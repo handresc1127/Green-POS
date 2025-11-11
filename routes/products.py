@@ -7,7 +7,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, or_, and_
 
 from extensions import db
-from models.models import Product, InvoiceItem, Supplier, ProductStockLog
+from models.models import Product, InvoiceItem, Supplier, ProductStockLog, Invoice
 from utils.decorators import role_required
 
 # Crear Blueprint
@@ -33,10 +33,14 @@ def list():
         'sales_count': 'sales_count'
     }
     
+    # CRÍTICO: Contar solo ventas de facturas NO canceladas
+    # Se hace join con Invoice para filtrar por estado
     base_query = db.session.query(
         Product,
         func.coalesce(func.sum(InvoiceItem.quantity), 0).label('sales_count')
-    ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id)
+    ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id)\
+     .outerjoin(Invoice, InvoiceItem.invoice_id == Invoice.id)\
+     .filter(or_(Invoice.status != 'cancelled', Invoice.id == None))
     
     # Filtro por proveedor
     if supplier_id:
@@ -77,6 +81,7 @@ def list():
     # Aplicar ordenamiento
     if sort_by in sort_columns:
         if sort_by == 'sales_count':
+            # Ordenar por el conteo de ventas (ya filtrado por estado de factura)
             if sort_order == 'desc':
                 base_query = base_query.order_by(func.coalesce(func.sum(InvoiceItem.quantity), 0).desc())
             else:

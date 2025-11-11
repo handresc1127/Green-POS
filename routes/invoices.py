@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from extensions import db
-from models.models import Invoice, InvoiceItem, Customer, Product, Setting
+from models.models import Invoice, InvoiceItem, Customer, Product, Setting, ProductStockLog
 from utils.decorators import role_required
 
 invoices_bp = Blueprint('invoices', __name__, url_prefix='/invoices')
@@ -231,22 +231,52 @@ def edit(id):
 @invoices_bp.route('/delete/<int:id>', methods=['POST'])
 @login_required
 def delete(id):
-    """Elimina una factura no validada y restaura stock."""
+    """Elimina una factura no validada, restaura stock y registra en log."""
     try:
         invoice = Invoice.query.get_or_404(id)
         if invoice.status == 'validated':
             flash('No se puede eliminar una venta validada', 'danger')
             return redirect(url_for('invoices.list'))
         
-        # Restore product stock
+        # Guardar información para el log antes de eliminar
+        invoice_number = invoice.number
+        items_info = []
+        
+        # Restaurar stock de productos y registrar en log
         for item in invoice.items:
             product = item.product
             if product:
+                old_stock = product.stock
                 product.stock += item.quantity
+                new_stock = product.stock
+                
+                # Guardar info para log
+                items_info.append({
+                    'product': product,
+                    'quantity': item.quantity,
+                    'old_stock': old_stock,
+                    'new_stock': new_stock
+                })
         
+        # Eliminar la factura (cascade eliminará InvoiceItems)
         db.session.delete(invoice)
+        db.session.flush()  # Flush antes de crear logs
+        
+        # Crear logs de movimiento de inventario
+        for info in items_info:
+            log = ProductStockLog(
+                product_id=info['product'].id,
+                user_id=current_user.id,
+                quantity=info['quantity'],
+                movement_type='addition',
+                reason=f'Devolución por eliminación de venta {invoice_number}',
+                previous_stock=info['old_stock'],
+                new_stock=info['new_stock']
+            )
+            db.session.add(log)
+        
         db.session.commit()
-        flash('Venta eliminada exitosamente', 'success')
+        flash(f'Venta {invoice_number} eliminada exitosamente. Stock restaurado.', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error al eliminar venta: {str(e)}', 'error')
