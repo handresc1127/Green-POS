@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 from extensions import db
 from models.models import (
     ServiceType, PetService, Appointment, Customer, Pet, 
-    Product, Invoice, InvoiceItem, Setting
+    Product, Invoice, InvoiceItem, Setting, Technician
 )
 from utils.decorators import role_required
 
@@ -210,7 +210,8 @@ def service_new():
         service_prices_raw = request.form.getlist('service_prices[]')
         service_modes = request.form.getlist('service_modes[]')
         description = request.form.get('description','')
-        technician = request.form.get('technician','')
+        technician_id_raw = request.form.get('technician','')
+        technician_id = int(technician_id_raw) if technician_id_raw else None
         consent_text = request.form.get('consent_text','')
         
         scheduled_date_raw = request.form.get('scheduled_date','').strip()
@@ -247,7 +248,7 @@ def service_new():
             customer_id=customer_id,
             invoice_id=None,  # No se crea factura aún
             description=description,
-            technician=technician,
+            technician=technician_id,
             consent_text=consent_text or '',
             scheduled_at=scheduled_at
         )
@@ -298,7 +299,7 @@ def service_new():
                 service_type=code.lower(),
                 description=description,
                 price=price,
-                technician=technician,
+                technician=technician_id,
                 consent_text=consent_text or '',
                 appointment_id=appointment.id,
                 invoice_id=None  # Sin factura por ahora
@@ -324,6 +325,15 @@ def service_new():
     selected_customer = db.session.get(Customer, effective_customer_id) if effective_customer_id else None
     service_types = ServiceType.query.filter_by(active=True).order_by(ServiceType.name).all()
     
+    # Obtener técnicos activos
+    technicians = Technician.query.filter_by(active=True).order_by(
+        Technician.is_default.desc(), 
+        Technician.name
+    ).all()
+    
+    # Técnico predeterminado
+    default_technician = Technician.get_default()
+    
     scheduled_base = datetime.now()
     minute = (scheduled_base.minute + 14) // 15 * 15
     if minute == 60:
@@ -343,6 +353,8 @@ def service_new():
         selected_customer=selected_customer,
         selected_customer_id=effective_customer_id,
         service_types=service_types,
+        technicians=technicians,
+        default_technician=default_technician,
         default_scheduled_date=default_date_str,
         default_scheduled_time=default_time_str
     )
@@ -491,10 +503,18 @@ def appointment_edit(id):
         return redirect(url_for('services.appointment_view', id=id))
     
     service_types = ServiceType.query.filter_by(active=True).order_by(ServiceType.name).all()
+    
+    # Obtener técnicos activos
+    technicians = Technician.query.filter_by(active=True).order_by(
+        Technician.is_default.desc(), 
+        Technician.name
+    ).all()
+    
     return render_template(
         'appointments/edit.html', 
         appointment=appointment, 
         service_types=service_types,
+        technicians=technicians,
         consent_template=CONSENT_TEMPLATE
     )
 
@@ -511,7 +531,8 @@ def appointment_update(id):
     
     try:
         # Actualizar información general
-        appointment.technician = request.form.get('technician', '').strip()
+        technician_id_raw = request.form.get('technician', '').strip()
+        appointment.technician = int(technician_id_raw) if technician_id_raw else None
         appointment.description = request.form.get('description', '').strip()
         appointment.consent_text = request.form.get('consent_text', '').strip()
         
@@ -761,3 +782,142 @@ def appointment_cancel(id):
     else:
         flash('La cita ya estaba cancelada', 'info')
     return redirect(url_for('services.appointment_view', id=id))
+
+
+# ==================== WHATSAPP CONSOLIDADO ====================
+
+@services_bp.route('/appointments/whatsapp-summary', methods=['GET'])
+@login_required
+def appointment_whatsapp_summary():
+    """
+    Genera mensaje consolidado de citas para enviar por WhatsApp al técnico.
+    
+    Query params:
+        - date: Fecha en formato YYYY-MM-DD
+    
+    Returns:
+        JSON con:
+        - success: bool
+        - technician_phone: str (teléfono del técnico)
+        - technician_name: str (nombre del técnico)
+        - message_text: str (mensaje prellenado)
+        - appointment_count: int (total de citas)
+        - error: str (solo si success=false)
+    """
+    from flask import jsonify
+    from models.models import Technician
+    import urllib.parse
+    
+    date_str = request.args.get('date')
+    
+    if not date_str:
+        return jsonify({
+            'success': False,
+            'error': 'Parámetro "date" requerido (formato: YYYY-MM-DD)'
+        }), 400
+    
+    try:
+        # Parsear fecha
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({
+            'success': False,
+            'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
+        }), 400
+    
+    # Obtener citas del día ordenadas por hora
+    appointments = Appointment.query.filter(
+        db.func.date(Appointment.scheduled_at) == target_date
+    ).order_by(Appointment.scheduled_at).all()
+    
+    if not appointments:
+        return jsonify({
+            'success': False,
+            'error': f'No hay citas programadas para {target_date.strftime("%d/%m/%Y")}'
+        }), 404
+    
+    # Agrupar citas por técnico
+    appointments_by_tech = {}
+    for appt in appointments:
+        tech_id = appt.technician
+        
+        if tech_id not in appointments_by_tech:
+            appointments_by_tech[tech_id] = []
+        
+        appointments_by_tech[tech_id].append(appt)
+    
+    # Si hay múltiples técnicos, retornar error (feature futura: seleccionar técnico)
+    if len(appointments_by_tech) > 1:
+        return jsonify({
+            'success': False,
+            'error': 'Hay citas asignadas a múltiples técnicos. Funcionalidad de selección pendiente.'
+        }), 400
+    
+    # Obtener técnico único
+    tech_id = list(appointments_by_tech.keys())[0]
+    tech_appointments = appointments_by_tech[tech_id]
+    
+    # Obtener datos del técnico
+    technician = Technician.query.get(tech_id)
+    
+    if not technician:
+        return jsonify({
+            'success': False,
+            'error': 'Técnico no encontrado'
+        }), 404
+    
+    if not technician.phone:
+        return jsonify({
+            'success': False,
+            'error': f'El técnico "{technician.name}" no tiene teléfono registrado'
+        }), 400
+    
+    # Construir mensaje
+    setting = Setting.get()
+    business_name = setting.business_name if setting else 'Green-POS'
+    
+    # Fecha formateada
+    day_names = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    day_name = day_names[target_date.weekday()]
+    formatted_date = f"{day_name} {target_date.day} de {target_date.strftime('%B')} de {target_date.year}"
+    
+    # Líneas de citas
+    appointment_lines = []
+    for appt in tech_appointments:
+        time_str = appt.scheduled_at.strftime('%H:%M') if appt.scheduled_at else 'Sin hora'
+        pet_name = appt.pet.name if appt.pet else 'Mascota'
+        species = appt.pet.species.lower() if appt.pet and appt.pet.species else 'mascota'
+        breed = appt.pet.breed.lower() if appt.pet and appt.pet.breed else 'criollo'
+        
+        appointment_lines.append(f"{time_str} - {pet_name}, {species}, {breed}")
+    
+    # Mensaje completo
+    message = f"Hola {technician.name}, saludos desde {business_name}\n\n"
+    message += f"Tienes la siguiente agenda para el {formatted_date}:\n\n"
+    message += "\n".join(appointment_lines)
+    message += f"\n\nTotal: {len(tech_appointments)} cita{'s' if len(tech_appointments) > 1 else ''}\n\n"
+    message += "Tus clientes te esperan :)"
+    
+    # URL encode para WhatsApp
+    message_encoded = urllib.parse.quote(message)
+    
+    # Limpiar teléfono (quitar + y espacios)
+    phone_clean = technician.phone.replace('+', '').replace(' ', '').replace('-', '')
+    
+    return jsonify({
+        'success': True,
+        'technician_phone': phone_clean,
+        'technician_name': technician.name,
+        'message_text': message_encoded,
+        'appointment_count': len(tech_appointments),
+        'appointments': [
+            {
+                'id': appt.id,
+                'time': appt.scheduled_at.strftime('%H:%M') if appt.scheduled_at else None,
+                'pet_name': appt.pet.name if appt.pet else None,
+                'customer_name': appt.customer.name if appt.customer else None
+            }
+            for appt in tech_appointments
+        ]
+    })
+

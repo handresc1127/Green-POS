@@ -332,7 +332,18 @@ document.addEventListener('DOMContentLoaded', function(){
       </div>
       <div class="col-md-6 col-lg-4">
         <label class="form-label" for="technician_input">Técnico / Estilista</label>
-        <input id="technician_input" type="text" name="technician" class="form-control" placeholder="Nombre del responsable">
+        <select id="technician_input" name="technician" class="form-select">
+          {% if technicians %}
+            {% for tech in technicians %}
+              <option value="{{ tech.id }}" {% if default_technician and tech.id == default_technician.id %}selected{% endif %}>
+                {{ tech.name }}{% if tech.is_default %} ⭐{% endif %}
+              </option>
+            {% endfor %}
+          {% else %}
+            <option value="">-- No hay técnicos disponibles --</option>
+          {% endif %}
+        </select>
+        <small class="text-muted">Técnico asignado a esta cita</small>
       </div>
     </div>
   </div>

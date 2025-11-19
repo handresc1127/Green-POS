@@ -1,0 +1,226 @@
+{% extends 'layout.html' %}
+
+{% block title %}Gestión de Técnicos - Green-POS{% endblock %}
+
+{% block content %}
+<!-- Breadcrumbs -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Inicio</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('settings.index') }}">Configuración</a></li>
+        <li class="breadcrumb-item active">Técnicos</li>
+    </ol>
+</nav>
+
+<!-- Header con título y acciones -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-people-fill"></i> Gestión de Técnicos</h2>
+    <div>
+        <a href="{{ url_for('settings.index') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Configuración
+        </a>
+        <a href="{{ url_for('settings.technician_new') }}" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> Nuevo Técnico
+        </a>
+    </div>
+</div>
+
+<!-- Información -->
+<div class="alert alert-info mb-4">
+    <i class="bi bi-info-circle"></i>
+    Los técnicos son personas que realizan servicios (grooming, veterinaria, etc.). 
+    El técnico marcado con <strong>⭐ Predeterminado</strong> se seleccionará automáticamente en nuevas citas.
+</div>
+
+<!-- Tabla de técnicos -->
+<div class="card">
+    <div class="card-body">
+        {% if technicians %}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm align-middle mb-0" id="techniciansTable">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Especialidad</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Citas</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tech in technicians %}
+                    <tr class="{{ 'table-secondary' if not tech.active }}">
+                        <td>
+                            <strong>{{ tech.name }}</strong>
+                            {% if tech.is_default %}
+                            <span class="badge bg-warning text-dark ms-2" title="Técnico predeterminado">
+                                <i class="bi bi-star-fill"></i> Predeterminado
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tech.phone %}
+                            <a href="https://wa.me/{{ tech.phone.replace('+', '').replace(' ', '') }}" 
+                               target="_blank" 
+                               class="text-success text-decoration-none"
+                               title="Abrir WhatsApp">
+                                <i class="bi bi-whatsapp"></i> {{ tech.phone }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tech.email %}
+                            <a href="mailto:{{ tech.email }}" class="text-decoration-none">
+                                <i class="bi bi-envelope"></i> {{ tech.email }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tech.specialty %}
+                            <span class="badge bg-info">{{ tech.specialty }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if tech.active %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle-fill"></i> Activo
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-x-circle-fill"></i> Inactivo
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary">
+                                {{ tech.appointments|length if tech.appointments else 0 }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('settings.technician_edit', id=tech.id) }}" 
+                                   class="btn btn-sm btn-outline-warning" 
+                                   title="Editar">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                
+                                {% if not tech.is_default %}
+                                <form method="post" 
+                                      action="{{ url_for('settings.technician_set_default', id=tech.id) }}" 
+                                      class="d-inline">
+                                    <button type="submit" 
+                                            class="btn btn-sm btn-outline-secondary" 
+                                            title="Establecer como predeterminado">
+                                        <i class="bi bi-star"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#deleteModal{{ tech.id }}"
+                                        title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Modal de eliminación -->
+                    <div class="modal fade" id="deleteModal{{ tech.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">
+                                        <i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>¿Está seguro de eliminar al técnico <strong>{{ tech.name }}</strong>?</p>
+                                    
+                                    {% if tech.appointments and tech.appointments|length > 0 %}
+                                    <div class="alert alert-danger">
+                                        <i class="bi bi-exclamation-circle"></i>
+                                        <strong>Atención:</strong> Este técnico tiene {{ tech.appointments|length }} citas asignadas.
+                                        No se puede eliminar.
+                                    </div>
+                                    {% else %}
+                                    <p class="text-danger mb-0">
+                                        <small><i class="bi bi-info-circle"></i> Esta acción no se puede deshacer</small>
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                        <i class="bi bi-x-circle"></i> Cancelar
+                                    </button>
+                                    
+                                    {% if not tech.appointments or tech.appointments|length == 0 %}
+                                    <form method="post" action="{{ url_for('settings.technician_delete', id=tech.id) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="bi bi-trash"></i> Eliminar
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-warning mb-0">
+            <i class="bi bi-exclamation-triangle"></i>
+            No hay técnicos registrados.
+            <a href="{{ url_for('settings.technician_new') }}" class="alert-link">Crear el primero</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Información adicional -->
+<div class="card mt-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Información sobre Técnicos</h6>
+    </div>
+    <div class="card-body">
+        <ul class="mb-0">
+            <li><strong>Predeterminado:</strong> Solo un técnico puede ser predeterminado. Se seleccionará automáticamente al crear nuevas citas.</li>
+            <li><strong>Activo/Inactivo:</strong> Los técnicos inactivos no aparecerán en formularios de creación de citas, pero se conservan para historial.</li>
+            <li><strong>Eliminar:</strong> No se puede eliminar un técnico que tenga citas asignadas (mantiene integridad de datos).</li>
+            <li><strong>WhatsApp:</strong> Haz clic en el teléfono para abrir chat directo en WhatsApp.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Inicializar DataTable
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if technicians %}
+        new DataTable('#techniciansTable', {
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+            },
+            pageLength: 25,
+            order: [[0, 'asc']], // Ordenar por nombre
+            columnDefs: [
+                { orderable: false, targets: [6] } // Columna de acciones no ordenable
+            ]
+        });
+        {% endif %}
+    });
+</script>
+{% endblock %}

@@ -4,7 +4,7 @@ import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required
 from extensions import db
-from models.models import Setting
+from models.models import Setting, Technician
 from utils.decorators import role_required
 
 settings_bp = Blueprint('settings', __name__, url_prefix='/settings')
@@ -54,4 +54,180 @@ def index():
             db.session.rollback()
             flash(f'Error al guardar configuración: {str(e)}', 'error')
     
+    
     return render_template('settings/form.html', setting=setting)
+
+
+# ==================== RUTAS DE GESTIÓN DE TÉCNICOS ====================
+
+@settings_bp.route('/technicians')
+@role_required('admin')
+def technician_list():
+    """Lista todos los técnicos del sistema."""
+    technicians = Technician.query.order_by(Technician.is_default.desc(), Technician.name).all()
+    return render_template('settings/technicians/list.html', technicians=technicians)
+
+
+@settings_bp.route('/technicians/new', methods=['GET', 'POST'])
+@role_required('admin')
+def technician_new():
+    """Crear nuevo técnico."""
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name', '').strip()
+            phone = request.form.get('phone', '').strip()
+            email = request.form.get('email', '').strip()
+            specialty = request.form.get('specialty', '').strip()
+            notes = request.form.get('notes', '').strip()
+            active = True if request.form.get('active') == 'on' else False
+            is_default = True if request.form.get('is_default') == 'on' else False
+            
+            # Validaciones
+            if not name:
+                flash('El nombre del técnico es obligatorio', 'error')
+                return redirect(url_for('settings.technician_new'))
+            
+            # Verificar nombre único
+            existing = Technician.query.filter_by(name=name).first()
+            if existing:
+                flash(f'Ya existe un técnico con el nombre "{name}"', 'error')
+                return redirect(url_for('settings.technician_new'))
+            
+            # Si se marca como predeterminado, desmarcar otros
+            if is_default:
+                Technician.query.update({Technician.is_default: False})
+            
+            # Crear técnico
+            technician = Technician(
+                name=name,
+                phone=phone if phone else None,
+                email=email if email else None,
+                specialty=specialty if specialty else None,
+                active=active,
+                is_default=is_default,
+                notes=notes if notes else None
+            )
+            
+            db.session.add(technician)
+            db.session.commit()
+            
+            flash(f'Técnico "{name}" creado exitosamente', 'success')
+            return redirect(url_for('settings.technician_list'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creando técnico: {e}")
+            flash(f'Error al crear técnico: {str(e)}', 'error')
+    
+    return render_template('settings/technicians/form.html', technician=None)
+
+
+@settings_bp.route('/technicians/<int:id>/edit', methods=['GET', 'POST'])
+@role_required('admin')
+def technician_edit(id):
+    """Editar técnico existente."""
+    technician = Technician.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name', '').strip()
+            phone = request.form.get('phone', '').strip()
+            email = request.form.get('email', '').strip()
+            specialty = request.form.get('specialty', '').strip()
+            notes = request.form.get('notes', '').strip()
+            active = True if request.form.get('active') == 'on' else False
+            is_default = True if request.form.get('is_default') == 'on' else False
+            
+            # Validaciones
+            if not name:
+                flash('El nombre del técnico es obligatorio', 'error')
+                return redirect(url_for('settings.technician_edit', id=id))
+            
+            # Verificar nombre único (excepto el actual)
+            existing = Technician.query.filter(
+                Technician.name == name,
+                Technician.id != id
+            ).first()
+            if existing:
+                flash(f'Ya existe otro técnico con el nombre "{name}"', 'error')
+                return redirect(url_for('settings.technician_edit', id=id))
+            
+            # Si se marca como predeterminado, desmarcar otros
+            if is_default and not technician.is_default:
+                Technician.query.filter(Technician.id != id).update({Technician.is_default: False})
+            
+            # Actualizar datos
+            technician.name = name
+            technician.phone = phone if phone else None
+            technician.email = email if email else None
+            technician.specialty = specialty if specialty else None
+            technician.active = active
+            technician.is_default = is_default
+            technician.notes = notes if notes else None
+            
+            db.session.commit()
+            
+            flash(f'Técnico "{name}" actualizado exitosamente', 'success')
+            return redirect(url_for('settings.technician_list'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error actualizando técnico: {e}")
+            flash(f'Error al actualizar técnico: {str(e)}', 'error')
+    
+    return render_template('settings/technicians/form.html', technician=technician)
+
+
+@settings_bp.route('/technicians/<int:id>/delete', methods=['POST'])
+@role_required('admin')
+def technician_delete(id):
+    """Eliminar técnico (validar que no tenga citas asignadas)."""
+    technician = Technician.query.get_or_404(id)
+    
+    # Verificar si tiene citas asignadas
+    if technician.appointments and len(list(technician.appointments)) > 0:
+        flash(f'No se puede eliminar "{technician.name}" porque tiene {len(list(technician.appointments))} citas asignadas', 'error')
+        return redirect(url_for('settings.technician_list'))
+    
+    # No permitir eliminar el técnico predeterminado si es el único
+    if technician.is_default:
+        total_technicians = Technician.query.count()
+        if total_technicians == 1:
+            flash('No se puede eliminar el único técnico del sistema', 'error')
+            return redirect(url_for('settings.technician_list'))
+    
+    try:
+        name = technician.name
+        db.session.delete(technician)
+        db.session.commit()
+        flash(f'Técnico "{name}" eliminado exitosamente', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error eliminando técnico: {e}")
+        flash(f'Error al eliminar técnico: {str(e)}', 'error')
+    
+    return redirect(url_for('settings.technician_list'))
+
+
+@settings_bp.route('/technicians/<int:id>/set-default', methods=['POST'])
+@role_required('admin')
+def technician_set_default(id):
+    """Establecer técnico como predeterminado."""
+    technician = Technician.query.get_or_404(id)
+    
+    try:
+        # Desmarcar todos los demás
+        Technician.query.filter(Technician.id != id).update({Technician.is_default: False})
+        
+        # Marcar el seleccionado
+        technician.is_default = True
+        
+        db.session.commit()
+        flash(f'"{technician.name}" establecido como técnico predeterminado', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error estableciendo técnico predeterminado: {e}")
+        flash(f'Error: {str(e)}', 'error')
+    
+    return redirect(url_for('settings.technician_list'))
+

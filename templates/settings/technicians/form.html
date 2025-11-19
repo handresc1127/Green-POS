@@ -1,0 +1,276 @@
+{% extends 'layout.html' %}
+
+{% block title %}{{ 'Editar' if technician else 'Nuevo' }} Técnico - Green-POS{% endblock %}
+
+{% block content %}
+<!-- Breadcrumbs -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Inicio</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('settings.index') }}">Configuración</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('settings.technician_list') }}">Técnicos</a></li>
+        <li class="breadcrumb-item active">{{ 'Editar' if technician else 'Nuevo' }}</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+        <i class="bi bi-person-{{ 'fill' if technician else 'plus' }}"></i>
+        {{ 'Editar Técnico' if technician else 'Nuevo Técnico' }}
+    </h2>
+</div>
+
+<!-- Formulario -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    <!-- Nombre (obligatorio) -->
+                    <div class="mb-3">
+                        <label for="name" class="form-label">
+                            Nombre Completo <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="name" 
+                               name="name" 
+                               value="{{ technician.name if technician else '' }}"
+                               placeholder="Ej: Juan Pérez"
+                               required>
+                        <div class="invalid-feedback">
+                            El nombre es obligatorio
+                        </div>
+                        <small class="text-muted">
+                            Nombre único del técnico. Este campo es obligatorio.
+                        </small>
+                    </div>
+
+                    <!-- Teléfono -->
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">
+                            Teléfono (WhatsApp)
+                        </label>
+                        <input type="tel" 
+                               class="form-control" 
+                               id="phone" 
+                               name="phone" 
+                               value="{{ technician.phone if technician else '' }}"
+                               placeholder="+573001234567"
+                               pattern="^\+57[0-9]{10}$">
+                        <div class="invalid-feedback">
+                            Formato: +57XXXXXXXXXX (código país + 10 dígitos)
+                        </div>
+                        <small class="text-muted">
+                            Formato Colombia: +57 seguido de 10 dígitos (Ej: +573001234567)
+                        </small>
+                    </div>
+
+                    <!-- Email -->
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            Email
+                        </label>
+                        <input type="email" 
+                               class="form-control" 
+                               id="email" 
+                               name="email" 
+                               value="{{ technician.email if technician else '' }}"
+                               placeholder="ejemplo@dominio.com">
+                        <div class="invalid-feedback">
+                            Email inválido
+                        </div>
+                    </div>
+
+                    <!-- Especialidad -->
+                    <div class="mb-3">
+                        <label for="specialty" class="form-label">
+                            Especialidad
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="specialty" 
+                               name="specialty" 
+                               value="{{ technician.specialty if technician else '' }}"
+                               placeholder="Ej: Grooming, Veterinaria, Peluquería"
+                               list="specialtyOptions">
+                        <datalist id="specialtyOptions">
+                            <option value="Grooming">
+                            <option value="Veterinaria">
+                            <option value="Peluquería Canina">
+                            <option value="Spa">
+                            <option value="General">
+                        </datalist>
+                        <small class="text-muted">
+                            Área de especialización del técnico (opcional)
+                        </small>
+                    </div>
+
+                    <!-- Notas -->
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">
+                            Notas
+                        </label>
+                        <textarea class="form-control" 
+                                  id="notes" 
+                                  name="notes" 
+                                  rows="3"
+                                  placeholder="Información adicional sobre el técnico (horarios, experiencia, etc.)">{{ technician.notes if technician else '' }}</textarea>
+                    </div>
+
+                    <!-- Estado Activo -->
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" 
+                               class="form-check-input" 
+                               id="active" 
+                               name="active"
+                               {{ 'checked' if not technician or technician.active }}>
+                        <label class="form-check-label" for="active">
+                            <strong>Técnico activo</strong>
+                        </label>
+                        <br>
+                        <small class="text-muted">
+                            Los técnicos inactivos no aparecen en formularios de citas, pero se conservan para historial.
+                        </small>
+                    </div>
+
+                    <!-- Técnico Predeterminado -->
+                    <div class="mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="form-check">
+                                    <input type="checkbox" 
+                                           class="form-check-input" 
+                                           id="is_default" 
+                                           name="is_default"
+                                           {{ 'checked' if technician and technician.is_default }}>
+                                    <label class="form-check-label" for="is_default">
+                                        <strong><i class="bi bi-star-fill text-warning"></i> Establecer como técnico predeterminado</strong>
+                                    </label>
+                                    <br>
+                                    <small class="text-muted">
+                                        El técnico predeterminado se seleccionará automáticamente al crear nuevas citas.
+                                        Solo un técnico puede ser predeterminado.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{{ url_for('settings.technician_list') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Guardar Técnico
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel lateral con información -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Información</h6>
+            </div>
+            <div class="card-body">
+                <h6><i class="bi bi-check-circle text-success"></i> Campos Obligatorios:</h6>
+                <ul>
+                    <li><strong>Nombre:</strong> Identificación única del técnico</li>
+                </ul>
+
+                <hr>
+
+                <h6><i class="bi bi-star text-warning"></i> Técnico Predeterminado:</h6>
+                <p class="small mb-0">
+                    Al marcar esta opción, este técnico se seleccionará automáticamente 
+                    en el formulario de nuevas citas, facilitando el proceso de registro.
+                </p>
+
+                <hr>
+
+                <h6><i class="bi bi-whatsapp text-success"></i> Función WhatsApp:</h6>
+                <p class="small mb-0">
+                    El teléfono registrado se usará para enviar consolidados de citas diarias 
+                    por WhatsApp desde la lista de citas.
+                </p>
+            </div>
+        </div>
+
+        {% if technician %}
+        <div class="card mt-3">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0"><i class="bi bi-calendar-check"></i> Estadísticas</h6>
+            </div>
+            <div class="card-body">
+                <p>
+                    <strong>Citas asignadas:</strong>
+                    <span class="badge bg-primary">
+                        {{ technician.appointments|length if technician.appointments else 0 }}
+                    </span>
+                </p>
+                <p class="small text-muted mb-0">
+                    {% if technician.appointments and technician.appointments|length > 0 %}
+                    Este técnico tiene citas asignadas en el sistema. 
+                    No se puede eliminar mientras tenga citas asociadas.
+                    {% else %}
+                    Este técnico no tiene citas asignadas aún.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Validación de formulario
+    (function() {
+        'use strict';
+        const form = document.querySelector('form');
+        
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    })();
+
+    // Validación de teléfono en tiempo real
+    document.getElementById('phone').addEventListener('input', function(e) {
+        const phone = e.target.value;
+        
+        // Auto-formatear: agregar +57 si solo escribe números
+        if (phone && !phone.startsWith('+') && phone.length > 0) {
+            if (!phone.startsWith('57')) {
+                e.target.value = '+57' + phone;
+            } else {
+                e.target.value = '+' + phone;
+            }
+        }
+    });
+
+    // Advertencia al cambiar técnico predeterminado
+    document.getElementById('is_default').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            const confirm = window.confirm(
+                '¿Establecer como técnico predeterminado?\n\n' +
+                'Se desmarcará el técnico predeterminado actual (si existe).'
+            );
+            
+            if (!confirm) {
+                e.target.checked = false;
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -174,6 +174,50 @@ class Invoice(db.Model):
         self.tax = self.subtotal * rate
         self.total = self.subtotal + self.tax
 
+class Technician(db.Model):
+    """Técnico que realiza servicios (grooming, veterinaria, etc.)"""
+    __tablename__ = 'technician'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    phone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    specialty = db.Column(db.String(100))
+    active = db.Column(db.Boolean, default=True)
+    is_default = db.Column(db.Boolean, default=False)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Technician {self.name}>"
+
+    @staticmethod
+    def create_defaults():
+        """Crea técnico genérico por defecto si no existe ninguno."""
+        existing = Technician.query.count()
+        if existing == 0:
+            generic = Technician(
+                name='TECNICO GENERICO',
+                phone='+573113753630',
+                specialty='General',
+                active=True,
+                is_default=True,
+                notes='Técnico genérico del sistema'
+            )
+            db.session.add(generic)
+            db.session.commit()
+
+    @staticmethod
+    def get_default():
+        """Obtiene el técnico predeterminado."""
+        default = Technician.query.filter_by(is_default=True).first()
+        if not default:
+            # Si no hay predeterminado, crear uno genérico
+            Technician.create_defaults()
+            default = Technician.query.filter_by(is_default=True).first()
+        return default
+
 class Appointment(db.Model):
     """Cita que agrupa múltiples servicios realizados a una mascota."""
     __tablename__ = 'appointment'
@@ -183,7 +227,7 @@ class Appointment(db.Model):
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'))
     description = db.Column(db.Text)
-    technician = db.Column(db.String(80))
+    technician = db.Column(db.Integer, db.ForeignKey('technician.id'))
     consent_text = db.Column(db.Text)
     consent_signed = db.Column(db.Boolean, default=False)
     consent_signed_at = db.Column(db.DateTime)
@@ -196,6 +240,7 @@ class Appointment(db.Model):
     pet = db.relationship('Pet')
     customer = db.relationship('Customer')
     invoice = db.relationship('Invoice')
+    assigned_technician = db.relationship('Technician', backref='appointments')
     services = db.relationship('PetService', backref='appointment', lazy=True)
 
     def __repr__(self):
