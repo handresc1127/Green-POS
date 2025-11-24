@@ -1,0 +1,80 @@
+{% extends 'layout.html' %}
+
+{% block title %}Contar Inventario - {{ product.name }} - Green-POS{% endblock %}
+
+{% block page_title %}Contar Inventario{% endblock %}
+
+{% block page_info %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Inicio</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('inventory.pending') }}">Inventario</a></li>
+    <li class="breadcrumb-item active">Contar</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">
+          <i class="bi bi-clipboard-check"></i> Inventario Físico
+        </h5>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info">
+          <h6 class="alert-heading">Producto a Inventariar</h6>
+          <p class="mb-1"><strong>Código:</strong> {{ product.code }}</p>
+          <p class="mb-1"><strong>Nombre:</strong> {{ product.name }}</p>
+          <p class="mb-1"><strong>Categoría:</strong> {{ product.category or 'Sin categoría' }}</p>
+          <hr>
+          <p class="mb-0"><strong>Stock en Sistema:</strong> <span class="badge bg-secondary fs-6">{{ product.stock }}</span></p>
+        </div>
+        
+        <form method="post">
+          <div class="mb-3">
+            <label for="counted_quantity" class="form-label">
+              <i class="bi bi-calculator"></i> Cantidad Física Contada <span class="text-danger">*</span>
+            </label>
+            <input type="number" class="form-control form-control-lg text-center" 
+                   id="counted_quantity" name="counted_quantity" 
+                   required min="0" autofocus
+                   placeholder="Ingrese cantidad contada">
+            <small class="form-text text-muted">
+              Cuente físicamente las unidades del producto e ingrese el total.
+            </small>
+          </div>
+          
+          <div class="mb-3">
+            <label for="notes" class="form-label">
+              <i class="bi bi-journal-text"></i> Notas (Opcional)
+            </label>
+            <textarea class="form-control" id="notes" name="notes" rows="3"
+                      placeholder="Ej: Productos encontrados en ubicación alternativa&#10;Ej: Unidades dañadas: 2&#10;Ej: Verificado con supervisor"></textarea>
+          </div>
+          
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> <strong>Importante:</strong>
+            <ul class="mb-0 mt-2">
+              <li>Si la cantidad contada difiere del stock del sistema, se creará un ajuste automático</li>
+              <li>El ajuste se registrará en el historial de movimientos del producto</li>
+              <li>El stock del sistema se actualizará al valor contado</li>
+            </ul>
+          </div>
+          
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="bi bi-save"></i> Registrar Inventario
+            </button>
+            <a href="{{ url_for('inventory.pending') }}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-circle"></i> Cancelar
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

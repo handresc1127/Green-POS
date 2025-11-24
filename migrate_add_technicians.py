@@ -54,16 +54,16 @@ def print_header(text):
     print(f"{Colors.HEADER}{Colors.BOLD}{'='*70}{Colors.ENDC}\n")
 
 def print_success(text):
-    print(f"{Colors.OKGREEN}✓ {text}{Colors.ENDC}")
+    print(f"{Colors.OKGREEN}[OK] {text}{Colors.ENDC}")
 
 def print_warning(text):
-    print(f"{Colors.WARNING}⚠ {text}{Colors.ENDC}")
+    print(f"{Colors.WARNING}[WARNING] {text}{Colors.ENDC}")
 
 def print_error(text):
-    print(f"{Colors.FAIL}✗ {text}{Colors.ENDC}")
+    print(f"{Colors.FAIL}[ERROR] {text}{Colors.ENDC}")
 
 def print_info(text):
-    print(f"{Colors.OKCYAN}ℹ {text}{Colors.ENDC}")
+    print(f"{Colors.OKCYAN}[INFO] {text}{Colors.ENDC}")
 
 def backup_database():
     """Crea backup de la base de datos."""
@@ -460,7 +460,7 @@ def main():
         conn.close()
         
         # Mensaje final
-        print_header("✅ MIGRACIÓN COMPLETADA EXITOSAMENTE")
+        print_header("[OK] MIGRACION COMPLETADA EXITOSAMENTE")
         print_success("La tabla 'technician' fue creada")
         print_success("El campo 'appointment.technician' ahora es Integer (FK)")
         print_success("Todos los datos legacy fueron migrados")
@@ -468,7 +468,7 @@ def main():
         print_info("Puedes restaurar desde el backup si algo salió mal\n")
         
     except Exception as e:
-        print_header("❌ ERROR EN LA MIGRACIÓN")
+        print_header("[ERROR] ERROR EN LA MIGRACION")
         print_error(f"Error: {e}")
         print_warning(f"\nPuedes restaurar desde el backup: {BACKUP_PATH}")
         print_warning("Comando: copy /Y instance\\app_backup_*.db instance\\app.db")

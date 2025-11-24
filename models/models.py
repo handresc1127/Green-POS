@@ -404,6 +404,7 @@ class ProductStockLog(db.Model):
     reason = db.Column(db.Text, nullable=False)
     previous_stock = db.Column(db.Integer, nullable=False)
     new_stock = db.Column(db.Integer, nullable=False)
+    is_inventory = db.Column(db.Boolean, default=False)  # TRUE si es conteo físico de inventario periódico
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     product = db.relationship('Product', backref='stock_logs')

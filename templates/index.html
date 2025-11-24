@@ -6,7 +6,7 @@
 
 {% block content %}
 <div class="row" id="dashboardStatsRow">
-    <div class="col-md-4 mb-4" id="productsStatCol">
+    <div class="col-md-3 mb-4" id="productsStatCol">
         <div class="card bg-primary text-white" id="productsStatCard">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -23,7 +23,7 @@
         </div>
     </div>
     
-    <div class="col-md-4 mb-4" id="customersStatCol">
+    <div class="col-md-3 mb-4" id="customersStatCol">
         <div class="card bg-success text-white" id="customersStatCard">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -41,7 +41,7 @@
         </div>
     </div>
     
-    <div class="col-md-4 mb-4" id="salesStatCol">
+    <div class="col-md-3 mb-4" id="salesStatCol">
         <div class="card bg-info text-white" id="salesStatCard">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -54,6 +54,26 @@
                     </div>
                 </div>
                 <a href="{{ url_for('invoices.list') }}" class="text-white" id="viewAllSalesLink">Ver todas <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-4" id="inventoryStatCol">
+        <div class="card bg-warning text-white" id="inventoryStatCard">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title" id="inventoryStatTitle">Inventario</h5>
+                        <h2 class="mb-0" id="inventoryStatCount">{{ pending_inventory_count }}</h2>
+                        <small class="text-white-50">Pendientes del mes</small>
+                    </div>
+                    <div>
+                        <i class="bi bi-clipboard-check fs-1" id="inventoryStatIcon"></i>
+                    </div>
+                </div>
+                <a href="{{ url_for('inventory.pending') }}" class="text-white" id="viewInventoryLink">
+                    Realizar Inventario <i class="bi bi-arrow-right"></i>
+                </a>
             </div>
         </div>
     </div>

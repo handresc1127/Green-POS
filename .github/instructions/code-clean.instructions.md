@@ -25,6 +25,11 @@ Este archivo define las reglas y procedimientos para limpiar código de debuggin
 print()  # Cualquier print() no justificado
 import pdb; pdb.set_trace()  # Breakpoints
 from pprint import pprint  # Imports de debugging
+
+# ⚠️ CRÍTICO - SERVIDOR DE PRODUCCIÓN:
+# NO USAR EMOJIS (✅ ❌ 🔄 ⚠️ 📝 🎯 etc.)
+# El servidor de producción Windows tiene problemas con UTF-8
+# Usar prefijos de texto: [OK], [ERROR], [INFO], [WARNING], [DELETE]
 ```
 
 #### JavaScript (.js)
@@ -101,6 +106,26 @@ grep -rn "<!-- DEBUG:\|<!-- TODO:\|<!-- TEMP:" --include="*.html" .
   # ✅ MANTENER (logs productivos)
   app.logger.error(f"Error crítico: {str(e)}")
   app.logger.info(f"Factura {invoice.number} creada")
+  ```
+
+- [ ] **Eliminar emojis y acentos de consola**
+  ```python
+  # ❌ ELIMINAR (problemas UTF-8 en producción Windows)
+  print("✅ Migración exitosa")
+  print("❌ Error en migración")
+  print("🔄 Procesando...")
+  
+  # ✅ CORRECTO (usar prefijos de texto)
+  print("[OK] Migracion exitosa")
+  print("[ERROR] Error en migracion")
+  print("[INFO] Procesando...")
+  
+  # Prefijos estándar:
+  # [OK]      - Operación exitosa
+  # [ERROR]   - Error crítico
+  # [WARNING] - Advertencia
+  # [INFO]    - Información
+  # [DELETE]  - Operación de borrado
   ```
 
 - [ ] **Eliminar imports de debugging**

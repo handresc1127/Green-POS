@@ -57,4 +57,25 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
+
+    // Verificar si la notificación de inventario fue dismissed
+    if (sessionStorage.getItem('inventoryNotificationDismissed') === 'true') {
+        const bar = document.getElementById('inventoryNotificationBar');
+        if (bar) {
+            bar.style.display = 'none';
+        }
+    }
 });
+
+/**
+ * Dismissal de notificación de inventario.
+ * Se oculta hasta la próxima sesión (usa sessionStorage).
+ */
+function dismissInventoryNotification() {
+    const bar = document.getElementById('inventoryNotificationBar');
+    if (bar) {
+        bar.style.display = 'none';
+        // Guardar dismissal en sessionStorage (solo esta sesión)
+        sessionStorage.setItem('inventoryNotificationDismissed', 'true');
+    }
+}

@@ -5,12 +5,18 @@ Blueprint para la página principal con estadísticas.
 from flask import Blueprint, render_template
 from flask_login import login_required
 from sqlalchemy import func
+from datetime import datetime
+from calendar import monthrange
+from zoneinfo import ZoneInfo
 
 from extensions import db
-from models.models import Product, Customer, Invoice, InvoiceItem, Appointment
+from models.models import Product, Customer, Invoice, InvoiceItem, Appointment, ProductStockLog
 
 # Crear Blueprint
 dashboard_bp = Blueprint('dashboard', __name__)
+
+# Timezone de Colombia
+CO_TZ = ZoneInfo("America/Bogota")
 
 
 @dashboard_bp.route('/')
@@ -49,6 +55,23 @@ def index():
         Appointment.scheduled_at.asc()
     ).limit(10).all()
     
+    # Productos pendientes de inventario del mes
+    today = datetime.now(CO_TZ).date()
+    first_day_of_month = today.replace(day=1)
+    
+    # Total de productos (excl. servicios)
+    total_products = Product.query.filter(Product.category != 'Servicios').count()
+    
+    # Productos inventariados en el mes
+    inventoried_product_ids = db.session.query(ProductStockLog.product_id).filter(
+        ProductStockLog.is_inventory == True,
+        db.func.date(ProductStockLog.created_at) >= first_day_of_month
+    ).distinct().all()
+    inventoried_count = len(inventoried_product_ids)
+    
+    # Pendientes del mes
+    pending_inventory_count = total_products - inventoried_count
+    
     return render_template(
         'index.html',
         product_count=product_count,
@@ -56,5 +79,6 @@ def index():
         invoice_count=invoice_count,
         recent_invoices=recent_invoices,
         low_stock_products=low_stock_products,
-        upcoming_appointments=upcoming_appointments
+        upcoming_appointments=upcoming_appointments,
+        pending_inventory_count=pending_inventory_count
     )

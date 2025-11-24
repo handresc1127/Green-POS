@@ -113,6 +113,27 @@
         </div>
     </nav>
 
+    <!-- Barra de Notificaciones de Inventario -->
+    {% if current_user.is_authenticated and products_pending_inventory_today > 0 %}
+    <div id="inventoryNotificationBar" class="bg-warning-subtle border-bottom border-warning py-2 d-print-none">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span>
+                <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                <strong>Inventario Pendiente:</strong> 
+                Tienes {{ products_pending_inventory_today }} producto{{ 's' if products_pending_inventory_today != 1 else '' }} 
+                pendiente{{ 's' if products_pending_inventory_today != 1 else '' }} de inventariar hoy 
+                (Meta: {{ daily_inventory_target }}/día).
+            </span>
+            <div>
+                <a href="{{ url_for('inventory.pending') }}" class="btn btn-sm btn-warning me-2">
+                    <i class="bi bi-clipboard-check"></i> Ir a Inventario
+                </a>
+                <button class="btn-close btn-sm" onclick="dismissInventoryNotification()" aria-label="Cerrar"></button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Main Content -->
     <div class="container mt-4">
         <!-- Flash Messages -->

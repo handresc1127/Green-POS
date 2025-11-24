@@ -344,16 +344,16 @@ def delete_old_products(conn, product_ids):
     old_product_ids = [pid for pid in MIGRATION_MAP.keys() if pid not in updated_product_ids]
     
     if not old_product_ids:
-        print("ℹ️  No hay productos antiguos para eliminar (todos fueron actualizados)")
+        print("[INFO] No hay productos antiguos para eliminar (todos fueron actualizados)")
         conn.commit()
         return
     
-    print("[ADVERTENCIA]  Se eliminarán los siguientes productos:")
+    print("[ADVERTENCIA]  Se eliminaran los siguientes productos:")
     for old_id in old_product_ids:
         cursor.execute("SELECT code, name FROM product WHERE id = ?", (old_id,))
         result = cursor.fetchone()
         if result:
-            print(f"  🗑️  ID {old_id}: {result[0]} - {result[1]}")
+            print(f"  [DELETE] ID {old_id}: {result[0]} - {result[1]}")
     
     # Eliminar asociaciones de proveedores primero
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='product_supplier'")

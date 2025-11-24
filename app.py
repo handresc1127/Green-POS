@@ -18,9 +18,11 @@ Para producción:
 import argparse
 import logging
 from datetime import datetime, timezone
+from calendar import monthrange
 from zoneinfo import ZoneInfo
 
 from flask import Flask, render_template
+from flask_login import current_user
 from werkzeug.exceptions import HTTPException
 
 # Configuración y extensiones
@@ -31,7 +33,7 @@ from extensions import db, login_manager
 from utils.filters import register_filters
 
 # Modelos
-from models.models import Setting, User, ServiceType
+from models.models import Setting, User, ServiceType, Product, ProductStockLog
 
 # Blueprints
 from routes.auth import auth_bp
@@ -45,6 +47,7 @@ from routes.invoices import invoices_bp
 from routes.settings import settings_bp
 from routes.reports import reports_bp
 from routes.services import services_bp
+from routes.inventory import inventory_bp
 
 # Timezone de Colombia
 CO_TZ = ZoneInfo("America/Bogota")
@@ -81,6 +84,38 @@ def create_app(config_name='development'):
             "colombia_tz": CO_TZ
         }
     
+    @app.context_processor
+    def inject_inventory_status():
+        """Inyecta estado de inventario del día en todas las plantillas."""
+        if current_user.is_authenticated:
+            today = datetime.now(CO_TZ).date()
+            
+            # Productos totales (excl. servicios)
+            total_products = Product.query.filter(Product.category != 'Servicios').count()
+            
+            # Meta diaria (productos / días del mes)
+            _, days_in_month = monthrange(today.year, today.month)
+            daily_target = max(1, total_products // days_in_month)
+            
+            # Productos inventariados HOY
+            inventoried_today = ProductStockLog.query.filter(
+                ProductStockLog.is_inventory == True,
+                db.func.date(ProductStockLog.created_at) == today
+            ).count()
+            
+            # Pendientes del día
+            pending_today = max(0, daily_target - inventoried_today)
+            
+            return {
+                'products_pending_inventory_today': pending_today,
+                'daily_inventory_target': daily_target
+            }
+        
+        return {
+            'products_pending_inventory_today': 0,
+            'daily_inventory_target': 0
+        }
+    
     # User loader para Flask-Login
     @login_manager.user_loader
     def load_user(user_id):
@@ -99,6 +134,7 @@ def create_app(config_name='development'):
     app.register_blueprint(settings_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(services_bp)
+    app.register_blueprint(inventory_bp)
     
     # Manejadores de errores
     @app.errorhandler(404)

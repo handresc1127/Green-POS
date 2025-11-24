@@ -115,6 +115,46 @@ Este proyecto utiliza **tres agents ejecutables en Copilot Agent Mode** para des
    - Requiere copiar archivo completo
    - Recomendado: Backup nocturno automatizado
 
+### Restricciones de Codificación UTF-8
+
+**CRÍTICO - Servidor de Producción Windows:**
+
+1. **NO usar emojis en código Python**:
+   - Servidor de producción tiene problemas con emojis (✅ ❌ 🔄 ⚠️ 📝 etc.)
+   - Error relacionado con codificación UTF-8 al imprimir
+   - Impacta: Scripts de migración, verificación, mensajes de consola
+
+2. **Alternativas permitidas**:
+   ```python
+   # ❌ INCORRECTO: Usar emojis
+   print("✅ Migración exitosa")
+   print("❌ Error en migración")
+   print("🔄 Procesando...")
+   
+   # ✅ CORRECTO: Usar prefijos de texto
+   print("[OK] Migracion exitosa")
+   print("[ERROR] Error en migracion")
+   print("[INFO] Procesando...")
+   
+   # Prefijos estándar:
+   # [OK]      - Operación exitosa (verde)
+   # [ERROR]   - Error crítico (rojo)
+   # [WARNING] - Advertencia (amarillo)
+   # [INFO]    - Información (cyan)
+   # [DELETE]  - Operación de borrado
+   ```
+
+3. **Caracteres acentuados**:
+   - EVITAR acentos en mensajes de consola (ó, á, é, í, ú, ñ)
+   - Usar versiones sin acento: (o, a, e, i, u, n)
+   - OK en templates HTML y base de datos (soportan UTF-8)
+   
+4. **Archivos afectados**:
+   - Scripts de migración (`migrate_*.py`)
+   - Scripts de verificación (`verify_*.py`)
+   - Funciones de logging y print statements
+   - Mensajes de error/éxito en consola
+
 ### Restricciones de Flask
 
 1. **Single-threaded por defecto**:
@@ -1781,6 +1821,8 @@ python -m waitress --listen=127.0.0.1:5000 app:app
 - [ ] Variables: `debug_var`, `test_data` marcadas `# TEMP:`
 - [ ] Código comentado: `# old_function()` con `# TODO:`
 - [ ] Funciones de test: `def test_*()` con `# TEST:`
+- [ ] **EMOJIS en print statements** (✅ ❌ 🔄 ⚠️ etc.) - Usar prefijos [OK], [ERROR], [INFO]
+- [ ] **Acentos en mensajes de consola** - Usar versiones sin acento
 
 **Frontend/JavaScript:**
 - [ ] `console.log()`, `console.debug()`, `console.warn()` con `// DEBUG:`
