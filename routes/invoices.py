@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from extensions import db
 from models.models import Invoice, InvoiceItem, Customer, Product, Setting, ProductStockLog
 from utils.decorators import role_required
+from utils.backup import auto_backup
 
 invoices_bp = Blueprint('invoices', __name__, url_prefix='/invoices')
 
@@ -54,6 +55,7 @@ def list():
 
 @invoices_bp.route('/new', methods=['GET', 'POST'])
 @login_required
+@auto_backup()  # Backup antes de crear factura
 def new():
     """Crea una nueva factura con manejo de stock."""
     if request.method == 'POST':
@@ -230,6 +232,7 @@ def edit(id):
 
 @invoices_bp.route('/delete/<int:id>', methods=['POST'])
 @login_required
+@auto_backup()  # Backup antes de eliminar factura (restaura stock)
 def delete(id):
     """Elimina una factura no validada, restaura stock y registra en log."""
     try:

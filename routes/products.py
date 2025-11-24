@@ -9,6 +9,7 @@ from sqlalchemy import func, or_, and_
 from extensions import db
 from models.models import Product, InvoiceItem, Supplier, ProductStockLog, Invoice
 from utils.decorators import role_required
+from utils.backup import auto_backup
 
 # Crear Blueprint
 products_bp = Blueprint('products', __name__, url_prefix='/products')
@@ -166,6 +167,7 @@ def new():
 
 @products_bp.route('/edit/<int:id>', methods=['GET', 'POST'])
 @role_required('admin')
+@auto_backup()  # Backup antes de editar producto (especialmente si cambia stock)
 def edit(id):
     """Editar producto existente."""
     product = Product.query.get_or_404(id)

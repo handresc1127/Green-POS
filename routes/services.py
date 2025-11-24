@@ -20,6 +20,7 @@ from models.models import (
     Product, Invoice, InvoiceItem, Setting, Technician
 )
 from utils.decorators import role_required
+from utils.backup import auto_backup
 
 # Crear blueprint
 services_bp = Blueprint('services', __name__, url_prefix='/services')
@@ -652,6 +653,7 @@ def appointment_update(id):
 
 @services_bp.route('/appointments/finish/<int:id>', methods=['POST'])
 @login_required
+@auto_backup()  # Backup antes de finalizar cita y generar factura
 def appointment_finish(id):
     """Marcar todos los servicios de una cita como finalizados y generar factura."""
     appointment = Appointment.query.get_or_404(id)
