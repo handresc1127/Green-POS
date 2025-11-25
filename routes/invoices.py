@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
+from sqlalchemy import func, desc, or_
 from extensions import db
 from models.models import Invoice, InvoiceItem, Customer, Product, Setting, ProductStockLog
 from utils.decorators import role_required
@@ -113,7 +114,23 @@ def new():
             return redirect(url_for('invoices.new'))
     
     customers = Customer.query.all()
-    products = Product.query.all()
+    
+    # Optimización: Pre-cargar solo top 50 productos más vendidos para mejor performance
+    # La búsqueda AJAX cargará el resto dinámicamente
+    top_products = db.session.query(
+        Product,
+        func.coalesce(func.sum(InvoiceItem.quantity), 0).label('sales_count')
+    ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id)\
+     .outerjoin(Invoice, InvoiceItem.invoice_id == Invoice.id)\
+     .filter(or_(Invoice.status != 'cancelled', Invoice.id == None))\
+     .group_by(Product.id)\
+     .order_by(desc('sales_count'))\
+     .limit(50)\
+     .all()
+    
+    # Extraer solo los objetos Product de la tupla (Product, sales_count)
+    products = [item[0] for item in top_products]
+    
     setting = Setting.get()
     return render_template('invoices/form.html', customers=customers, products=products, setting=setting)
 

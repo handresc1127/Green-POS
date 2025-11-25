@@ -170,11 +170,20 @@
                 <!-- Search Bar -->
                 <div class="mb-3" id="productSearchGroup">
                     <div class="input-group" id="productSearchInputGroup">
-                        <input type="text" id="productSearch" class="form-control" placeholder="Buscar productos...">
+                        <input type="text" id="productSearch" class="form-control" placeholder="Buscar por código, nombre o código alternativo..." autocomplete="off">
                         <button class="btn btn-primary" type="button" id="productSearchBtn">
                             <i class="bi bi-search"></i>
                         </button>
                     </div>
+                    <small class="text-muted">Búsqueda incluye códigos legacy, EAN y SKU de proveedores</small>
+                </div>
+                
+                <!-- Loading Spinner -->
+                <div id="searchSpinner" class="text-center py-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Buscando...</span>
+                    </div>
+                    <p class="text-muted mt-2">Buscando productos...</p>
                 </div>
                 
                 <!-- Products Table -->
@@ -372,54 +381,159 @@
             }
         });
         productSearch.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
+            searchProducts(this.value);
+        });
+        
+        // Debounce helper
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func(...args), wait);
+            };
+        }
+        
+        // Guardar productos precargados para fallback
+        const precachedProducts = Array.from(document.querySelectorAll('#productsList tr')).map(row => ({
+            id: row.querySelector('.select-product-btn')?.dataset.id,
+            code: row.cells[0]?.textContent || '',
+            name: row.cells[1]?.textContent || '',
+            price: row.querySelector('.select-product-btn')?.dataset.price,
+            stock: row.querySelector('.select-product-btn')?.dataset.stock,
+            row: row
+        }));
+        
+        // Búsqueda local en productos precargados (fallback)
+        function searchProductsLocal(searchTerm) {
+            const term = searchTerm.toLowerCase();
             const productRows = document.querySelectorAll('#productsList tr');
             
             productRows.forEach(row => {
-                const name = row.cells[1].textContent.toLowerCase();
-                const code = row.cells[0].textContent.toLowerCase();
+                const name = row.cells[1]?.textContent.toLowerCase() || '';
+                const code = row.cells[0]?.textContent.toLowerCase() || '';
                 
-                if (name.includes(searchTerm) || code.includes(searchTerm)) {
+                if (name.includes(term) || code.includes(term)) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';
                 }
             });
-        });
+        }
         
+        // Actualizar tabla con resultados JSON de API
+        function updateProductsTable(products) {
+            const tbody = document.getElementById('productsList');
+            tbody.innerHTML = '';
+            
+            if (products.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No se encontraron productos</td></tr>';
+                return;
+            }
+            
+            products.forEach(product => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${product.code}</td>
+                    <td>${product.name}</td>
+                    <td>$${formatCo(product.sale_price)}</td>
+                    <td>
+                        <span class="badge bg-${product.stock > 0 ? 'success' : 'danger'}">
+                            ${product.stock}
+                        </span>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-primary select-product-btn"
+                                data-id="${product.id}" 
+                                data-name="${product.name}" 
+                                data-price="${product.sale_price}"
+                                data-stock="${product.stock}">
+                            Seleccionar
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+                
+                // Re-bind event listener para selección
+                const btn = tr.querySelector('.select-product-btn');
+                btn.addEventListener('click', selectProductHandler);
+            });
+        }
+        
+        // Handler de selección de producto (extraído para reutilización)
+        function selectProductHandler() {
+            const productId = parseInt(this.dataset.id, 10);
+            const productName = this.dataset.name;
+            const productPrice = parseFloat(this.dataset.price);
+            const productStock = parseInt(this.dataset.stock, 10);
+            
+            const existingItem = items.find(item => item.product_id === productId);
+            
+            if (existingItem) {
+                existingItem.quantity++;
+                const row = itemsContainer.querySelector(`tr[data-id="${productId}"]`);
+                const quantityInput = row.querySelector('.item-quantity');
+                quantityInput.value = existingItem.quantity;
+                const subtotal = existingItem.quantity * existingItem.price;
+                row.querySelector('.item-subtotal').textContent = formatCo(subtotal);
+            } else {
+                const newItem = {
+                    product_id: productId,
+                    name: productName,
+                    quantity: 1,
+                    price: sanitizeInt(productPrice),
+                    stock: productStock
+                };
+                
+                items.push(newItem);
+                addItemToTable(newItem);
+            }
+            productModal.hide();
+            updateTotals();
+        }
+        
+        // Búsqueda AJAX con códigos alternativos
+        const searchProducts = debounce(function(searchTerm) {
+            if (searchTerm.length < 2) {
+                // Mostrar productos precargados si búsqueda muy corta
+                searchProductsLocal(searchTerm);
+                document.getElementById('searchSpinner').style.display = 'none';
+                return;
+            }
+            
+            // Mostrar spinner
+            const spinner = document.getElementById('searchSpinner');
+            const tableWrapper = document.getElementById('productModalTableWrapper');
+            spinner.style.display = 'block';
+            tableWrapper.style.display = 'none';
+            
+            // Llamar API con soporte multi-código
+            fetch(`/api/products/search?q=${encodeURIComponent(searchTerm)}&limit=50`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error en búsqueda');
+                    }
+                    return response.json();
+                })
+                .then(products => {
+                    updateProductsTable(products);
+                    spinner.style.display = 'none';
+                    tableWrapper.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error buscando productos:', error);
+                    // Fallback a búsqueda local
+                    searchProductsLocal(searchTerm);
+                    spinner.style.display = 'none';
+                    tableWrapper.style.display = 'block';
+                });
+        }, 300); // Debounce de 300ms
+        
+        // Bind inicial de productos precargados
         const selectProductBtns = document.querySelectorAll('.select-product-btn');
         selectProductBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const productId = parseInt(this.dataset.id, 10);
-                const productName = this.dataset.name;
-                const productPrice = parseFloat(this.dataset.price);
-                const productStock = parseInt(this.dataset.stock, 10); // puede ser 0
-                
-                const existingItem = items.find(item => item.product_id === productId);
-                
-                if (existingItem) {
-                    existingItem.quantity++;
-                    const row = itemsContainer.querySelector(`tr[data-id="${productId}"]`);
-                    const quantityInput = row.querySelector('.item-quantity');
-                    quantityInput.value = existingItem.quantity;
-                    const subtotal = existingItem.quantity * existingItem.price;
-                    row.querySelector('.item-subtotal').textContent = formatCo(subtotal);
-                } else {
-                    const newItem = {
-                        product_id: productId,
-                        name: productName,
-                        quantity: 1,
-                        price: sanitizeInt(productPrice),
-                        stock: productStock
-                    };
-                    
-                    items.push(newItem);
-                    addItemToTable(newItem);
-                }
-                productModal.hide();
-                updateTotals();
-            });
+            btn.addEventListener('click', selectProductHandler);
         });
+        
         const firstCustomerBtn = customersList ? customersList.querySelector('.select-customer-btn') : null;
         if (firstCustomerBtn && !customerIdInput.value) {
             customerIdInput.value = firstCustomerBtn.dataset.id;
