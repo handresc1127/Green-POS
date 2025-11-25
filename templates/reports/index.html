@@ -476,7 +476,7 @@
               type="button" 
               data-bs-toggle="collapse" 
               data-bs-target="#collapseLowStock">
-        <span><i class="bi bi-exclamation-triangle-fill me-2"></i>Productos con Stock Bajo (< 3 unidades)</span>
+        <span><i class="bi bi-exclamation-triangle-fill me-2"></i>Productos con Stock Bajo</span>
         <i class="bi bi-chevron-down"></i>
       </button>
     </h5>
@@ -500,9 +500,20 @@
             <td><span class="badge bg-secondary">{{ prod.code }}</span></td>
             <td>{{ prod.name }}</td>
             <td class="text-end">
-              <span class="badge {% if prod.stock == 0 %}bg-danger{% elif prod.stock <= 3 %}bg-warning{% else %}bg-success{% endif %}">
-                {% if prod.stock == 0 %}Agotado{% else %}{{ prod.stock }}{% endif %}
-              </span>
+              {% set stock_min = prod.effective_stock_min %}
+              {% set stock_warning = prod.effective_stock_warning %}
+              {% set badge_class = 'success' %}
+              
+              {# Productos a necesidad siempre success #}
+              {% if stock_min == 0 and stock_warning == 0 %}
+                  {% set badge_class = 'success' %}
+              {% elif prod.stock <= stock_min %}
+                  {% set badge_class = 'danger' %}
+              {% elif prod.stock <= stock_warning %}
+                  {% set badge_class = 'warning' %}
+              {% endif %}
+              
+              <span class="badge bg-{{ badge_class }}">{{ prod.stock }}</span>
             </td>
             <td class="text-end">{{ prod.sale_price|currency_co }}</td>
             <td>

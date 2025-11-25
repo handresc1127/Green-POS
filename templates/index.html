@@ -220,7 +220,7 @@
     <div class="col-md-6 mb-4" id="lowStockProductsCol">
         <div class="card" id="lowStockProductsCard">
             <div class="card-header bg-light" id="lowStockProductsHeader">
-                <h5 class="mb-0" id="lowStockProductsTitle">Productos con Poco Stock (Top 20)</h5>
+                <h5 class="mb-0" id="lowStockProductsTitle">Productos sin Stock Mínimo (Top 20)</h5>
             </div>
             <div class="card-body p-2" id="lowStockProductsBody">
                 {% if low_stock_products %}
@@ -241,13 +241,22 @@
                                 <td id="lowStockProductCode-{{ product.id }}" class="text-muted">{{ product.code }}</td>
                                 <td id="lowStockProductName-{{ product.id }}" class="text-truncate" style="max-width: 200px;" title="{{ product.name }}">{{ product.name }}</td>
                                 <td id="lowStockProductStock-{{ product.id }}" class="text-center">
-                                    {% set badge_class = 'success' %}
-                                    {% if product.stock <= 0 %}
+                                    {% set stock_min = product.effective_stock_min %}
+                                    {% set stock_warning = product.effective_stock_warning %}
+                                    
+                                    {# Productos sin stock_min: usar stock_warning como referencia #}
+                                    {% if stock_min == None or stock_min == 0 %}
+                                        {% if stock_warning and product.stock <= stock_warning %}
+                                            {% set badge_class = 'warning' %}
+                                        {% else %}
+                                            {% set badge_class = 'success' %}
+                                        {% endif %}
+                                    {% elif product.stock <= stock_min %}
                                         {% set badge_class = 'danger' %}
-                                    {% elif product.stock <= 3 %}
+                                    {% elif product.stock <= stock_warning %}
                                         {% set badge_class = 'warning' %}
-                                    {% elif product.stock <= 5 %}
-                                        {% set badge_class = 'info' %}
+                                    {% else %}
+                                        {% set badge_class = 'success' %}
                                     {% endif %}
                                     <span class="badge bg-{{ badge_class }}" id="lowStockProductBadge-{{ product.id }}">{{ product.stock }}</span>
                                 </td>
@@ -270,7 +279,7 @@
                     </table>
                 </div>
                 {% else %}
-                    <p class="text-muted" id="lowStockProductsEmptyState">No hay productos con poco stock.</p>
+                    <p class="text-muted" id="lowStockProductsEmptyState">No hay productos sin stock mínimo configurado.</p>
                 {% endif %}
             </div>
              {% if current_user.is_authenticated and current_user.role == 'admin' %}

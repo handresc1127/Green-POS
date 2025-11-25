@@ -4,7 +4,7 @@ Blueprint para la página principal con estadísticas.
 
 from flask import Blueprint, render_template
 from flask_login import login_required
-from sqlalchemy import func
+from sqlalchemy import func, or_, case
 from datetime import datetime
 from calendar import monthrange
 from zoneinfo import ZoneInfo
@@ -28,18 +28,21 @@ def index():
     invoice_count = Invoice.query.count()
     recent_invoices = Invoice.query.order_by(Invoice.created_at.desc()).limit(5).all()
     
-    # Productos con poco stock (<=3 unidades)
+    # Productos sin stock mínimo (stock <= stock_min)
+    # Excluye productos con stock_min = 0 (productos a necesidad)
     # Ordenados por: 1) Stock ascendente (menos stock primero)
     #                2) Ventas descendentes (más vendidos primero en empate)
     low_stock_query = db.session.query(
         Product,
         func.coalesce(func.sum(InvoiceItem.quantity), 0).label('sales_count')
     ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id).filter(
-        Product.stock <= 3,
+        Product.stock_min != None,
+        Product.stock_min > 0,
+        Product.stock <= Product.stock_min,
         Product.category != 'Servicios'
     ).group_by(Product.id).order_by(
-        Product.stock.asc(),  # Primero: menos stock
-        func.coalesce(func.sum(InvoiceItem.quantity), 0).desc()  # Segundo: más vendidos
+        Product.stock.asc(),
+        func.coalesce(func.sum(InvoiceItem.quantity), 0).desc()
     ).limit(20)
     
     # Transformar resultados

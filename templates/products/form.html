@@ -64,6 +64,51 @@
                     {% endif %}
                 </div>
                 
+                <!-- Stock Mínimo -->
+                <div class="col-md-4 mb-3">
+                    <label for="stock_min" class="form-label">
+                        <i class="bi bi-box-seam"></i> Stock Mínimo
+                        <span class="text-muted" data-bs-toggle="tooltip" 
+                              title="Cuando las existencias lleguen a este valor, se mostrará una advertencia crítica">
+                            <i class="bi bi-info-circle"></i>
+                        </span>
+                    </label>
+                    <input type="number" id="stock_min" name="stock_min" 
+                           class="form-control" min="0" 
+                           value="{{ product.stock_min if product and product.stock_min is not none else 1 }}"
+                           oninput="validateStockThresholds()">
+                    <small class="form-text text-muted">
+                        Nivel crítico (0 = a necesidad)
+                    </small>
+                </div>
+
+                <!-- Stock Advertencia -->
+                <div class="col-md-4 mb-3">
+                    <label for="stock_warning" class="form-label">
+                        <i class="bi bi-exclamation-triangle"></i> Stock Advertencia
+                        <span class="text-muted" data-bs-toggle="tooltip" 
+                              title="Cuando las existencias estén entre este valor y el stock mínimo, se mostrará una advertencia">
+                            <i class="bi bi-info-circle"></i>
+                        </span>
+                    </label>
+                    <input type="number" id="stock_warning" name="stock_warning" 
+                           class="form-control" min="0" 
+                           value="{{ product.stock_warning if product and product.stock_warning is not none else 3 }}"
+                           oninput="validateStockThresholds()">
+                    <small class="form-text text-muted">
+                        Nivel de advertencia temprana
+                    </small>
+                </div>
+
+                <!-- Mensaje de validación inline -->
+                <div class="col-md-12 mb-3" id="stock-threshold-alert" style="display: none;">
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <span id="stock-threshold-message"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                </div>
+
                 <div class="col-md-8 mb-3">
                     <label for="category" class="form-label">Categoría</label>
                     <input type="text" id="category" name="category" class="form-control" list="categoryOptions"
@@ -173,6 +218,29 @@
 
 <script>
     /**
+     * Valida que stock_warning >= stock_min
+     */
+    function validateStockThresholds() {
+        const stockMin = parseInt(document.getElementById('stock_min').value) || 0;
+        const stockWarning = parseInt(document.getElementById('stock_warning').value) || 0;
+        const alertDiv = document.getElementById('stock-threshold-alert');
+        const messageSpan = document.getElementById('stock-threshold-message');
+        
+        if (stockWarning < stockMin && stockWarning > 0) {
+            alertDiv.style.display = 'block';
+            messageSpan.textContent = 
+                `Stock de advertencia (${stockWarning}) debe ser mayor o igual al stock mínimo (${stockMin}).`;
+            
+            document.getElementById('stock_min').classList.add('is-invalid');
+            document.getElementById('stock_warning').classList.add('is-invalid');
+        } else {
+            alertDiv.style.display = 'none';
+            document.getElementById('stock_min').classList.remove('is-invalid');
+            document.getElementById('stock_warning').classList.remove('is-invalid');
+        }
+    }
+
+    /**
      * Calcula y muestra el margen de utilidad en tiempo real
      */
     function calculateProfitMargin() {
@@ -233,6 +301,7 @@
     // Calcular al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
         calculateProfitMargin();
+        validateStockThresholds(); // Validar thresholds iniciales
     });
 </script>
 
@@ -258,6 +327,17 @@
     
     // Validación del formulario
     document.querySelector('form').addEventListener('submit', function(e) {
+        // Validar thresholds
+        const stockMin = parseInt(document.getElementById('stock_min').value) || 0;
+        const stockWarning = parseInt(document.getElementById('stock_warning').value) || 0;
+        
+        if (stockWarning < stockMin && stockWarning > 0) {
+            e.preventDefault();
+            alert('El stock de advertencia debe ser mayor o igual al stock mínimo.');
+            document.getElementById('stock_warning').focus();
+            return false;
+        }
+
         const stockInput = document.getElementById('stock');
         const reasonTextarea = document.getElementById('stock_reason');
         const currentStock = parseInt(stockInput.value) || 0;

@@ -30,7 +30,21 @@
           <p class="mb-1"><strong>Nombre:</strong> {{ product.name }}</p>
           <p class="mb-1"><strong>Categoría:</strong> {{ product.category or 'Sin categoría' }}</p>
           <hr>
-          <p class="mb-0"><strong>Stock en Sistema:</strong> <span class="badge bg-secondary fs-6">{{ product.stock }}</span></p>
+          <p class="mb-0"><strong>Stock en Sistema:</strong> 
+              {% set stock_min = product.effective_stock_min %}
+              {% set stock_warning = product.effective_stock_warning %}
+              {% set badge_class = 'secondary' %}
+              
+              {# Productos a necesidad siempre success #}
+              {% if stock_min == 0 and stock_warning == 0 %}
+                  {% set badge_class = 'success' %}
+              {% elif product.stock <= stock_min %}
+                  {% set badge_class = 'danger' %}
+              {% elif product.stock <= stock_warning %}
+                  {% set badge_class = 'warning text-dark' %}
+              {% endif %}
+              <span class="badge bg-{{ badge_class }} fs-6">{{ product.stock }}</span>
+          </p>
         </div>
         
         <form method="post">

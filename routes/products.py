@@ -132,6 +132,22 @@ def new():
         stock = int(request.form.get('stock', 0))
         category = request.form.get('category', '')
         
+        # Nuevos campos de umbrales
+        stock_min = int(request.form.get('stock_min', 0))
+        stock_warning = int(request.form.get('stock_warning', 3))
+        
+        # Validación de thresholds
+        if stock_warning < stock_min and stock_warning > 0:
+            flash('El stock de advertencia debe ser mayor o igual al stock mínimo', 'danger')
+            suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
+            return render_template('products/form.html', 
+                                 product=None, 
+                                 suppliers=suppliers,
+                                 query=return_query,
+                                 sort_by=return_sort_by,
+                                 sort_order=return_sort_order,
+                                 supplier_id=return_supplier_id)
+        
         # Leer parámetros de campos ocultos para preservar en redirect
         return_query = request.form.get('return_query', '')
         return_sort_by = request.form.get('return_sort_by', 'name')
@@ -158,7 +174,9 @@ def new():
             purchase_price=purchase_price,
             sale_price=sale_price,
             stock=stock,
-            category=category
+            category=category,
+            stock_min=stock_min,
+            stock_warning=stock_warning
         )
 
         db.session.add(product)
@@ -258,6 +276,25 @@ def edit(id):
             )
             db.session.add(stock_log)
         
+        
+        # Nuevos campos de umbrales
+        stock_min = int(request.form.get('stock_min', 0))
+        stock_warning = int(request.form.get('stock_warning', 3))
+        
+        # Validación de thresholds
+        if stock_warning < stock_min and stock_warning > 0:
+            flash('El stock de advertencia debe ser mayor o igual al stock mínimo', 'danger')
+            suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
+            return render_template('products/form.html', 
+                                 product=product, 
+                                 suppliers=suppliers,
+                                 query=return_query,
+                                 sort_by=return_sort_by,
+                                 sort_order=return_sort_order,
+                                 supplier_id=return_supplier_id)
+                                 
+        product.stock_min = stock_min
+        product.stock_warning = stock_warning
         product.stock = new_stock
         product.category = request.form.get('category', '')
         

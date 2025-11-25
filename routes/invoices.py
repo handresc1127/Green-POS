@@ -3,7 +3,7 @@
 import json
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import func, desc, or_
 from extensions import db
@@ -87,6 +87,20 @@ def new():
             # Procesar items
             items_json = request.form['items_json']
             items_data = json.loads(items_json)
+            
+            # Validación previa de stock
+            errors = []
+            for item_data in items_data:
+                product = db.session.get(Product, item_data['product_id'])
+                quantity = int(item_data['quantity'])
+                if product and product.stock < quantity:
+                    errors.append(f'Stock insuficiente para {product.name} (disponible: {product.stock}, solicitado: {quantity})')
+            
+            if errors:
+                db.session.rollback()
+                flash('; '.join(errors), 'danger')
+                return redirect(url_for('invoices.new'))
+
             for item_data in items_data:
                 product_id = item_data['product_id']
                 quantity = int(item_data['quantity'])
@@ -102,6 +116,12 @@ def new():
                 # Descontar stock
                 product = db.session.get(Product, product_id)
                 if product:
+                    # Advertencia si queda por debajo de stock_min
+                    new_stock = product.stock - quantity
+                    stock_min = product.effective_stock_min
+                    if new_stock < stock_min and new_stock >= 0:
+                        current_app.logger.warning(f'Venta deja producto {product.name} con stock={new_stock} (min={stock_min})')
+                    
                     product.stock -= quantity
             
             invoice.calculate_totals()

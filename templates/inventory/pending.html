@@ -92,7 +92,19 @@
             <td>{{ product.name }}</td>
             <td><small>{{ product.category or '-' }}</small></td>
             <td class="text-center">
-              <span class="badge bg-secondary">{{ product.stock }}</span>
+              {% set stock_min = product.effective_stock_min %}
+              {% set stock_warning = product.effective_stock_warning %}
+              {% set badge_class = 'secondary' %}
+              
+              {# Productos a necesidad siempre success #}
+              {% if stock_min == 0 and stock_warning == 0 %}
+                  {% set badge_class = 'success' %}
+              {% elif product.stock <= stock_min %}
+                  {% set badge_class = 'danger' %}
+              {% elif product.stock <= stock_warning %}
+                  {% set badge_class = 'warning text-dark' %}
+              {% endif %}
+              <span class="badge bg-{{ badge_class }}">{{ product.stock }}</span>
             </td>
             <td class="text-end">
               <a href="{{ url_for('inventory.count', product_id=product.id) }}" 

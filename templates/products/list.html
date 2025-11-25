@@ -174,10 +174,16 @@
                                 <td id="productPurchasePrice-{{ product.id }}">{{ product.purchase_price | currency_co }}</td>
                                 <td id="productSalePrice-{{ product.id }}">{{ product.sale_price | currency_co }}</td>
                                 <td>
+                                    {% set stock_min = product.effective_stock_min %}
+                                    {% set stock_warning = product.effective_stock_warning %}
                                     {% set badge_class = 'success' %}
-                                    {% if product.stock == 0 %}
+                                    
+                                    {# Productos a necesidad siempre success #}
+                                    {% if stock_min == 0 and stock_warning == 0 %}
+                                        {% set badge_class = 'success' %}
+                                    {% elif product.stock <= stock_min %}
                                         {% set badge_class = 'danger' %}
-                                    {% elif product.stock <= 3 %}
+                                    {% elif product.stock <= stock_warning %}
                                         {% set badge_class = 'warning' %}
                                     {% endif %}
                                     <span class="badge bg-{{ badge_class }}" id="productStock-{{ product.id }}">{{ product.stock }}</span>

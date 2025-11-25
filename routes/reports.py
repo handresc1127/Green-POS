@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from flask import Blueprint, render_template, request, flash
 from flask_login import login_required
-from sqlalchemy import func
+from sqlalchemy import func, or_, case
 from extensions import db
 from models.models import Invoice, InvoiceItem, Product
 
@@ -261,7 +261,10 @@ def index():
     ]
     
     # Estado actual de inventario
-    low_stock_products = Product.query.filter(Product.stock <= 3).order_by(Product.stock.asc()).all()
+    low_stock_products = Product.query.filter(
+        Product.stock <= func.coalesce(Product.stock_warning, Product.stock_min + 2, 3),
+        Product.category != 'Servicios'
+    ).order_by(Product.stock.asc()).all()
     
     inventory_value = db.session.query(
         func.sum(Product.stock * Product.purchase_price)

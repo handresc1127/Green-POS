@@ -17,7 +17,19 @@
                 <p class="mb-1"><strong>Código:</strong> {{ product.code }}</p>
                 <p class="mb-1"><strong>Categoría:</strong> {{ product.category or '-' }}</p>
                 <p class="mb-1"><strong>Stock Actual:</strong> 
-                    <span class="badge bg-{{ 'success' if product.stock > 10 else ('warning' if product.stock > 0 else 'danger') }}">
+                    {% set stock_min = product.effective_stock_min %}
+                    {% set stock_warning = product.effective_stock_warning %}
+                    {% set badge_class = 'success' %}
+                    
+                    {# Productos a necesidad siempre success #}
+                    {% if stock_min == 0 and stock_warning == 0 %}
+                        {% set badge_class = 'success' %}
+                    {% elif product.stock <= stock_min %}
+                        {% set badge_class = 'danger' %}
+                    {% elif product.stock <= stock_warning %}
+                        {% set badge_class = 'warning' %}
+                    {% endif %}
+                    <span class="badge bg-{{ badge_class }}">
                         {{ product.stock }} unidades
                     </span>
                 </p>

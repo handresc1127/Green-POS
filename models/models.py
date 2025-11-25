@@ -88,9 +88,23 @@ class Product(db.Model):
     purchase_price = db.Column(db.Float, default=0.0)
     sale_price = db.Column(db.Float, nullable=False)
     stock = db.Column(db.Integer, default=0)
+    stock_min = db.Column(db.Integer, nullable=True, default=None)
+    stock_warning = db.Column(db.Integer, nullable=True, default=None)
     category = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def effective_stock_min(self):
+        """Retorna stock_min o valor por defecto del sistema (1)."""
+        return self.stock_min if self.stock_min is not None else 1
+    
+    @property
+    def effective_stock_warning(self):
+        """Retorna stock_warning o cálculo automático (min + 2)."""
+        if self.stock_warning is not None:
+            return self.stock_warning
+        return self.effective_stock_min + 2
 
     def __repr__(self):
         return f"<Product {self.name}>"
