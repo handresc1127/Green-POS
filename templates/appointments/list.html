@@ -79,11 +79,13 @@
               </span>
             </button>
           </h5>
+          {% if date >= today %}
           <button class="btn btn-sm btn-success ms-3 send-whatsapp-btn" 
                   data-date="{{ date }}" 
                   title="Enviar consolidado de citas por WhatsApp">
             <i class="bi bi-whatsapp"></i> Enviar Agenda
           </button>
+          {% endif %}
         </div>
       </div>
       <div id="collapse-{{ loop.index }}" class="collapse{{ ' show' if should_expand }}">
