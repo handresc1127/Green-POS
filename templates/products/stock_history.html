@@ -23,11 +23,11 @@
                 </p>
             </div>
             <div class="col-md-4 text-end">
-                <a href="{{ url_for('products.list') }}" class="btn btn-outline-secondary mb-2">
+                <a href="{{ url_for('products.list', query=query, sort_by=sort_by, sort_order=sort_order, supplier_id=supplier_id) }}" class="btn btn-outline-secondary mb-2">
                     <i class="bi bi-arrow-left"></i> Volver a Productos
                 </a>
                 {% if current_user.role == 'admin' %}
-                <a href="{{ url_for('products.edit', id=product.id) }}" class="btn btn-outline-primary mb-2">
+                <a href="{{ url_for('products.edit', id=product.id, query=query, sort_by=sort_by, sort_order=sort_order, supplier_id=supplier_id) }}" class="btn btn-outline-primary mb-2">
                     <i class="bi bi-pencil"></i> Editar Producto
                 </a>
                 {% endif %}

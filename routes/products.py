@@ -127,12 +127,24 @@ def new():
         stock = int(request.form.get('stock', 0))
         category = request.form.get('category', '')
         
+        # Leer parámetros de campos ocultos para preservar en redirect
+        return_query = request.form.get('return_query', '')
+        return_sort_by = request.form.get('return_sort_by', 'name')
+        return_sort_order = request.form.get('return_sort_order', 'asc')
+        return_supplier_id = request.form.get('return_supplier_id', '')
+        
         # Verificar si el código del producto ya existe
         existing_product = Product.query.filter_by(code=code).first()
         if existing_product:
             flash('El código del producto ya existe', 'danger')
             suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
-            return render_template('products/form.html', product=None, suppliers=suppliers)
+            return render_template('products/form.html', 
+                                 product=None, 
+                                 suppliers=suppliers,
+                                 query=return_query,
+                                 sort_by=return_sort_by,
+                                 sort_order=return_sort_order,
+                                 supplier_id=return_supplier_id)
 
         product = Product(
             code=code,
@@ -158,11 +170,27 @@ def new():
         db.session.commit()
         db.session.remove()
         flash('Producto creado exitosamente', 'success')
-        return redirect(url_for('products.list'))
+        return redirect(url_for('products.list',
+                               query=return_query,
+                               sort_by=return_sort_by,
+                               sort_order=return_sort_order,
+                               supplier_id=return_supplier_id))
     
     # GET - Mostrar formulario con lista de proveedores
+    # Leer parámetros de navegación (aunque no se usan en el enlace "Nuevo", pueden venir de URL directa)
+    query = request.args.get('query', '')
+    sort_by = request.args.get('sort_by', 'name')
+    sort_order = request.args.get('sort_order', 'asc')
+    supplier_id = request.args.get('supplier_id', '')
+    
     suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
-    return render_template('products/form.html', product=None, suppliers=suppliers)
+    return render_template('products/form.html', 
+                         product=None, 
+                         suppliers=suppliers,
+                         query=query,
+                         sort_by=sort_by,
+                         sort_order=sort_order,
+                         supplier_id=supplier_id)
 
 
 @products_bp.route('/edit/<int:id>', methods=['GET', 'POST'])
@@ -172,12 +200,24 @@ def edit(id):
     """Editar producto existente."""
     product = Product.query.get_or_404(id)
     
+    # Leer parámetros de navegación para preservar estado de filtros
+    query = request.args.get('query', '')
+    sort_by = request.args.get('sort_by', 'name')
+    sort_order = request.args.get('sort_order', 'asc')
+    supplier_id = request.args.get('supplier_id', '')
+    
     if request.method == 'POST':
         product.code = request.form['code']
         product.name = request.form['name']
         product.description = request.form.get('description', '')
         product.purchase_price = float(request.form.get('purchase_price', 0))
         product.sale_price = float(request.form['sale_price'])
+        
+        # Leer parámetros de campos ocultos para preservar en redirect
+        return_query = request.form.get('return_query', '')
+        return_sort_by = request.form.get('return_sort_by', 'name')
+        return_sort_order = request.form.get('return_sort_order', 'asc')
+        return_supplier_id = request.form.get('return_supplier_id', '')
         
         # Manejo de cambios en el stock con trazabilidad
         new_stock = int(request.form.get('stock', 0))
@@ -189,7 +229,13 @@ def edit(id):
             if not reason:
                 flash('Debe proporcionar una razón para el cambio en las existencias', 'warning')
                 suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
-                return render_template('products/form.html', product=product, suppliers=suppliers)
+                return render_template('products/form.html', 
+                                     product=product, 
+                                     suppliers=suppliers,
+                                     query=return_query,
+                                     sort_by=return_sort_by,
+                                     sort_order=return_sort_order,
+                                     supplier_id=return_supplier_id)
             
             # Calcular diferencia y tipo de movimiento
             quantity_diff = new_stock - old_stock
@@ -223,11 +269,21 @@ def edit(id):
         db.session.commit()
         
         flash('Producto actualizado exitosamente', 'success')
-        return redirect(url_for('products.list'))
+        return redirect(url_for('products.list', 
+                               query=return_query,
+                               sort_by=return_sort_by,
+                               sort_order=return_sort_order,
+                               supplier_id=return_supplier_id))
     
     # GET - Mostrar formulario con proveedores
     suppliers = Supplier.query.filter_by(active=True).order_by(Supplier.name.asc()).all()
-    return render_template('products/form.html', product=product, suppliers=suppliers)
+    return render_template('products/form.html', 
+                         product=product, 
+                         suppliers=suppliers,
+                         query=query,
+                         sort_by=sort_by,
+                         sort_order=sort_order,
+                         supplier_id=supplier_id)
 
 
 @products_bp.route('/delete/<int:id>', methods=['POST'])
@@ -236,16 +292,30 @@ def delete(id):
     """Eliminar producto."""
     product = Product.query.get_or_404(id)
     
+    # Leer parámetros de campos ocultos para preservar en redirect
+    return_query = request.form.get('return_query', '')
+    return_sort_by = request.form.get('return_sort_by', 'name')
+    return_sort_order = request.form.get('return_sort_order', 'asc')
+    return_supplier_id = request.form.get('return_supplier_id', '')
+    
     # Verificar si el producto está siendo usado en alguna factura
     if InvoiceItem.query.filter_by(product_id=id).first():
         flash('No se puede eliminar este producto porque está siendo usado en ventas', 'danger')
-        return redirect(url_for('products.list'))
+        return redirect(url_for('products.list',
+                               query=return_query,
+                               sort_by=return_sort_by,
+                               sort_order=return_sort_order,
+                               supplier_id=return_supplier_id))
     
     db.session.delete(product)
     db.session.commit()
     
     flash('Producto eliminado exitosamente', 'success')
-    return redirect(url_for('products.list'))
+    return redirect(url_for('products.list',
+                           query=return_query,
+                           sort_by=return_sort_by,
+                           sort_order=return_sort_order,
+                           supplier_id=return_supplier_id))
 
 
 @products_bp.route('/<int:id>/stock-history')
@@ -254,9 +324,21 @@ def stock_history(id):
     """Ver historial de movimientos de inventario de un producto."""
     product = Product.query.get_or_404(id)
     
+    # Leer parámetros de navegación para preservar estado de filtros
+    query = request.args.get('query', '')
+    sort_by = request.args.get('sort_by', 'name')
+    sort_order = request.args.get('sort_order', 'asc')
+    supplier_id = request.args.get('supplier_id', '')
+    
     # Obtener todos los logs del producto, ordenados por fecha descendente
     logs = ProductStockLog.query.filter_by(product_id=id)\
         .order_by(ProductStockLog.created_at.desc())\
         .all()
     
-    return render_template('products/stock_history.html', product=product, logs=logs)
+    return render_template('products/stock_history.html', 
+                         product=product, 
+                         logs=logs,
+                         query=query,
+                         sort_by=sort_by,
+                         sort_order=sort_order,
+                         supplier_id=supplier_id)

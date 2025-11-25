@@ -182,13 +182,13 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" id="productActions-{{ product.id }}">
-                                        <a href="{{ url_for('products.stock_history', id=product.id) }}" 
+                                        <a href="{{ url_for('products.stock_history', id=product.id, query=query, sort_by=sort_by, sort_order=sort_order, supplier_id=supplier_id) }}" 
                                            class="btn btn-outline-info" 
                                            id="historyBtn-{{ product.id }}"
                                            title="Ver historial de inventario">
                                             <i class="bi bi-clock-history"></i>
                                         </a>
-                                        <a href="{{ url_for('products.edit', id=product.id) }}" 
+                                        <a href="{{ url_for('products.edit', id=product.id, query=query, sort_by=sort_by, sort_order=sort_order, supplier_id=supplier_id) }}" 
                                            class="btn btn-outline-primary"
                                            id="editProductBtn-{{ product.id }}"
                                            title="Editar producto">
@@ -237,6 +237,12 @@
             <div class="modal-footer" id="productDeleteModalFooter">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelDeleteProductBtn">Cancelar</button>
                 <form id="deleteProductForm" action="" method="post">
+                    <!-- Campos ocultos para preservar estado de navegación -->
+                    <input type="hidden" name="return_query" value="{{ query }}">
+                    <input type="hidden" name="return_sort_by" value="{{ sort_by }}">
+                    <input type="hidden" name="return_sort_order" value="{{ sort_order }}">
+                    <input type="hidden" name="return_supplier_id" value="{{ supplier_id }}">
+                    
                     <button type="submit" class="btn btn-danger" id="confirmDeleteProductBtn">Eliminar</button>
                 </form>
             </div>
