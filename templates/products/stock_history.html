@@ -71,16 +71,26 @@
                                 <span class="badge bg-success">
                                     <i class="bi bi-plus-circle"></i> Ingreso
                                 </span>
-                            {% else %}
+                            {% elif log.movement_type == 'subtraction' %}
                                 <span class="badge bg-danger">
                                     <i class="bi bi-dash-circle"></i> Egreso
+                                </span>
+                            {% else %}
+                                <span class="badge bg-info">
+                                    <i class="bi bi-clipboard-check"></i> Inventario
                                 </span>
                             {% endif %}
                         </td>
                         <td class="text-center">
-                            <strong class="text-{{ 'success' if log.movement_type == 'addition' else 'danger' }}">
-                                {{ '+' if log.movement_type == 'addition' else '-' }}{{ log.quantity }}
-                            </strong>
+                            {% if log.movement_type == 'inventory' %}
+                                <span class="text-muted">
+                                    <i class="bi bi-check-circle"></i> 0
+                                </span>
+                            {% else %}
+                                <strong class="text-{{ 'success' if log.movement_type == 'addition' else 'danger' }}">
+                                    {{ '+' if log.movement_type == 'addition' else '-' }}{{ log.quantity }}
+                                </strong>
+                            {% endif %}
                         </td>
                         <td class="text-center">
                             <span class="text-muted">{{ log.previous_stock }}</span>

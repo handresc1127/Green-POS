@@ -393,14 +393,14 @@ class User(UserMixin, db.Model):
             db.session.commit()
 
 class ProductStockLog(db.Model):
-    """Registro de movimientos de inventario (ingresos y egresos)"""
+    """Registro de movimientos de inventario (ingresos, egresos y conteos físicos)"""
     __tablename__ = 'product_stock_log'
     
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    quantity = db.Column(db.Integer, nullable=False)  # Positivo para ingreso, negativo para egreso
-    movement_type = db.Column(db.String(20), nullable=False)  # 'addition' o 'subtraction'
+    quantity = db.Column(db.Integer, nullable=False)  # Positivo para ingreso, negativo para egreso, 0 para inventario sin diferencia
+    movement_type = db.Column(db.String(20), nullable=False)  # 'addition', 'subtraction' o 'inventory'
     reason = db.Column(db.Text, nullable=False)
     previous_stock = db.Column(db.Integer, nullable=False)
     new_stock = db.Column(db.Integer, nullable=False)

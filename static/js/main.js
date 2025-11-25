@@ -27,8 +27,10 @@ document.addEventListener('DOMContentLoaded', function () {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 
-    // Auto-dismiss alerts after 5 seconds
-    const autoAlerts = document.querySelectorAll('.alert:not(.alert-permanent)');
+    // Auto-dismiss ONLY temporary flash messages after 5 seconds
+    // Alerts with .alert-dismissible-auto class will disappear automatically
+    // Regular .alert elements (info, warning in forms) remain visible
+    const autoAlerts = document.querySelectorAll('.alert-dismissible-auto');
     autoAlerts.forEach(function (alert) {
         setTimeout(function () {
             const bsAlert = new bootstrap.Alert(alert);

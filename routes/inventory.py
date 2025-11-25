@@ -86,8 +86,13 @@ def count(product_id):
         difference = counted_quantity - system_quantity
         
         try:
-            # Crear registro de inventario en product_stock_log
-            movement_type = 'addition' if difference > 0 else 'subtraction'
+            # Determinar tipo de movimiento según diferencia
+            if difference > 0:
+                movement_type = 'addition'
+            elif difference < 0:
+                movement_type = 'subtraction'
+            else:
+                movement_type = 'inventory'  # Sin diferencia, solo verificación
             
             # Generar razón automática
             reason = f'Inventario físico del {today.strftime("%d/%m/%Y")}. '

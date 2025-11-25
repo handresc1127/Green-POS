@@ -43,6 +43,73 @@ body {
     background-color: rgba(40, 167, 69, 0.05);
 }
 
+/* Alert styles - Temporary vs Permanent distinction */
+/* Temporary alerts (flash messages) - auto-dismiss after 5 seconds */
+.alert-dismissible-auto {
+    position: relative;
+    border-left: 5px solid;
+    animation: slideInDown 0.3s ease-out;
+}
+
+.alert-dismissible-auto::before {
+    content: "\f017";  /* Clock icon */
+    font-family: "bootstrap-icons";
+    position: absolute;
+    right: 50px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    opacity: 0.6;
+}
+
+/* Success temporary alerts */
+.alert-dismissible-auto.alert-success {
+    border-left-color: #28a745;
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+}
+
+/* Error temporary alerts */
+.alert-dismissible-auto.alert-danger {
+    border-left-color: #dc3545;
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+}
+
+/* Warning temporary alerts */
+.alert-dismissible-auto.alert-warning {
+    border-left-color: #ffc107;
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+}
+
+/* Info temporary alerts */
+.alert-dismissible-auto.alert-info {
+    border-left-color: #17a2b8;
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+}
+
+/* Animation for temporary alerts */
+@keyframes slideInDown {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Permanent alerts (informative content) - remain visible */
+.alert-info, .alert-warning {
+    border: 1px solid;
+    border-radius: 0.375rem;
+}
+
+/* Override Bootstrap icon if using before pseudo-element */
+.alert-dismissible-auto .btn-close {
+    position: relative;
+    z-index: 2;
+}
+
 /* Print styles */
 @page {
     size: auto;
