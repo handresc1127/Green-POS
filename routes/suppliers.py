@@ -4,11 +4,11 @@ Blueprint para CRUD de proveedores y sus productos.
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app
 from flask_login import login_required
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from datetime import datetime
 
 from extensions import db
-from models.models import Supplier, Product, product_supplier
+from models.models import Supplier, Product, product_supplier, InvoiceItem
 
 # Crear Blueprint
 suppliers_bp = Blueprint('suppliers', __name__, url_prefix='/suppliers')
@@ -133,20 +133,47 @@ def products(id):
     sort_order = request.args.get('sort_order', 'asc')
     
     # Validar campos permitidos para ordenar
-    allowed_fields = ['code', 'name', 'category', 'purchase_price', 'sale_price', 'stock']
+    allowed_fields = ['code', 'name', 'category', 'purchase_price', 'sale_price', 'stock', 'sells']
     if sort_by not in allowed_fields:
         sort_by = 'stock'
     
-    # Obtener productos y ordenar
-    products_query = Product.query.join(product_supplier).filter(
+    # Calcular ventas totales por producto (subquery)
+    sells_subquery = db.session.query(
+        InvoiceItem.product_id,
+        func.coalesce(func.sum(InvoiceItem.quantity), 0).label('total_sells')
+    ).group_by(InvoiceItem.product_id).subquery()
+    
+    # Obtener productos con ventas totales
+    products_query = db.session.query(
+        Product,
+        func.coalesce(sells_subquery.c.total_sells, 0).label('sells')
+    ).outerjoin(
+        sells_subquery, Product.id == sells_subquery.c.product_id
+    ).join(
+        product_supplier
+    ).filter(
         product_supplier.c.supplier_id == id
     )
     
     # Aplicar ordenamiento
-    if sort_order == 'desc':
-        products_list = products_query.order_by(getattr(Product, sort_by).desc()).all()
+    if sort_by == 'sells':
+        # Ordenamiento especial para ventas
+        if sort_order == 'desc':
+            products_result = products_query.order_by(func.coalesce(sells_subquery.c.total_sells, 0).desc()).all()
+        else:
+            products_result = products_query.order_by(func.coalesce(sells_subquery.c.total_sells, 0).asc()).all()
     else:
-        products_list = products_query.order_by(getattr(Product, sort_by).asc()).all()
+        # Ordenamiento normal para otros campos
+        if sort_order == 'desc':
+            products_result = products_query.order_by(getattr(Product, sort_by).desc()).all()
+        else:
+            products_result = products_query.order_by(getattr(Product, sort_by).asc()).all()
+    
+    # Convertir resultado a lista de productos con atributo sells
+    products_list = []
+    for product, sells in products_result:
+        product.sells = int(sells)
+        products_list.append(product)
     
     return render_template('suppliers/products.html', 
                          supplier=supplier, 

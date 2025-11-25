@@ -260,10 +260,11 @@ def index():
         for prod in most_profitable_products
     ]
     
-    # Estado actual de inventario
+    # Estado actual de inventario (excluye productos a necesidad: stock_min = 0)
     low_stock_products = Product.query.filter(
         Product.stock <= func.coalesce(Product.stock_warning, Product.stock_min + 2, 3),
-        Product.category != 'Servicios'
+        Product.category != 'Servicios',
+        or_(Product.stock_min > 0, Product.stock_min == None)
     ).order_by(Product.stock.asc()).all()
     
     inventory_value = db.session.query(

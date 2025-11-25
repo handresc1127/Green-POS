@@ -197,7 +197,15 @@
                                     {% endif %}
                                 </a>
                             </th>
-                            <th class="text-center">Estado</th>
+                            <th class="text-center">
+                                <a href="{{ url_for('suppliers.products', id=supplier.id, sort_by='sells', sort_order='desc' if sort_by == 'sells' and sort_order == 'asc' else 'asc') }}" 
+                                   class="text-decoration-none text-dark">
+                                    Sells
+                                    {% if sort_by == 'sells' %}
+                                        <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                    {% endif %}
+                                </a>
+                            </th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -237,24 +245,9 @@
                                 </span>
                             </td>
                             <td class="text-center">
-                                {# Badge estado #}
-                                {% if stock_min == 0 and stock_warning == 0 %}
-                                    <span class="badge bg-success" id="productStockStatus-{{ product.id }}">
-                                        <i class="bi bi-check-circle"></i> OK
-                                    </span>
-                                {% elif product.stock <= stock_min %}
-                                    <span class="badge bg-danger" id="productStockStatus-{{ product.id }}">
-                                        <i class="bi bi-exclamation-triangle"></i> Bajo
-                                    </span>
-                                {% elif product.stock <= stock_warning %}
-                                    <span class="badge bg-warning text-dark" id="productStockStatus-{{ product.id }}">
-                                        <i class="bi bi-exclamation-circle"></i> Medio
-                                    </span>
-                                {% else %}
-                                    <span class="badge bg-success" id="productStockStatus-{{ product.id }}">
-                                        <i class="bi bi-check-circle"></i> OK
-                                    </span>
-                                {% endif %}
+                                <span class="badge bg-primary" id="productSells-{{ product.id }}">
+                                    {{ product.sells|default(0) }}
+                                </span>
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
@@ -277,7 +270,12 @@
                                     {{ products|sum(attribute='stock') }}
                                 </strong>
                             </td>
-                            <td colspan="2"></td>
+                            <td class="text-center">
+                                <strong id="totalSellsSum">
+                                    {{ products|sum(attribute='sells') }}
+                                </strong>
+                            </td>
+                            <td></td>
                         </tr>
                     </tfoot>
                 </table>
