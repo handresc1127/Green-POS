@@ -26,8 +26,28 @@ def pending():
     today = datetime.now(CO_TZ).date()
     first_day_of_month = today.replace(day=1)
     
-    # Obtener todos los productos (excepto servicios)
-    all_products = Product.query.filter(Product.category != 'Servicios').all()
+    # Obtener parámetros de ordenamiento
+    sort_by = request.args.get('sort_by', 'name')
+    sort_order = request.args.get('sort_order', 'asc')
+    
+    # Validar columnas permitidas para ordenamiento
+    sort_columns = ['code', 'name', 'category', 'stock']
+    if sort_by not in sort_columns:
+        sort_by = 'name'
+    
+    if sort_order not in ['asc', 'desc']:
+        sort_order = 'asc'
+    
+    # Obtener todos los productos (excepto servicios) con ordenamiento
+    query = Product.query.filter(Product.category != 'Servicios')
+    
+    # Aplicar ordenamiento dinámico
+    if sort_order == 'asc':
+        query = query.order_by(getattr(Product, sort_by).asc())
+    else:
+        query = query.order_by(getattr(Product, sort_by).desc())
+    
+    all_products = query.all()
     
     # Obtener IDs de productos ya inventariados en el mes
     inventoried_product_ids = db.session.query(ProductStockLog.product_id).filter(
@@ -36,7 +56,7 @@ def pending():
     ).distinct().all()
     inventoried_ids = [pid[0] for pid in inventoried_product_ids]
     
-    # Filtrar productos pendientes
+    # Filtrar productos pendientes (mantiene el orden de all_products)
     pending_products = [p for p in all_products if p.id not in inventoried_ids]
     
     # Calcular meta diaria
@@ -56,7 +76,9 @@ def pending():
                          daily_target=daily_target,
                          inventoried_today=inventoried_today,
                          today=today,
-                         first_day_of_month=first_day_of_month)
+                         first_day_of_month=first_day_of_month,
+                         sort_by=sort_by,
+                         sort_order=sort_order)
 
 
 @inventory_bp.route('/count/<int:product_id>', methods=['GET', 'POST'])
