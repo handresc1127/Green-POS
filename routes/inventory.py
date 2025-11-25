@@ -7,6 +7,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 from calendar import monthrange
 from zoneinfo import ZoneInfo
+from sqlalchemy import or_, and_
 
 from extensions import db
 from models.models import Product, ProductStockLog
@@ -26,7 +27,8 @@ def pending():
     today = datetime.now(CO_TZ).date()
     first_day_of_month = today.replace(day=1)
     
-    # Obtener parámetros de ordenamiento
+    # Obtener parámetros de búsqueda y ordenamiento
+    query_text = request.args.get('query', '')
     sort_by = request.args.get('sort_by', 'name')
     sort_order = request.args.get('sort_order', 'asc')
     
@@ -38,16 +40,40 @@ def pending():
     if sort_order not in ['asc', 'desc']:
         sort_order = 'asc'
     
-    # Obtener todos los productos (excepto servicios) con ordenamiento
-    query = Product.query.filter(Product.category != 'Servicios')
+    # Query base con filtro de categoría
+    base_query = Product.query.filter(Product.category != 'Servicios')
+    
+    # Aplicar búsqueda si existe
+    if query_text:
+        search_terms = query_text.strip().split()
+        
+        if len(search_terms) == 1:
+            term = search_terms[0]
+            base_query = base_query.filter(
+                or_(
+                    Product.name.ilike(f'%{term}%'),
+                    Product.code.ilike(f'%{term}%')
+                )
+            )
+        else:
+            # Búsqueda multi-palabra con AND lógico
+            filters = []
+            for term in search_terms:
+                filters.append(
+                    or_(
+                        Product.name.ilike(f'%{term}%'),
+                        Product.code.ilike(f'%{term}%')
+                    )
+                )
+            base_query = base_query.filter(and_(*filters))
     
     # Aplicar ordenamiento dinámico
     if sort_order == 'asc':
-        query = query.order_by(getattr(Product, sort_by).asc())
+        base_query = base_query.order_by(getattr(Product, sort_by).asc())
     else:
-        query = query.order_by(getattr(Product, sort_by).desc())
+        base_query = base_query.order_by(getattr(Product, sort_by).desc())
     
-    all_products = query.all()
+    all_products = base_query.all()
     
     # Obtener IDs de productos ya inventariados en el mes
     inventoried_product_ids = db.session.query(ProductStockLog.product_id).filter(
@@ -78,7 +104,8 @@ def pending():
                          today=today,
                          first_day_of_month=first_day_of_month,
                          sort_by=sort_by,
-                         sort_order=sort_order)
+                         sort_order=sort_order,
+                         query=query_text)
 
 
 @inventory_bp.route('/count/<int:product_id>', methods=['GET', 'POST'])
@@ -149,7 +176,11 @@ def count(product_id):
             else:
                 flash(f'Inventario de "{product.name}" completado. Diferencia ajustada: {difference:+d} unidades.', 'warning')
             
-            return redirect(url_for('inventory.pending'))
+            # Preservar filtros de búsqueda y ordenamiento al regresar
+            return redirect(url_for('inventory.pending',
+                                   query=request.args.get('return_query', ''),
+                                   sort_by=request.args.get('return_sort_by', 'name'),
+                                   sort_order=request.args.get('return_sort_order', 'asc')))
         
         except Exception as e:
             db.session.rollback()

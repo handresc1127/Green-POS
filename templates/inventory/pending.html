@@ -35,6 +35,36 @@
     </div>
   </div>
 </div>
+
+<!-- Panel de Búsqueda -->
+<div class="card mb-3">
+  <div class="card-body">
+    <form action="{{ url_for('inventory.pending') }}" method="get">
+      <div class="row g-3">
+        <div class="col-md-12">
+          <div class="input-group">
+            <input type="text" name="query" class="form-control" 
+                   placeholder="Buscar por nombre o código..." 
+                   value="{{ query }}">
+            <button class="btn btn-primary" type="submit">
+              <i class="bi bi-search"></i> Buscar
+            </button>
+            {% if query %}
+              <a href="{{ url_for('inventory.pending') }}" 
+                 class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle"></i> Limpiar
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Campos ocultos para preservar ordenamiento -->
+      <input type="hidden" name="sort_by" value="{{ sort_by }}">
+      <input type="hidden" name="sort_order" value="{{ sort_order }}">
+    </form>
+  </div>
+</div>
 {% endblock %}
 
 {% block content %}
@@ -51,7 +81,7 @@
         <thead>
           <tr>
             <th>
-              <a href="{{ url_for('inventory.pending', sort_by='code', sort_order='desc' if sort_by == 'code' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+              <a href="{{ url_for('inventory.pending', query=query, sort_by='code', sort_order='desc' if sort_by == 'code' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
                 Código
                 {% if sort_by == 'code' %}
                   <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
@@ -59,7 +89,7 @@
               </a>
             </th>
             <th>
-              <a href="{{ url_for('inventory.pending', sort_by='name', sort_order='desc' if sort_by == 'name' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+              <a href="{{ url_for('inventory.pending', query=query, sort_by='name', sort_order='desc' if sort_by == 'name' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
                 Producto
                 {% if sort_by == 'name' %}
                   <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
@@ -67,7 +97,7 @@
               </a>
             </th>
             <th>
-              <a href="{{ url_for('inventory.pending', sort_by='category', sort_order='desc' if sort_by == 'category' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+              <a href="{{ url_for('inventory.pending', query=query, sort_by='category', sort_order='desc' if sort_by == 'category' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
                 Categoría
                 {% if sort_by == 'category' %}
                   <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
@@ -75,7 +105,7 @@
               </a>
             </th>
             <th class="text-center">
-              <a href="{{ url_for('inventory.pending', sort_by='stock', sort_order='desc' if sort_by == 'stock' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
+              <a href="{{ url_for('inventory.pending', query=query, sort_by='stock', sort_order='desc' if sort_by == 'stock' and sort_order == 'asc' else 'asc') }}" class="text-decoration-none text-dark">
                 Stock Sistema
                 {% if sort_by == 'stock' %}
                   <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
@@ -107,7 +137,7 @@
               <span class="badge bg-{{ badge_class }}">{{ product.stock }}</span>
             </td>
             <td class="text-end">
-              <a href="{{ url_for('inventory.count', product_id=product.id) }}" 
+              <a href="{{ url_for('inventory.count', product_id=product.id, return_query=query, return_sort_by=sort_by, return_sort_order=sort_order) }}" 
                  class="btn btn-sm btn-primary">
                 <i class="bi bi-clipboard-check"></i> Contar
               </a>
