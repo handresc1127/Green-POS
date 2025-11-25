@@ -94,6 +94,44 @@ class Product(db.Model):
 
     def __repr__(self):
         return f"<Product {self.name}>"
+    
+    def get_all_codes(self):
+        """Retorna lista de todos los códigos del producto (principal + alternativos)."""
+        codes = [{'code': self.code, 'type': 'principal', 'is_primary': True}]
+        
+        # Agregar códigos alternativos
+        for alt_code in self.alternative_codes.all():
+            codes.append({
+                'code': alt_code.code,
+                'type': alt_code.code_type,
+                'is_primary': False,
+                'notes': alt_code.notes
+            })
+        
+        return codes
+    
+    @staticmethod
+    def search_by_any_code(code_query):
+        """Busca producto por código principal o alternativo.
+        
+        Args:
+            code_query: Código a buscar
+            
+        Returns:
+            Product o None si no se encuentra
+        """
+        # Buscar por código principal
+        product = Product.query.filter_by(code=code_query).first()
+        if product:
+            return product
+        
+        # Buscar en códigos alternativos
+        from models.models import ProductCode
+        alt_code = ProductCode.query.filter_by(code=code_query).first()
+        if alt_code:
+            return alt_code.product
+        
+        return None
 
 class Customer(db.Model):
     __tablename__ = 'customer'
@@ -412,3 +450,44 @@ class ProductStockLog(db.Model):
     
     def __repr__(self):
         return f"<ProductStockLog {self.id} product={self.product_id} qty={self.quantity}>"
+
+
+class ProductCode(db.Model):
+    """Códigos alternativos de productos para soportar consolidación.
+    
+    Permite que un producto tenga múltiples códigos (EAN, SKU, códigos legacy)
+    manteniendo el código principal en Product.code.
+    
+    Ejemplos de uso:
+    - Producto consolidado con códigos de productos antiguos
+    - Productos con múltiples barcodes (EAN-13, UPC-A)
+    - Códigos internos de diferentes proveedores
+    
+    Tipos de código (code_type):
+    - 'alternative': Código alternativo genérico
+    - 'legacy': Código de producto consolidado
+    - 'barcode': Código de barras (EAN, UPC)
+    - 'supplier_sku': SKU del proveedor
+    """
+    __tablename__ = 'product_code'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, 
+                          db.ForeignKey('product.id', ondelete='CASCADE'), 
+                          nullable=False, 
+                          index=True)
+    code = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    code_type = db.Column(db.String(20), default='alternative', nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    
+    # Relaciones
+    product = db.relationship('Product', 
+                             backref=db.backref('alternative_codes', 
+                                              lazy='dynamic', 
+                                              cascade='all, delete-orphan'))
+    user = db.relationship('User')
+    
+    def __repr__(self):
+        return f'<ProductCode {self.code} ({self.code_type}) → Product {self.product_id}>'

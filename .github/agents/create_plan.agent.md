@@ -1,7 +1,7 @@
 ---
 description: Crea planes de implementación detallados mediante investigación interactiva e iteración usando subagents especializados para Green-POS
 argument-hint: "Crea plan para sistema de descuentos o Crea plan para mejorar flujo de autenticación"
-tools: ['vscode/extensions', 'vscode/getProjectSetupInfo', 'vscode/installExtension', 'vscode/openSimpleBrowser', 'vscode/runCommand', 'vscode/vscodeAPI', 'launch/runTask', 'launch/getTaskOutput', 'launch/createAndRunTask', 'shell', 'agents', 'edit/createFile', 'edit/editFiles', 'read/readFile', 'search', 'web', 'todo']
+tools: ['vscode/getProjectSetupInfo', 'vscode/installExtension', 'vscode/openSimpleBrowser', 'vscode/runCommand', 'vscode/vscodeAPI', 'vscode/extensions', 'launch/runTask', 'launch/getTaskOutput', 'launch/createAndRunTask', 'edit/createFile', 'edit/editFiles', 'execute', 'read/readFile', 'search', 'web', 'shell', 'agents', 'todo']
 model: Claude Sonnet 4.5
 name: creador-plan
 ---

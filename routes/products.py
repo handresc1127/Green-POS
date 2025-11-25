@@ -7,7 +7,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, or_, and_
 
 from extensions import db
-from models.models import Product, InvoiceItem, Supplier, ProductStockLog, Invoice
+from models.models import Product, InvoiceItem, Supplier, ProductStockLog, Invoice, ProductCode
 from utils.decorators import role_required
 from utils.backup import auto_backup
 
@@ -36,11 +36,13 @@ def list():
     
     # CRÍTICO: Contar solo ventas de facturas NO canceladas
     # Se hace join con Invoice para filtrar por estado
+    # NUEVO: Agregar outerjoin a ProductCode para búsqueda multi-código
     base_query = db.session.query(
         Product,
         func.coalesce(func.sum(InvoiceItem.quantity), 0).label('sales_count')
     ).outerjoin(InvoiceItem, Product.id == InvoiceItem.product_id)\
      .outerjoin(Invoice, InvoiceItem.invoice_id == Invoice.id)\
+     .outerjoin(ProductCode, Product.id == ProductCode.product_id)\
      .filter(or_(Invoice.status != 'cancelled', Invoice.id == None))
     
     # Filtro por proveedor
@@ -55,6 +57,7 @@ def list():
     
     if query:
         # Búsqueda mejorada: divide el query en palabras individuales
+        # NUEVO: Busca también en códigos alternativos (ProductCode)
         search_terms = query.strip().split()
         
         if len(search_terms) == 1:
@@ -62,7 +65,8 @@ def list():
             base_query = base_query.filter(
                 or_(
                     Product.name.ilike(f'%{term}%'),
-                    Product.code.ilike(f'%{term}%')
+                    Product.code.ilike(f'%{term}%'),
+                    ProductCode.code.ilike(f'%{term}%')  # Búsqueda en códigos alternativos
                 )
             )
         else:
@@ -71,7 +75,8 @@ def list():
                 filters.append(
                     or_(
                         Product.name.ilike(f'%{term}%'),
-                        Product.code.ilike(f'%{term}%')
+                        Product.code.ilike(f'%{term}%'),
+                        ProductCode.code.ilike(f'%{term}%')  # Búsqueda en códigos alternativos
                     )
                 )
             base_query = base_query.filter(and_(*filters))
@@ -342,3 +347,65 @@ def stock_history(id):
                          sort_by=sort_by,
                          sort_order=sort_order,
                          supplier_id=supplier_id)
+
+
+@products_bp.route('/merge', methods=['GET', 'POST'])
+@login_required
+@role_required('admin')
+def merge():
+    """Interfaz para consolidar productos duplicados.
+    
+    GET: Muestra formulario de selección
+    POST: Ejecuta consolidación y redirige a producto resultante
+    """
+    
+    if request.method == 'POST':
+        target_id = int(request.form.get('target_product_id'))
+        source_ids = [int(x) for x in request.form.getlist('source_product_ids')]
+        
+        try:
+            # Importar función de merge
+            import sys
+            from pathlib import Path
+            migrations_path = Path(__file__).parent.parent / 'migrations'
+            sys.path.insert(0, str(migrations_path))
+            
+            from merge_products import merge_products
+            
+            # Ejecutar consolidación (sin confirmación por consola)
+            stats = merge_products(
+                source_product_ids=source_ids, 
+                target_product_id=target_id, 
+                user_id=current_user.id,
+                skip_confirmation=True  # Nueva opción para uso web
+            )
+            
+            if stats.get('cancelled'):
+                flash('Consolidacion cancelada', 'warning')
+                return redirect(url_for('products.merge'))
+            
+            flash(
+                f"Consolidacion exitosa: "
+                f"{stats['products_deleted']} productos unificados, "
+                f"{stats['invoice_items']} ventas migradas, "
+                f"{stats['stock_consolidated']} unidades consolidadas",
+                'success'
+            )
+            
+            return redirect(url_for('products.list'))
+            
+        except Exception as e:
+            flash(f"Error en consolidacion: {str(e)}", 'error')
+            current_app.logger.error(f"Error en merge_products: {e}")
+            return redirect(url_for('products.merge'))
+    
+    # GET - Mostrar formulario con productos como lista de diccionarios
+    products_query = Product.query.order_by(Product.name).all()
+    products_data = [{
+        'id': p.id,
+        'code': p.code,
+        'name': p.name,
+        'stock': p.stock
+    } for p in products_query]
+    
+    return render_template('products/merge.html', products=products_data)

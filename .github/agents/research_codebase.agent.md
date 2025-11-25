@@ -1,7 +1,7 @@
 ---
 description: Orquestador integral de investigación del codebase que genera subagents paralelos para documentar implementaciones existentes de Green-POS
 argument-hint: "Investiga el flujo de facturación o ¿Cómo funciona el sistema de citas?"
-tools: ['vscode/extensions', 'vscode/runCommand', 'vscode/vscodeAPI', 'launch/runTask', 'launch/getTaskOutput', 'launch/createAndRunTask', 'shell', 'agents', 'edit/createFile', 'edit/editFiles', 'read/readFile', 'search', 'web', 'todo']
+tools: ['vscode/runCommand', 'vscode/vscodeAPI', 'vscode/extensions', 'launch', 'edit/createFile', 'edit/editFiles', 'execute', 'read', 'search', 'web', 'shell', 'agents', 'todo']
 model: Claude Sonnet 4.5
 name: investigador-codebase
 ---

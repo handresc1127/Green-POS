@@ -1,0 +1,396 @@
+{% extends "layout.html" %}
+
+{% block title %}Consolidar Productos{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('products.list') }}">Productos</a></li>
+            <li class="breadcrumb-item active">Consolidar Productos</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        Consolidar Productos Duplicados
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Advertencia -->
+                    <div class="alert alert-warning" role="alert">
+                        <h5 class="alert-heading">Advertencia: Operacion Irreversible</h5>
+                        <p class="mb-0">Esta operacion:</p>
+                        <ul class="mb-2">
+                            <li>Migra TODAS las ventas, logs de stock y proveedores al producto destino</li>
+                            <li>Consolida el stock de todos los productos</li>
+                            <li>Crea codigos alternativos con los codigos de productos origen</li>
+                            <li><strong>ELIMINA permanentemente</strong> los productos origen</li>
+                        </ul>
+                        <p class="mb-0"><strong>Se creara un backup automatico antes de proceder.</strong></p>
+                    </div>
+
+                    <!-- Formulario -->
+                    <form method="post" id="mergeForm">
+                        <!-- Producto Destino -->
+                        <div class="mb-4">
+                            <label for="searchTarget" class="form-label">
+                                <strong>Producto Destino (Unificado)</strong>
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="searchTarget" 
+                                   placeholder="Buscar producto por nombre o codigo..."
+                                   autocomplete="off">
+                            <input type="hidden" id="target_product_id" name="target_product_id">
+                            
+                            <!-- Resultados de búsqueda -->
+                            <div id="targetResults" class="list-group mt-2" style="display: none; max-height: 300px; overflow-y: auto;"></div>
+                            
+                            <!-- Producto seleccionado -->
+                            <div id="targetSelected" class="alert alert-success mt-2" style="display: none;">
+                                <strong>Producto seleccionado:</strong><br>
+                                <span id="targetSelectedText"></span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary float-end" id="clearTarget">
+                                    <i class="bi bi-x"></i> Cambiar
+                                </button>
+                            </div>
+                            
+                            <small class="text-muted">
+                                Este producto conservara su informacion y recibira los datos de los demas
+                            </small>
+                        </div>
+
+                        <!-- Búsqueda de Productos Origen -->
+                        <div class="mb-3">
+                            <label for="searchSource" class="form-label">
+                                <strong>Buscar Productos a Consolidar</strong>
+                            </label>
+                            <input type="text" class="form-control" id="searchSource" 
+                                   placeholder="Buscar por nombre o codigo...">
+                        </div>
+
+                        <!-- Productos Origen -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <strong>Productos a Consolidar (Origenes)</strong>
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="border rounded p-3" id="sourceProductsContainer" style="max-height: 400px; overflow-y: auto;">
+                                {% for product in products %}
+                                <div class="form-check source-product-item" data-search-text="{{ product.name|lower }} {{ product.code|lower }}">
+                                    <input class="form-check-input source-checkbox" 
+                                           type="checkbox" 
+                                           name="source_product_ids" 
+                                           value="{{ product.id }}"
+                                           id="source_{{ product.id }}"
+                                           data-stock="{{ product.stock }}"
+                                           data-code="{{ product.code }}"
+                                           data-name="{{ product.name }}">
+                                    <label class="form-check-label" for="source_{{ product.id }}">
+                                        <strong>[{{ product.code }}]</strong> {{ product.name }} 
+                                        <span class="badge bg-secondary">Stock: {{ product.stock }}</span>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <small class="text-muted">
+                                Estos productos seran eliminados despues de migrar su informacion
+                            </small>
+                        </div>
+
+                        <!-- Vista Previa -->
+                        <div class="mb-4" id="preview" style="display: none;">
+                            <div class="alert alert-info">
+                                <h6><i class="bi bi-info-circle"></i> Vista Previa de Consolidacion:</h6>
+                                <hr>
+                                <p class="mb-1"><strong>Producto destino:</strong></p>
+                                <p class="ms-3" id="preview-target"></p>
+                                
+                                <p class="mb-1 mt-2"><strong>Productos a consolidar:</strong> <span id="preview-count">0</span></p>
+                                <ul id="preview-sources" class="mb-2"></ul>
+                                
+                                <p class="mb-1"><strong>Stock total estimado:</strong> <span id="preview-stock" class="badge bg-primary fs-6">0</span> unidades</p>
+                                <p class="mb-0"><strong>Codigos legacy que se crearan:</strong> <span id="preview-codes">0</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-warning btn-lg" id="submitBtn" disabled>
+                                <i class="bi bi-arrow-left-right" id="submitIcon"></i>
+                                <span id="submitText">Consolidar Productos</span>
+                            </button>
+                            <a href="{{ url_for('products.list') }}" class="btn btn-secondary" id="cancelBtn">
+                                <i class="bi bi-x-circle"></i>
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay de Loading -->
+<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white;">
+        <div class="spinner-border" style="width: 4rem; height: 4rem;" role="status">
+            <span class="visually-hidden">Procesando...</span>
+        </div>
+        <h4 class="mt-3">Consolidando productos...</h4>
+        <p>Por favor espere. Esta operacion puede tardar varios segundos.</p>
+        <div class="progress mt-3" style="width: 300px; margin: 0 auto;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+        </div>
+    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Elementos
+    const searchTarget = document.getElementById('searchTarget');
+    const targetResults = document.getElementById('targetResults');
+    const targetSelected = document.getElementById('targetSelected');
+    const targetSelectedText = document.getElementById('targetSelectedText');
+    const clearTarget = document.getElementById('clearTarget');
+    const targetProductIdInput = document.getElementById('target_product_id');
+    
+    const searchSource = document.getElementById('searchSource');
+    const sourceCheckboxes = document.querySelectorAll('.source-checkbox');
+    const submitBtn = document.getElementById('submitBtn');
+    const preview = document.getElementById('preview');
+    const form = document.getElementById('mergeForm');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    // Data de productos
+    const products = {{ products | tojson }};
+    let selectedTarget = null;
+    let searchTimeout = null;
+    
+    // Búsqueda de producto destino con debounce
+    searchTarget.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim().toLowerCase();
+        
+        if (query.length < 2) {
+            targetResults.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(() => {
+            const filtered = products.filter(p => 
+                p.name.toLowerCase().includes(query) || 
+                p.code.toLowerCase().includes(query)
+            );
+            
+            displayTargetResults(filtered);
+        }, 300);
+    });
+    
+    function displayTargetResults(results) {
+        targetResults.innerHTML = '';
+        
+        if (results.length === 0) {
+            targetResults.innerHTML = '<div class="list-group-item text-muted">No se encontraron productos</div>';
+            targetResults.style.display = 'block';
+            return;
+        }
+        
+        results.slice(0, 10).forEach(product => {
+            const item = document.createElement('a');
+            item.href = '#';
+            item.className = 'list-group-item list-group-item-action';
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>[${product.code}]</strong> ${product.name}
+                    </div>
+                    <span class="badge bg-secondary">Stock: ${product.stock}</span>
+                </div>
+            `;
+            
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                selectTarget(product);
+            });
+            
+            targetResults.appendChild(item);
+        });
+        
+        targetResults.style.display = 'block';
+    }
+    
+    function selectTarget(product) {
+        selectedTarget = product;
+        targetProductIdInput.value = product.id;
+        
+        searchTarget.value = '';
+        searchTarget.removeAttribute('required');
+        targetResults.style.display = 'none';
+        
+        targetSelectedText.innerHTML = `
+            <code>[${product.code}]</code> <strong>${product.name}</strong>
+            <span class="badge bg-secondary">Stock: ${product.stock}</span>
+        `;
+        targetSelected.style.display = 'block';
+        searchTarget.style.display = 'none';
+        
+        updatePreview();
+    }
+    
+    clearTarget.addEventListener('click', function() {
+        selectedTarget = null;
+        targetProductIdInput.value = '';
+        targetSelected.style.display = 'none';
+        searchTarget.style.display = 'block';
+        searchTarget.setAttribute('required', 'required');
+        searchTarget.focus();
+        updatePreview();
+    });
+    
+    // Búsqueda de productos origen
+    searchSource.addEventListener('input', function() {
+        const searchText = this.value.toLowerCase();
+        const items = document.querySelectorAll('.source-product-item');
+        
+        items.forEach(item => {
+            const itemText = item.getAttribute('data-search-text');
+            if (itemText.includes(searchText)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+    
+    function updatePreview() {
+        const targetId = targetProductIdInput.value;
+        
+        // Validar que target no este en sources
+        sourceCheckboxes.forEach(cb => {
+            if (cb.value === targetId) {
+                cb.checked = false;
+                cb.disabled = true;
+            } else {
+                cb.disabled = false;
+            }
+        });
+        
+        const validSources = Array.from(sourceCheckboxes).filter(
+            cb => cb.checked && cb.value !== targetId
+        );
+        
+        if (targetId && validSources.length > 0 && selectedTarget) {
+            // Calcular stock total
+            const targetStock = selectedTarget.stock || 0;
+            
+            const sourceStock = validSources.reduce((sum, cb) => {
+                return sum + (parseInt(cb.dataset.stock) || 0);
+            }, 0);
+            
+            // Actualizar preview
+            document.getElementById('preview-target').innerHTML = 
+                `<code>[${selectedTarget.code}]</code> <strong>${selectedTarget.name}</strong> (Stock actual: ${targetStock})`;
+            
+            document.getElementById('preview-count').textContent = validSources.length;
+            
+            const sourcesList = document.getElementById('preview-sources');
+            sourcesList.innerHTML = '';
+            validSources.forEach(cb => {
+                const li = document.createElement('li');
+                li.innerHTML = `<code>[${cb.dataset.code}]</code> ${cb.dataset.name} (Stock: ${cb.dataset.stock})`;
+                sourcesList.appendChild(li);
+            });
+            
+            document.getElementById('preview-stock').textContent = targetStock + sourceStock;
+            document.getElementById('preview-codes').textContent = validSources.length;
+            
+            preview.style.display = 'block';
+            submitBtn.disabled = false;
+        } else {
+            preview.style.display = 'none';
+            submitBtn.disabled = true;
+        }
+    }
+    
+    // Event listeners para sources
+    sourceCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updatePreview);
+    });
+    
+    // Confirmacion y loading antes de submit
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const targetId = targetProductIdInput.value;
+        const validSources = Array.from(sourceCheckboxes).filter(cb => cb.checked);
+        
+        // Validación adicional
+        if (!targetId) {
+            alert('Por favor selecciona un producto destino');
+            return false;
+        }
+        
+        if (validSources.length === 0) {
+            alert('Por favor selecciona al menos un producto origen para consolidar');
+            return false;
+        }
+        
+        if (!selectedTarget) {
+            alert('Error: No se ha seleccionado correctamente el producto destino');
+            return false;
+        }
+        
+        const confirmed = confirm(
+            'CONFIRMA LA CONSOLIDACION?\n\n' +
+            `Se consolidaran ${validSources.length} productos en "${selectedTarget.name}".\n` +
+            'Esta operacion es IRREVERSIBLE y eliminara los productos origen.\n\n' +
+            'Se creara un backup automatico antes de proceder.\n\n' +
+            '¿Deseas continuar?'
+        );
+        
+        if (confirmed) {
+            // Mostrar spinner
+            loadingOverlay.style.display = 'block';
+            submitBtn.disabled = true;
+            document.getElementById('cancelBtn').style.display = 'none';
+            
+            // Enviar formulario usando el método nativo
+            HTMLFormElement.prototype.submit.call(form);
+        }
+    });
+});
+</script>
+
+<style>
+.source-product-item {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.source-product-item:last-child {
+    border-bottom: none;
+}
+
+.source-product-item:hover {
+    background-color: #f8f9fa;
+}
+
+#preview-sources {
+    max-height: 200px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}
