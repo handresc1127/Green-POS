@@ -24,7 +24,7 @@
   <p class="mb-1"><strong>Precio:</strong> {{ service.price | currency_co }}</p>
         <p class="mb-1"><strong>Estado:</strong> <span class="badge bg-{% if service.status=='pending' %}warning{% elif service.status=='done' %}success{% else %}secondary{% endif %}">{{ service.status }}</span></p>
         {% if service.technician %}<p class="mb-1"><strong>Técnico:</strong> {{ service.technician }}</p>{% endif %}
-        <p class="mb-1"><strong>Creado:</strong> {{ service.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+        <p class="mb-1"><strong>Creado:</strong> {{ service.created_at|format_tz_co }}</p>
         {% if service.invoice_id %}
           <p class="mb-1"><strong>Factura:</strong> <a href="{{ url_for('invoices.view', id=service.invoice_id) }}">Ver</a></p>
         {% endif %}

@@ -61,7 +61,7 @@
                     {% for log in logs %}
                     <tr>
                         <td>
-                            <small>{{ log.created_at.strftime('%d/%m/%Y %I:%M %p') }}</small>
+                            <small>{{ log.created_at|format_tz_co }}</small>
                         </td>
                         <td>
                             <small>{{ log.user.username if log.user else 'Sistema' }}</small>

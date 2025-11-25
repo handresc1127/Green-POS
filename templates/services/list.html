@@ -28,7 +28,7 @@
     {% for s in services %}
     <tr>
       <td>{{ loop.index }}</td>
-      <td>{{ s.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+      <td>{{ s.created_at|format_tz_co }}</td>
       <td>{{ s.pet.name }}</td>
       <td>{{ s.customer.name }}</td>
   <td>{{ (SERVICE_TYPES_MAP.get(s.service_type) if SERVICE_TYPES_MAP else None) or SERVICE_TYPE_LABELS.get(s.service_type, s.service_type) }}</td>

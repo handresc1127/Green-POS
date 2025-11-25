@@ -96,7 +96,7 @@
                 {% endif %}
               </td>
               <td><small>{{ inv.user.username if inv.user else 'Sistema' }}</small></td>
-              <td><small class="text-muted">{{ inv.created_at.strftime('%I:%M %p') }}</small></td>
+              <td><small class="text-muted">{{ inv.created_at|format_time_co }}</small></td>
             </tr>
             {% endfor %}
           </tbody>

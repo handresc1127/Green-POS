@@ -43,7 +43,7 @@
     {% endif %}
   </div>
   <div class="col-md-3"><strong>Programada:</strong><br>{% if appointment.scheduled_at %}{{ appointment.scheduled_at.strftime('%Y-%m-%d %H:%M') }}{% else %}<span class="text-muted">(No)</span>{% endif %}</div>
-  <div class="col-md-3"><strong>Creada:</strong><br>{{ appointment.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+  <div class="col-md-3"><strong>Creada:</strong><br>{{ appointment.created_at|format_tz_co }}</div>
     </div>
   </div>
 </div>
@@ -217,7 +217,7 @@ function printConsent() {
     var customerDocument = "{{ appointment.customer.document if appointment.customer else '' }}";
     var consentText = {{ appointment.consent_text|tojson|safe }};
     var scheduledDate = "{% if appointment.scheduled_at %}{{ appointment.scheduled_at.strftime('%d/%m/%Y %H:%M') }}{% else %}No programada{% endif %}";
-    var createdDate = "{{ appointment.created_at.strftime('%d/%m/%Y %H:%M') }}";
+    var createdDate = "{{ appointment.created_at|format_tz_co }}";
     var businessName = "{{ setting.business_name }}";
     var logoPath = "{{ url_for('static', filename='uploads/logo.png') }}";
     

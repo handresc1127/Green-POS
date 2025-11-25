@@ -10,7 +10,7 @@
         <p><strong>Usuario:</strong> {{ current_user.username }}</p>
         <p><strong>Rol:</strong> {{ current_user.role }}</p>
         <p><strong>Activo:</strong> {{ 'Sí' if current_user.active else 'No' }}</p>
-        <p><strong>Creado:</strong> {{ current_user.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+        <p><strong>Creado:</strong> {{ current_user.created_at|format_tz_co }}</p>
       </div>
     </div>
   </div>
