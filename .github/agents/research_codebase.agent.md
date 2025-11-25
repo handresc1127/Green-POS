@@ -299,7 +299,10 @@ Contexto Green-POS - Tipos de Documentos:
 - docs/IMPLEMENTACION_*.md - Features completadas
 - docs/MIGRACION_*.md - Migraciones de datos
 - docs/FIX_*.md - Correcciones de bugs
+- docs/FIX_FILENOTFOUNDERROR_MIGRATION_PATHS.md - Fix de path resolution en scripts
 - docs/*_STANDARDIZATION.md - Estandarizaciones
+- docs/research/*.md - Investigaciones de causa raíz
+- docs/research/2025-11-24-causa-raiz-filenotfounderror-migracion-produccion.md - Investigación completa
 - .github/copilot-instructions.md - Guía maestra del proyecto
 - .github/instructions/*.instructions.md - Guías específicas
 

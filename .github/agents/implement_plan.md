@@ -54,6 +54,7 @@ Si no se proporciona ruta de plan, solicítala.
 - **Templates**: Extender layout.html, agregar breadcrumbs
 - **JavaScript**: Vanilla JS, patrón Module (IIFE), NO jQuery
 - **Validación**: Backend SIEMPRE + frontend para UX
+- **Path Resolution en Scripts**: NUNCA usar rutas relativas simples en scripts de migrations/. Siempre usar Path(__file__).parent (ver migrations/TEMPLATE_MIGRATION.py)
 
 ## Filosofía de Implementación
 

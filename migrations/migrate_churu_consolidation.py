@@ -22,6 +22,7 @@ import sqlite3
 from datetime import datetime
 import os
 import sys
+from pathlib import Path
 
 # Configurar encoding UTF-8 para Windows
 if sys.platform == 'win32':
@@ -29,9 +30,10 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# Configuración
-DB_PATH = 'instance/app.db'
-BACKUP_PATH = f'instance/app_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db'
+# Path resolution correcta (independiente del CWD)
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+DB_PATH = PROJECT_ROOT / 'instance' / 'app.db'
 
 # Mapeo de productos antiguos a nuevos
 # Formato: {producto_antiguo_id: nuevo_producto_code}
@@ -101,21 +103,26 @@ def print_section(title):
     print("=" * 80)
 
 def create_backup():
-    """Crea backup de la base de datos."""
+    """Crea backup de la base de datos antes de consolidación."""
     print_section("PASO 0: CREANDO BACKUP")
     
-    if not os.path.exists(DB_PATH):
-        print(f"[ERROR] No se encuentra la base de datos en {DB_PATH}")
-        return False
+    if not DB_PATH.exists():
+        print(f"[ERROR] Base de datos no encontrada: {DB_PATH}")
+        print(f"[INFO] CWD actual: {Path.cwd()}")
+        print(f"[INFO] Script location: {SCRIPT_DIR}")
+        return None
     
     import shutil
     try:
-        shutil.copy2(DB_PATH, BACKUP_PATH)
-        print(f"[OK] Backup creado: {BACKUP_PATH}")
-        return True
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_path = PROJECT_ROOT / 'instance' / f'app_backup_{timestamp}.db'
+        
+        shutil.copy2(DB_PATH, backup_path)
+        print(f"[OK] Backup creado: {backup_path}")
+        return backup_path
     except Exception as e:
         print(f"[ERROR] Error creando backup: {e}")
-        return False
+        return None
 
 def get_or_create_products(conn):
     """Crea los productos nuevos o los actualiza si existen."""
@@ -425,7 +432,8 @@ def main():
         return
     
     # Crear backup
-    if not create_backup():
+    backup_path = create_backup()
+    if not backup_path:
         print("\n[ERROR] Error creando backup. Abortando migración.")
         return
     
@@ -444,13 +452,14 @@ def main():
         
         conn.close()
         
-        print(f"\n[BACKUP] Backup guardado en: {BACKUP_PATH}")
+        print(f"\n[BACKUP] Backup guardado en: {backup_path}")
         print("   (Puedes restaurarlo si algo salió mal)")
         
     except Exception as e:
         print(f"\n[ERROR] ERROR durante la migración: {e}")
-        print(f"\n[PROCESO] Para restaurar el backup:")
-        print(f"   copy {BACKUP_PATH} {DB_PATH}")
+        if 'backup_path' in locals() and backup_path:
+            print(f"\n[PROCESO] Para restaurar el backup:")
+            print(f"   copy \"{backup_path}\" \"{DB_PATH}\"")
         raise
 
 if __name__ == '__main__':

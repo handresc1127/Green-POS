@@ -15,23 +15,28 @@ Nota: Este script puede ejecutarse multiples veces de forma segura.
 
 import sqlite3
 import os
+from pathlib import Path
 from datetime import datetime
+
+# Path resolution correcta (independiente del CWD)
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+DB_PATH = PROJECT_ROOT / 'instance' / 'app.db'
 
 def migrate_add_discount():
     """Agrega la columna discount a la tabla invoice si no existe."""
     
-    # Ruta a la base de datos
-    db_path = os.path.join('instance', 'app.db')
-    
-    if not os.path.exists(db_path):
-        print(f"[ERROR] Error: No se encuentra la base de datos en {db_path}")
+    if not DB_PATH.exists():
+        print(f"[ERROR] Base de datos no encontrada: {DB_PATH}")
+        print(f"[INFO] CWD actual: {Path.cwd()}")
+        print(f"[INFO] Script location: {SCRIPT_DIR}")
         return False
     
-    print(f"[INFO] Conectando a la base de datos: {db_path}")
+    print(f"[INFO] Conectando a la base de datos: {DB_PATH}")
     
     try:
         # Conectar a la base de datos
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         # Verificar si la columna ya existe
@@ -93,10 +98,8 @@ def migrate_add_discount():
 def verify_migration():
     """Verifica que la migracion se haya aplicado correctamente."""
     
-    db_path = os.path.join('instance', 'app.db')
-    
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         # Obtener informacion de la columna discount

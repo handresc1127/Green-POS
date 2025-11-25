@@ -1,7 +1,13 @@
 """Script de verificación del sistema de inventario periódico."""
 
 import sys
+from pathlib import Path
 from app import create_app
+
+# Path resolution correcta (independiente del CWD)
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+DB_PATH = PROJECT_ROOT / 'instance' / 'app.db'
 
 def check_routes():
     """Verifica que las rutas de inventario estén registradas."""
@@ -76,8 +82,13 @@ def check_database():
     
     print("\n[OK] Verificacion de Base de Datos\n")
     
+    if not DB_PATH.exists():
+        print(f"  [ERROR] Base de datos no encontrada: {DB_PATH}")
+        print(f"  [INFO] CWD actual: {Path.cwd()}")
+        return False
+    
     try:
-        conn = sqlite3.connect('instance/app.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         cursor.execute("PRAGMA table_info(product_stock_log)")

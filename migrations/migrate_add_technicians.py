@@ -31,11 +31,13 @@ Fecha: 18 de Noviembre de 2025
 import os
 import sys
 import sqlite3
+from pathlib import Path
 from datetime import datetime
 
-# Configuración
-DB_PATH = os.path.join('instance', 'app.db')
-BACKUP_PATH = os.path.join('instance', f'app_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.db')
+# Path resolution correcta (independiente del CWD)
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+DB_PATH = PROJECT_ROOT / 'instance' / 'app.db'
 
 # Colores para output
 class Colors:
@@ -69,15 +71,21 @@ def backup_database():
     """Crea backup de la base de datos."""
     print_header("PASO 1: Backup de Base de Datos")
     
-    if not os.path.exists(DB_PATH):
+    if not DB_PATH.exists():
         print_error(f"Base de datos no encontrada: {DB_PATH}")
+        print_info(f"CWD actual: {Path.cwd()}")
+        print_info(f"Script location: {SCRIPT_DIR}")
         sys.exit(1)
     
     try:
         import shutil
-        shutil.copy2(DB_PATH, BACKUP_PATH)
-        print_success(f"Backup creado: {BACKUP_PATH}")
-        print_info(f"Tamaño: {os.path.getsize(BACKUP_PATH) / 1024:.2f} KB")
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_path = PROJECT_ROOT / 'instance' / f'app_backup_{timestamp}.db'
+        
+        shutil.copy2(DB_PATH, backup_path)
+        print_success(f"Backup creado: {backup_path}")
+        print_info(f"Tamaño: {backup_path.stat().st_size / 1024:.2f} KB")
+        return backup_path
     except Exception as e:
         print_error(f"Error creando backup: {e}")
         sys.exit(1)
@@ -432,7 +440,7 @@ def main():
     
     try:
         # Paso 1: Backup
-        backup_database()
+        backup_path = backup_database()
         
         # Conectar a la base de datos
         conn = sqlite3.connect(DB_PATH)
@@ -464,14 +472,15 @@ def main():
         print_success("La tabla 'technician' fue creada")
         print_success("El campo 'appointment.technician' ahora es Integer (FK)")
         print_success("Todos los datos legacy fueron migrados")
-        print_info(f"\nBackup disponible en: {BACKUP_PATH}")
+        print_info(f"\nBackup disponible en: {backup_path}")
         print_info("Puedes restaurar desde el backup si algo salió mal\n")
         
     except Exception as e:
         print_header("[ERROR] ERROR EN LA MIGRACION")
         print_error(f"Error: {e}")
-        print_warning(f"\nPuedes restaurar desde el backup: {BACKUP_PATH}")
-        print_warning("Comando: copy /Y instance\\app_backup_*.db instance\\app.db")
+        if 'backup_path' in locals():
+            print_warning(f"\nPuedes restaurar desde el backup: {backup_path}")
+            print_warning(f"Comando: copy /Y \"{backup_path}\" \"{DB_PATH}\"")
         sys.exit(1)
 
 if __name__ == '__main__':

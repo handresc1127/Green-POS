@@ -3,14 +3,25 @@ import sqlite3
 from datetime import datetime
 import sys
 import io
+from pathlib import Path
 
 # Configurar encoding UTF-8 para Windows
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
+# Path resolution correcta (independiente del CWD)
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+DB_PATH = PROJECT_ROOT / 'instance' / 'app.db'
+
+if not DB_PATH.exists():
+    print(f"[ERROR] Base de datos no encontrada: {DB_PATH}")
+    print(f"[INFO] CWD actual: {Path.cwd()}")
+    sys.exit(1)
+
 # Conectar a la base de datos
-conn = sqlite3.connect('instance/app.db')
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 print("\n" + "="*100)

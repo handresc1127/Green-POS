@@ -998,6 +998,27 @@ last_updated_by: [Author name]
 - Usar transacciones con try-except y rollback
 - Timeout de 30 segundos para locks SQLite
 
+### Para Scripts de Migración:
+- **NUNCA** usar rutas relativas simples (`open('archivo.sql')`)
+- **SIEMPRE** usar `Path(__file__).parent` para path resolution
+- Seguir template estándar: `migrations/TEMPLATE_MIGRATION.py`
+- Documentar paths correctamente en planes
+
+**Patrón obligatorio**:
+```python
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+db_path = PROJECT_ROOT / 'instance' / 'app.db'
+sql_file = SCRIPT_DIR / 'migration.sql'
+```
+
+**Referencias**:
+- Template: `migrations/TEMPLATE_MIGRATION.py`
+- Fix documentado: `docs/FIX_FILENOTFOUNDERROR_MIGRATION_PATHS.md`
+- Investigación: `docs/research/2025-11-24-causa-raiz-filenotfounderror-migracion-produccion.md`
+
 ### Para Autenticación/Autorización:
 - Seguir patrones de seguridad existentes
 - Usar Flask-Login con @login_required

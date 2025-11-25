@@ -155,6 +155,72 @@ Este proyecto utiliza **tres agents ejecutables en Copilot Agent Mode** para des
    - Funciones de logging y print statements
    - Mensajes de error/éxito en consola
 
+### Scripts de Migración (migrations/)
+
+**CRÍTICO - Patrón de Resolución de Paths:**
+
+1. **NUNCA usar rutas relativas simples**:
+   ```python
+   # ❌ INCORRECTO: Depende del CWD (Current Working Directory)
+   open('archivo.sql')
+   sqlite3.connect('instance/app.db')
+   db_path = os.path.join('instance', 'app.db')
+   
+   # ✅ CORRECTO: Ruta relativa al script (funciona desde cualquier CWD)
+   from pathlib import Path
+   
+   SCRIPT_DIR = Path(__file__).parent
+   PROJECT_ROOT = SCRIPT_DIR.parent
+   
+   sql_file = SCRIPT_DIR / 'archivo.sql'
+   db_path = PROJECT_ROOT / 'instance' / 'app.db'
+   ```
+
+2. **Usar template estándar**:
+   - Base: `migrations/TEMPLATE_MIGRATION.py`
+   - Copiar template y personalizar para nueva migración
+   - Incluye: Path resolution, backup automático, fallback SQL, verificación
+   - Logging con prefijos [OK], [ERROR], [WARN], [INFO]
+
+3. **Verificar desde diferentes directorios**:
+   ```powershell
+   # SIEMPRE probar desde raíz del proyecto (caso común en producción)
+   python migrations/migration_nombre.py
+   
+   # También probar desde directorio migrations/
+   cd migrations && python migration_nombre.py
+   
+   # Verificar con ruta absoluta
+   python D:\ruta\completa\migrations\migration_nombre.py
+   ```
+   **Resultado esperado**: Script funciona en todos los casos sin FileNotFoundError
+
+4. **Archivos afectados**:
+   - Scripts de migración (`migrate_*.py`, `migration_*.py`)
+   - Scripts de verificación (`verify_*.py`)
+   - Scripts de consulta (`query_*.py`)
+   - Cualquier script standalone en `migrations/`
+
+5. **Por qué es importante**:
+   - Python resuelve `open('archivo')` relativo al CWD, NO a la ubicación del script
+   - En producción, scripts se ejecutan desde raíz: `python migrations/script.py`
+   - Sin `Path(__file__).parent`, script busca en raíz en lugar de `migrations/`
+   - Resultado: `FileNotFoundError` aunque archivo exista
+
+6. **Ejemplo del problema**:
+   ```
+   Green-POS/                          <-- CWD al ejecutar: python migrations/script.py
+   ├── migrations/
+   │   ├── script.py                   <-- Script ejecutado
+   │   └── archivo.sql                 <-- Archivo real AQUÍ
+   └── archivo.sql                     <-- Python busca AQUÍ (no existe) ❌
+   ```
+
+7. **Fix aplicado**:
+   - Commit `2d412fc`: Fix en `migration_add_inventory_flag.py`
+   - Investigación completa: `docs/research/2025-11-24-causa-raiz-filenotfounderror-migracion-produccion.md`
+   - Documento dedicado: `docs/FIX_FILENOTFOUNDERROR_MIGRATION_PATHS.md`
+
 ### Restricciones de Flask
 
 1. **Single-threaded por defecto**:
