@@ -14,23 +14,34 @@ def run_migration():
         print("[ERROR] Base de datos no encontrada en instance/app.db")
         return False
     
-    # Leer script SQL
-    with open('migration_add_inventory_flag.sql', 'r', encoding='utf-8') as f:
-        sql_script = f.read()
+    # Leer script SQL (ruta relativa al archivo de migracion)
+    sql_file = Path(__file__).parent / 'migration_add_inventory_flag.sql'
+    sql_script = None
+    if sql_file.exists():
+        with open(sql_file, 'r', encoding='utf-8') as f:
+            sql_script = f.read()
+    else:
+        # No se encontró el archivo en el mismo directorio que el script.
+        # Esto evita el FileNotFoundError cuando la migración se ejecuta
+        # desde el directorio raíz del proyecto.
+        print(f"[WARN] No se encontró {sql_file}. Se usará el fallback de sentencias SQL en el script.")
     
     # Ejecutar migración
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        # Ejecutar solo los ALTER TABLE y CREATE INDEX
-        statements = [
-            "ALTER TABLE product_stock_log ADD COLUMN is_inventory BOOLEAN DEFAULT 0",
-            "CREATE INDEX IF NOT EXISTS idx_stock_log_inventory ON product_stock_log(is_inventory, created_at)"
-        ]
-        
-        for statement in statements:
-            cursor.execute(statement)
+        # Si se leyó un script SQL, ejecutarlo todo en bloque (transaction)
+        if sql_script:
+            conn.executescript(sql_script)
+        else:
+            # Ejecutar solo los ALTER TABLE y CREATE INDEX como fallback
+            statements = [
+                "ALTER TABLE product_stock_log ADD COLUMN is_inventory BOOLEAN DEFAULT 0",
+                "CREATE INDEX IF NOT EXISTS idx_stock_log_inventory ON product_stock_log(is_inventory, created_at)"
+            ]
+            for statement in statements:
+                cursor.execute(statement)
         
         conn.commit()
         
