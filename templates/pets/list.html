@@ -31,59 +31,176 @@
     {% endif %}
   </div>
 </div>
-<table class="table table-striped">
-  <thead>
-    <tr>
-      <th>#</th><th>Nombre</th><th>Cliente</th><th>Especie</th><th>Raza</th><th>Nacimiento / Edad</th><th>Peso</th><th></th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for p in pets %}
+<div class="table-responsive">
+  <table class="table table-striped table-hover">
+    <thead>
       <tr>
-        <td>{{ loop.index }}</td>
-        <td>{{ p.name }}</td>
-        <td>{{ p.customer.name }}</td>
-        <td>{{ p.species }}</td>
-        <td>{{ p.breed or '' }}</td>
-        <td>
-          {% if p.birth_date %}
-            {{ p.birth_date.strftime('%d/%m/%Y') }}<br>
-            <small class="text-muted">{{ p.computed_age }} año{% if p.computed_age != 1 %}s{% endif %}</small>
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </td>
-        <td>{{ p.weight_kg or '' }}</td>
-        <td class="text-end">
-          <a href="{{ url_for('pets.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
-          {% if current_user.role == 'admin' %}
-          <form action="{{ url_for('pets.delete', id=p.id) }}" method="post" class="d-inline" onsubmit="return confirm('Eliminar mascota?')">
-            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-          </form>
-          {% endif %}
-        </td>
+        <th>#</th>
+        <th>
+          <a href="{{ url_for('pets.list', 
+                             customer_id=customer_id,
+                             sort_by='name', 
+                             sort_order='desc' if sort_by == 'name' and sort_order == 'asc' else 'asc') }}" 
+             class="text-decoration-none text-dark">
+            Nombre
+            {% if sort_by == 'name' %}
+              <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="{{ url_for('pets.list', 
+                             customer_id=customer_id,
+                             sort_by='customer', 
+                             sort_order='desc' if sort_by == 'customer' and sort_order == 'asc' else 'asc') }}" 
+             class="text-decoration-none text-dark">
+            Cliente
+            {% if sort_by == 'customer' %}
+              <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="{{ url_for('pets.list', 
+                             customer_id=customer_id,
+                             sort_by='species', 
+                             sort_order='desc' if sort_by == 'species' and sort_order == 'asc' else 'asc') }}" 
+             class="text-decoration-none text-dark">
+            Especie
+            {% if sort_by == 'species' %}
+              <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="{{ url_for('pets.list', 
+                             customer_id=customer_id,
+                             sort_by='breed', 
+                             sort_order='desc' if sort_by == 'breed' and sort_order == 'asc' else 'asc') }}" 
+             class="text-decoration-none text-dark">
+            Raza
+            {% if sort_by == 'breed' %}
+              <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th>Nacimiento / Edad</th>
+        <th>Peso</th>
+        <th>
+          <a href="{{ url_for('pets.list', 
+                             customer_id=customer_id,
+                             sort_by='last_price', 
+                             sort_order='desc' if sort_by == 'last_price' and sort_order == 'asc' else 'asc') }}" 
+             class="text-decoration-none text-dark">
+            Último Precio
+            {% if sort_by == 'last_price' %}
+              <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="{{ url_for('pets.list', 
+                             customer_id=customer_id,
+                             sort_by='avg_price', 
+                             sort_order='desc' if sort_by == 'avg_price' and sort_order == 'asc' else 'asc') }}" 
+             class="text-decoration-none text-dark">
+            Promedio
+            {% if sort_by == 'avg_price' %}
+              <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+            {% endif %}
+          </a>
+        </th>
+        <th></th>
       </tr>
-    {% endfor %}
-    {% if pets|length == 0 %}
-      <tr><td colspan="8" class="text-center text-muted">Sin mascotas</td></tr>
-    {% endif %}
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      {% for p in pets %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ p.name }}</td>
+          <td>{{ p.customer.name }}</td>
+          <td>{{ p.species }}</td>
+          <td>{{ p.breed or '' }}</td>
+          <td>
+            {% if p.birth_date %}
+              {{ p.birth_date.strftime('%d/%m/%Y') }}<br>
+              <small class="text-muted">{{ p.computed_age }} año{% if p.computed_age != 1 %}s{% endif %}</small>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>{{ p.weight_kg or '' }}</td>
+          <td>
+            {% if p.last_price and p.last_price > 0 %}
+              <span class="badge bg-success">{{ p.last_price|currency_co }}</span>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if p.avg_price and p.avg_price > 0 %}
+              <span class="badge bg-info">{{ p.avg_price|currency_co }}</span>
+              <br><small class="text-muted">({{ p.service_count }} servicio{% if p.service_count != 1 %}s{% endif %})</small>
+            {% else %}
+              <span class="text-muted">Sin historial</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('pets.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+            {% if current_user.role == 'admin' %}
+            <form action="{{ url_for('pets.delete', id=p.id) }}" method="post" class="d-inline" onsubmit="return confirm('Eliminar mascota?')">
+              <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      {% if pets|length == 0 %}
+        <tr><td colspan="10" class="text-center text-muted">Sin mascotas</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
 {% include 'partials/customer_modal.html' %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
   function go(customerId){
+    const sortBy = "{{ sort_by }}";
+    const sortOrder = "{{ sort_order }}";
     const base = "{{ url_for('pets.list') }}";
-    const url = customerId ? base + '?customer_id=' + encodeURIComponent(customerId) : base;
+    
+    let url = base;
+    const params = [];
+    
+    if (customerId) {
+      params.push('customer_id=' + encodeURIComponent(customerId));
+    }
+    
+    if (sortBy) {
+      params.push('sort_by=' + encodeURIComponent(sortBy));
+    }
+    
+    if (sortOrder) {
+      params.push('sort_order=' + encodeURIComponent(sortOrder));
+    }
+    
+    if (params.length > 0) {
+      url += '?' + params.join('&');
+    }
+    
     window.location.href = url;
   }
+  
   window.addEventListener('customer:selected', e => {
-    const {id} = e.detail; // sólo redirigir; la vista volverá renderizada fija desde servidor
+    const {id} = e.detail;
     go(id);
   });
+  
   const clearBtn = document.getElementById('clearCustomerFilter');
-  if(clearBtn){ clearBtn.addEventListener('click', ()=> go(null)); }
+  if(clearBtn){ 
+    clearBtn.addEventListener('click', () => go(null)); 
+  }
 </script>
 {% endblock %}

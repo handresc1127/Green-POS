@@ -3,8 +3,9 @@
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
+from sqlalchemy import func, or_
 from extensions import db
-from models.models import Pet, Customer
+from models.models import Pet, Customer, PetService
 from utils.decorators import role_required
 
 pets_bp = Blueprint('pets', __name__, url_prefix='/pets')
@@ -12,8 +13,11 @@ pets_bp = Blueprint('pets', __name__, url_prefix='/pets')
 @pets_bp.route('/')
 @login_required
 def list():
-    """Lista mascotas con filtro opcional por cliente."""
+    """Lista mascotas con filtro opcional por cliente, ordenamiento y precios de grooming."""
     customer_id_raw = request.args.get('customer_id')
+    sort_by = request.args.get('sort_by', 'name')
+    sort_order = request.args.get('sort_order', 'asc')
+    
     selected_customer = None
     if customer_id_raw is not None and customer_id_raw != '':
         try:
@@ -25,19 +29,117 @@ def list():
         except ValueError:
             flash('Identificador de cliente inválido', 'warning')
             return redirect(url_for('pets.list'))
-        pets_query = Pet.query.filter_by(customer_id=selected_customer.id)
-    else:
-        pets_query = Pet.query
     
-    pets = pets_query.order_by(Pet.created_at.desc()).all()
+    # Subquery para último precio (alternativa simple sin row_number para compatibilidad SQLite)
+    last_price_subquery = db.session.query(
+        PetService.pet_id,
+        func.max(PetService.created_at).label('max_created_at')
+    ).filter(
+        PetService.status == 'done',
+        PetService.price > 0
+    ).group_by(PetService.pet_id).subquery()
+    
+    last_service_subquery = db.session.query(
+        PetService.pet_id,
+        PetService.price.label('last_price')
+    ).join(
+        last_price_subquery,
+        (PetService.pet_id == last_price_subquery.c.pet_id) &
+        (PetService.created_at == last_price_subquery.c.max_created_at)
+    ).filter(
+        PetService.status == 'done',
+        PetService.price > 0
+    ).subquery()
+    
+    # Subquery para promedio de precios
+    avg_price_subquery = db.session.query(
+        PetService.pet_id,
+        func.avg(PetService.price).label('avg_price'),
+        func.count(PetService.id).label('service_count')
+    ).filter(
+        PetService.status == 'done',
+        PetService.price > 0
+    ).group_by(PetService.pet_id).subquery()
+    
+    # Query principal con joins
+    base_query = db.session.query(
+        Pet,
+        func.coalesce(last_service_subquery.c.last_price, 0).label('last_price'),
+        func.coalesce(avg_price_subquery.c.avg_price, 0).label('avg_price'),
+        func.coalesce(avg_price_subquery.c.service_count, 0).label('service_count')
+    ).outerjoin(
+        last_service_subquery, Pet.id == last_service_subquery.c.pet_id
+    ).outerjoin(
+        avg_price_subquery, Pet.id == avg_price_subquery.c.pet_id
+    )
+    
+    # Aplicar filtro por cliente si existe
+    if selected_customer:
+        base_query = base_query.filter(Pet.customer_id == selected_customer.id)
+    
+    # Whitelist de columnas ordenables
+    sort_columns = {
+        'name': Pet.name,
+        'species': Pet.species,
+        'breed': Pet.breed,
+        'customer': Customer.name,
+        'last_price': 'last_price',
+        'avg_price': 'avg_price'
+    }
+    
+    # Aplicar ordenamiento
+    if sort_by in sort_columns:
+        if sort_by == 'customer':
+            # Join con Customer para ordenar por nombre de cliente
+            base_query = base_query.join(Customer, Pet.customer_id == Customer.id)
+            if sort_order == 'desc':
+                base_query = base_query.order_by(Customer.name.desc())
+            else:
+                base_query = base_query.order_by(Customer.name.asc())
+        elif sort_by in ['last_price', 'avg_price']:
+            # Ordenar por columnas calculadas
+            if sort_by == 'last_price':
+                if sort_order == 'desc':
+                    base_query = base_query.order_by(func.coalesce(last_service_subquery.c.last_price, 0).desc())
+                else:
+                    base_query = base_query.order_by(func.coalesce(last_service_subquery.c.last_price, 0).asc())
+            else:  # avg_price
+                if sort_order == 'desc':
+                    base_query = base_query.order_by(func.coalesce(avg_price_subquery.c.avg_price, 0).desc())
+                else:
+                    base_query = base_query.order_by(func.coalesce(avg_price_subquery.c.avg_price, 0).asc())
+        else:
+            # Ordenar por columnas del modelo Pet
+            order_column = sort_columns[sort_by]
+            if sort_order == 'desc':
+                base_query = base_query.order_by(order_column.desc())
+            else:
+                base_query = base_query.order_by(order_column.asc())
+    else:
+        # Ordenamiento por defecto
+        base_query = base_query.order_by(Pet.created_at.desc())
+    
+    # Ejecutar query
+    results = base_query.all()
+    
+    # Transformar resultados: agregar atributos calculados dinámicamente
+    pets_with_prices = []
+    for pet, last_price, avg_price, service_count in results:
+        pet.last_price = last_price
+        pet.avg_price = avg_price
+        pet.service_count = service_count
+        pets_with_prices.append(pet)
+    
     customers = Customer.query.order_by(Customer.name).all()
     
     return render_template(
         'pets/list.html',
-        pets=pets,
+        pets=pets_with_prices,
         customers=customers,
         customer_id=customer_id_raw,
-        selected_customer=selected_customer
+        selected_customer=selected_customer,
+        sort_by=sort_by,
+        sort_order=sort_order
     )
 
 @pets_bp.route('/new', methods=['GET','POST'])
