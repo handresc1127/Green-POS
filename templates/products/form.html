@@ -56,7 +56,12 @@
                     <label for="stock" class="form-label">Existencias</label>
                     <input type="number" id="stock" name="stock" class="form-control" min="0" 
                            value="{{ product.stock if product else 0 }}"
-                           {% if product %}onchange="toggleStockReason()"{% endif %}>
+                           {% if product %}onchange="toggleStockReason()"{% else %}readonly{% endif %}>
+                    {% if not product %}
+                    <small class="form-text text-muted">
+                        <i class="bi bi-info-circle"></i> Los productos nuevos se crean con stock 0. Podrás modificarlo después de crearlo.
+                    </small>
+                    {% endif %}
                 </div>
                 
                 <div class="col-md-8 mb-3">
