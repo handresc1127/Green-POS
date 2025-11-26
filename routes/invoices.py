@@ -151,8 +151,12 @@ def new():
     # Extraer solo los objetos Product de la tupla (Product, sales_count)
     products = [item[0] for item in top_products]
     
+    # Feature flag para habilitar precarga de índice de códigos
+    enable_code_index_preload = True  # Feature flag para A/B testing
+    
     setting = Setting.get()
-    return render_template('invoices/form.html', customers=customers, products=products, setting=setting)
+    return render_template('invoices/form.html', customers=customers, products=products, 
+                         setting=setting, enable_code_index_preload=enable_code_index_preload)
 
 
 @invoices_bp.route('/<int:id>')

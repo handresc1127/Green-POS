@@ -237,6 +237,42 @@
 
 {% block extra_js %}
 <script>
+    // Variables globales para índice de códigos
+    let productCodeIndex = null;  // Se carga al abrir modal
+    let isIndexLoaded = false;
+    let isIndexLoading = false;
+    let isSearching = false;  // Flag de búsqueda en progreso
+    
+    {% if enable_code_index_preload %}
+    /**
+     * Carga el índice de códigos desde API.
+     * Se ejecuta al abrir modal por primera vez.
+     */
+    async function loadProductCodeIndex() {
+        if (isIndexLoaded || isIndexLoading) {
+            return;  // Ya cargado o en progreso
+        }
+        
+        isIndexLoading = true;
+        
+        try {
+            const response = await fetch('/api/products/code-index');
+            if (!response.ok) {
+                throw new Error('Error cargando indice');
+            }
+            
+            productCodeIndex = await response.json();
+            isIndexLoaded = true;
+            console.log(`[INFO] Indice de codigos cargado: ${Object.keys(productCodeIndex).length} codigos`);
+        } catch (error) {
+            console.error('[ERROR] No se pudo cargar indice de codigos:', error);
+            productCodeIndex = null;  // Fallback a búsqueda AJAX
+        } finally {
+            isIndexLoading = false;
+        }
+    }
+    {% endif %}
+    
     document.addEventListener('DOMContentLoaded', function() {
         const itemsContainer = document.getElementById('itemsContainer');
         const noItemsMessage = document.getElementById('noItemsMessage');
@@ -368,16 +404,53 @@
                 productSearch.focus();
                 productSearch.select();
             }
+            {% if enable_code_index_preload %}
+            // Cargar índice en background al abrir modal
+            loadProductCodeIndex();
+            {% endif %}
         });
+        
+        // Función helper para selección de primer producto
+        function selectFirstProduct() {
+            const firstVisibleRow = Array.from(document.querySelectorAll('#productsList tr'))
+                .find(r => r.style.display !== 'none');
+            if (firstVisibleRow) {
+                const btn = firstVisibleRow.querySelector('.select-product-btn');
+                if (btn) {
+                    btn.click();
+                    console.log('[OK] Producto seleccionado automaticamente');
+                }
+            }
+        }
+        
         productSearch.addEventListener('keydown', function(e){
             if (e.key === 'Enter') {
                 e.preventDefault();
-                const firstVisibleRow = Array.from(document.querySelectorAll('#productsList tr'))
-                    .find(r => r.style.display !== 'none');
-                if (firstVisibleRow) {
-                    const btn = firstVisibleRow.querySelector('.select-product-btn');
-                    if (btn) btn.click();
+                
+                // Esperar a que termine búsqueda antes de seleccionar
+                if (isSearching) {
+                    console.log('[INFO] Esperando a que termine busqueda...');
+                    
+                    const checkInterval = setInterval(() => {
+                        if (!isSearching) {
+                            clearInterval(checkInterval);
+                            selectFirstProduct();
+                        }
+                    }, 50);  // Polling cada 50ms
+                    
+                    // Timeout de seguridad: 2 segundos max
+                    setTimeout(() => {
+                        if (isSearching) {
+                            clearInterval(checkInterval);
+                            console.log('[WARNING] Timeout esperando busqueda, seleccionando disponible');
+                            selectFirstProduct();
+                        }
+                    }, 2000);
+                    
+                    return;
                 }
+                
+                selectFirstProduct();
             }
         });
         productSearch.addEventListener('input', function() {
@@ -390,6 +463,48 @@
             return function executedFunction(...args) {
                 clearTimeout(timeout);
                 timeout = setTimeout(() => func(...args), wait);
+            };
+        }
+        
+        /**
+         * Determina el debounce óptimo según el patrón de búsqueda.
+         * 
+         * Códigos de barras típicos: 8-13 dígitos consecutivos
+         * Usuario escribiendo: cambios frecuentes, texto mixto
+         * 
+         * @param {string} searchTerm - Término de búsqueda
+         * @returns {number} Tiempo de debounce en ms (100 o 300)
+         */
+        function getOptimalDebounce(searchTerm) {
+            // Detectar patrón de código de barras: 8+ dígitos consecutivos
+            const isLikelyBarcode = /^\d{8,}$/.test(searchTerm);
+            
+            if (isLikelyBarcode) {
+                return 100;  // Debounce agresivo para código de barras
+            } else {
+                return 300;  // Debounce normal para búsqueda manual
+            }
+        }
+        
+        /**
+         * Debounce con tiempo dinámico calculado en cada llamada.
+         * 
+         * @param {Function} func - Función a ejecutar
+         * @param {Function} getWaitTime - Función que calcula el tiempo de espera
+         * @returns {Function} Función debounced
+         */
+        function debounceAdaptive(func, getWaitTime) {
+            let timeout;
+            
+            return function executedFunction(...args) {
+                const context = this;
+                
+                clearTimeout(timeout);
+                
+                // Calcular tiempo de espera dinámicamente
+                const waitTime = getWaitTime(args[0]);  // args[0] = searchTerm
+                
+                timeout = setTimeout(() => func.apply(context, args), waitTime);
             };
         }
         
@@ -491,16 +606,88 @@
             updateTotals();
         }
         
+        {% if enable_code_index_preload %}
+        /**
+         * Busca código en índice local precargado.
+         * 
+         * @param {string} searchTerm - Código a buscar (exacto)
+         * @returns {number|null} product_id si se encuentra, null si no
+         */
+        function searchInCodeIndex(searchTerm) {
+            if (!isIndexLoaded || !productCodeIndex) {
+                return null;  // Índice no disponible
+            }
+            
+            // Búsqueda exacta (case-sensitive) en índice
+            const productId = productCodeIndex[searchTerm];
+            
+            if (productId !== undefined) {
+                console.log(`[OK] Codigo ${searchTerm} encontrado en indice local: product_id=${productId}`);
+                return productId;
+            }
+            
+            return null;  // No encontrado en índice
+        }
+        
+        /**
+         * Carga datos completos de un producto específico por ID.
+         * 
+         * @param {number} productId - ID del producto
+         * @returns {Promise<Object>} Datos del producto
+         */
+        async function fetchProductById(productId) {
+            const response = await fetch(`/api/products/${productId}`);
+            if (!response.ok) {
+                throw new Error(`Producto ${productId} no encontrado`);
+            }
+            return response.json();
+        }
+        {% endif %}
+        
         // Búsqueda AJAX con códigos alternativos
-        const searchProducts = debounce(function(searchTerm) {
+        const searchProducts = debounceAdaptive(async function(searchTerm) {
             if (searchTerm.length < 2) {
                 // Mostrar productos precargados si búsqueda muy corta
                 searchProductsLocal(searchTerm);
                 document.getElementById('searchSpinner').style.display = 'none';
+                isSearching = false;
                 return;
             }
             
-            // Mostrar spinner
+            isSearching = true;  // Marcar inicio de búsqueda
+            
+            {% if enable_code_index_preload %}
+            // Intentar búsqueda en índice local primero
+            const productId = searchInCodeIndex(searchTerm);
+            
+            if (productId !== null) {
+                // Código encontrado en índice → cargar datos del producto específico
+                const spinner = document.getElementById('searchSpinner');
+                const tableWrapper = document.getElementById('productModalTableWrapper');
+                
+                spinner.style.display = 'block';
+                tableWrapper.style.display = 'none';
+                
+                try {
+                    const product = await fetchProductById(productId);
+                    
+                    // Mostrar solo el producto encontrado
+                    updateProductsTable([product]);
+                    
+                    spinner.style.display = 'none';
+                    tableWrapper.style.display = 'block';
+                    
+                    console.log(`[OK] Producto cargado via indice: ${product.name}`);
+                    isSearching = false;  // Marcar fin de búsqueda exitosa
+                    return;  // Búsqueda exitosa con índice
+                } catch (error) {
+                    console.error('[ERROR] Error cargando producto por ID:', error);
+                    // Continuar con búsqueda AJAX completa como fallback
+                }
+            }
+            {% endif %}
+            
+            // AJAX completo (búsqueda por nombre o código no en índice)
             const spinner = document.getElementById('searchSpinner');
             const tableWrapper = document.getElementById('productModalTableWrapper');
             spinner.style.display = 'block';
@@ -518,6 +705,7 @@
                     updateProductsTable(products);
                     spinner.style.display = 'none';
                     tableWrapper.style.display = 'block';
+                    isSearching = false;  // Marcar fin de búsqueda
                 })
                 .catch(error => {
                     console.error('Error buscando productos:', error);
@@ -525,8 +713,9 @@
                     searchProductsLocal(searchTerm);
                     spinner.style.display = 'none';
                     tableWrapper.style.display = 'block';
+                    isSearching = false;  // Marcar fin incluso en error
                 });
-        }, 300); // Debounce de 300ms
+        }, getOptimalDebounce); // Debounce adaptativo (100ms para códigos, 300ms para búsqueda manual)
         
         // Bind inicial de productos precargados
         const selectProductBtns = document.querySelectorAll('.select-product-btn');
