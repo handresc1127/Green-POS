@@ -5,6 +5,7 @@ Blueprint para login, logout y perfil de usuario.
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
+from sqlalchemy import func
 
 from extensions import db
 from models.models import User
@@ -17,9 +18,10 @@ auth_bp = Blueprint('auth', __name__)
 def login():
     """Inicio de sesión."""
     if request.method == 'POST':
-        username = request.form.get('username')
+        username = request.form.get('username', '').strip()
         password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
+        # Búsqueda case-insensitive del usuario
+        user = User.query.filter(func.lower(User.username) == func.lower(username)).first()
         
         if user and user.check_password(password):
             login_user(user)
