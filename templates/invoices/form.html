@@ -263,9 +263,8 @@
             
             productCodeIndex = await response.json();
             isIndexLoaded = true;
-            console.log(`[INFO] Indice de codigos cargado: ${Object.keys(productCodeIndex).length} codigos`);
         } catch (error) {
-            console.error('[ERROR] No se pudo cargar indice de codigos:', error);
+            console.error('Error cargando indice de codigos:', error);
             productCodeIndex = null;  // Fallback a búsqueda AJAX
         } finally {
             isIndexLoading = false;
@@ -390,14 +389,29 @@
             itemsContainer.appendChild(tr);
         }
         const productSearch = document.getElementById('productSearch');
+        
+        // Guardar HTML original de productos precargados para restaurar
+        const originalProductsHTML = document.getElementById('productsList').innerHTML;
+        
+        // Función para restaurar productos originales
+        function restoreOriginalProducts() {
+            const tbody = document.getElementById('productsList');
+            tbody.innerHTML = originalProductsHTML;
+            
+            // Re-bind event listeners a los botones restaurados
+            tbody.querySelectorAll('.select-product-btn').forEach(btn => {
+                btn.addEventListener('click', selectProductHandler);
+            });
+        }
+        
         addItemBtn.addEventListener('click', function() {
             productSearch.value = '';
-            document.querySelectorAll('#productsList tr').forEach(row => row.style.display = '');
+            restoreOriginalProducts();
             productModal.show();
         });
         productModalElement.addEventListener('show.bs.modal', () => {
             productSearch.value = '';
-            document.querySelectorAll('#productsList tr').forEach(row => row.style.display = '');
+            restoreOriginalProducts();
         });
         productModalElement.addEventListener('shown.bs.modal', () => {
             if (productSearch) {
@@ -410,50 +424,114 @@
             {% endif %}
         });
         
+        productModalElement.addEventListener('hidden.bs.modal', () => {
+            // Resetear flag de búsqueda al cerrar modal
+            isSearching = false;
+        });
+        
         // Función helper para selección de primer producto
         function selectFirstProduct() {
-            const firstVisibleRow = Array.from(document.querySelectorAll('#productsList tr'))
-                .find(r => r.style.display !== 'none');
+            const allRows = document.querySelectorAll('#productsList tr');
+            const visibleRows = Array.from(allRows).filter(r => r.style.display !== 'none');
+            
+            const firstVisibleRow = visibleRows[0];
             if (firstVisibleRow) {
                 const btn = firstVisibleRow.querySelector('.select-product-btn');
                 if (btn) {
                     btn.click();
-                    console.log('[OK] Producto seleccionado automaticamente');
                 }
             }
         }
         
+        // Variable para rastrear el último término buscado y evitar selección incorrecta
+        let lastSearchTerm = '';
+        let pendingSearchTerm = null;  // Término pendiente de búsqueda
+        
         productSearch.addEventListener('keydown', function(e){
             if (e.key === 'Enter') {
                 e.preventDefault();
+                const currentSearchTerm = this.value.trim();
                 
-                // Esperar a que termine búsqueda antes de seleccionar
-                if (isSearching) {
-                    console.log('[INFO] Esperando a que termine busqueda...');
+                // Si hay una búsqueda en progreso O el término actual no coincide con lo buscado
+                if (isSearching || (pendingSearchTerm && pendingSearchTerm !== lastSearchTerm)) {
+                    const targetTerm = currentSearchTerm;
                     
                     const checkInterval = setInterval(() => {
-                        if (!isSearching) {
+                        // Verificar que la búsqueda terminó Y que es del término correcto
+                        if (!isSearching && lastSearchTerm === targetTerm) {
                             clearInterval(checkInterval);
                             selectFirstProduct();
                         }
                     }, 50);  // Polling cada 50ms
                     
-                    // Timeout de seguridad: 2 segundos max
+                    // Timeout de seguridad: 3 segundos max
                     setTimeout(() => {
-                        if (isSearching) {
-                            clearInterval(checkInterval);
-                            console.log('[WARNING] Timeout esperando busqueda, seleccionando disponible');
-                            selectFirstProduct();
+                        clearInterval(checkInterval);
+                        if (isSearching || lastSearchTerm !== targetTerm) {
+                            if (currentSearchTerm.length >= 2) {
+                                forceImmediateSearch(currentSearchTerm);
+                            }
                         }
-                    }, 2000);
+                    }, 3000);
                     
+                    return;
+                }
+                
+                // Verificar que el término buscado coincide con lo que hay en el input
+                if (lastSearchTerm !== currentSearchTerm && currentSearchTerm.length >= 2) {
+                    forceImmediateSearch(currentSearchTerm);
                     return;
                 }
                 
                 selectFirstProduct();
             }
         });
+        
+        // Función para forzar búsqueda inmediata (sin debounce)
+        async function forceImmediateSearch(searchTerm) {
+            isSearching = true;
+            pendingSearchTerm = searchTerm;
+            
+            const spinner = document.getElementById('searchSpinner');
+            const tableWrapper = document.getElementById('productModalTableWrapper');
+            spinner.style.display = 'block';
+            tableWrapper.style.display = 'none';
+            
+            try {
+                {% if enable_code_index_preload %}
+                // Intentar índice local primero
+                const productId = searchInCodeIndex(searchTerm);
+                if (productId !== null) {
+                    const product = await fetchProductById(productId);
+                    updateProductsTable([product]);
+                    lastSearchTerm = searchTerm;
+                    isSearching = false;
+                    spinner.style.display = 'none';
+                    tableWrapper.style.display = 'block';
+                    selectFirstProduct();
+                    return;
+                }
+                {% endif %}
+                
+                // AJAX
+                const response = await fetch(`/api/products/search?q=${encodeURIComponent(searchTerm)}&limit=50`);
+                const products = await response.json();
+                updateProductsTable(products);
+                lastSearchTerm = searchTerm;
+                isSearching = false;
+                spinner.style.display = 'none';
+                tableWrapper.style.display = 'block';
+                selectFirstProduct();
+            } catch (error) {
+                console.error('Error en busqueda:', error);
+                isSearching = false;
+                spinner.style.display = 'none';
+                tableWrapper.style.display = 'block';
+            }
+        }
+        
         productSearch.addEventListener('input', function() {
+            pendingSearchTerm = this.value.trim();  // Marcar término pendiente
             searchProducts(this.value);
         });
         
@@ -545,7 +623,7 @@
                 return;
             }
             
-            products.forEach(product => {
+            products.forEach((product) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${product.code}</td>
@@ -585,23 +663,29 @@
             
             if (existingItem) {
                 existingItem.quantity++;
+                
                 const row = itemsContainer.querySelector(`tr[data-id="${productId}"]`);
-                const quantityInput = row.querySelector('.item-quantity');
-                quantityInput.value = existingItem.quantity;
-                const subtotal = existingItem.quantity * existingItem.price;
-                row.querySelector('.item-subtotal').textContent = formatCo(subtotal);
+                if (row) {
+                    const quantityInput = row.querySelector('.item-quantity');
+                    quantityInput.value = existingItem.quantity;
+                    const subtotal = existingItem.quantity * existingItem.price;
+                    row.querySelector('.item-subtotal').textContent = formatCo(subtotal);
+                }
             } else {
+                const sanitizedPrice = sanitizeInt(productPrice);
+                
                 const newItem = {
                     product_id: productId,
                     name: productName,
                     quantity: 1,
-                    price: sanitizeInt(productPrice),
+                    price: sanitizedPrice,
                     stock: productStock
                 };
                 
                 items.push(newItem);
                 addItemToTable(newItem);
             }
+            
             productModal.hide();
             updateTotals();
         }
@@ -622,7 +706,6 @@
             const productId = productCodeIndex[searchTerm];
             
             if (productId !== undefined) {
-                console.log(`[OK] Codigo ${searchTerm} encontrado en indice local: product_id=${productId}`);
                 return productId;
             }
             
@@ -651,10 +734,11 @@
                 searchProductsLocal(searchTerm);
                 document.getElementById('searchSpinner').style.display = 'none';
                 isSearching = false;
+                lastSearchTerm = searchTerm;
                 return;
             }
             
-            isSearching = true;  // Marcar inicio de búsqueda
+            isSearching = true;
             
             {% if enable_code_index_preload %}
             // Intentar búsqueda en índice local primero
@@ -677,11 +761,11 @@
                     spinner.style.display = 'none';
                     tableWrapper.style.display = 'block';
                     
-                    console.log(`[OK] Producto cargado via indice: ${product.name}`);
-                    isSearching = false;  // Marcar fin de búsqueda exitosa
+                    lastSearchTerm = searchTerm;
+                    isSearching = false;
                     return;  // Búsqueda exitosa con índice
                 } catch (error) {
-                    console.error('[ERROR] Error cargando producto por ID:', error);
+                    console.error('Error cargando producto por ID:', error);
                     // Continuar con búsqueda AJAX completa como fallback
                 }
             }
@@ -693,8 +777,13 @@
             spinner.style.display = 'block';
             tableWrapper.style.display = 'none';
             
+            const apiUrl = `/api/products/search?q=${encodeURIComponent(searchTerm)}&limit=50`;
+            
+            // Guardar término para comparar después
+            const currentTerm = searchTerm;
+            
             // Llamar API con soporte multi-código
-            fetch(`/api/products/search?q=${encodeURIComponent(searchTerm)}&limit=50`)
+            fetch(apiUrl)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Error en búsqueda');
@@ -705,7 +794,8 @@
                     updateProductsTable(products);
                     spinner.style.display = 'none';
                     tableWrapper.style.display = 'block';
-                    isSearching = false;  // Marcar fin de búsqueda
+                    lastSearchTerm = currentTerm;
+                    isSearching = false;
                 })
                 .catch(error => {
                     console.error('Error buscando productos:', error);
@@ -713,9 +803,10 @@
                     searchProductsLocal(searchTerm);
                     spinner.style.display = 'none';
                     tableWrapper.style.display = 'block';
-                    isSearching = false;  // Marcar fin incluso en error
+                    lastSearchTerm = currentTerm;
+                    isSearching = false;
                 });
-        }, getOptimalDebounce); // Debounce adaptativo (100ms para códigos, 300ms para búsqueda manual)
+        }, getOptimalDebounce);
         
         // Bind inicial de productos precargados
         const selectProductBtns = document.querySelectorAll('.select-product-btn');

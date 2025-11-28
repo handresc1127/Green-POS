@@ -88,18 +88,19 @@ def new():
             items_json = request.form['items_json']
             items_data = json.loads(items_json)
             
-            # Validación previa de stock
-            errors = []
+            # NOTA: Se permite inventario negativo para casos especiales
+            # (preventa, pedidos pendientes, ajustes posteriores)
+            # Solo se genera advertencia si el stock queda negativo
+            warnings = []
             for item_data in items_data:
                 product = db.session.get(Product, item_data['product_id'])
                 quantity = int(item_data['quantity'])
                 if product and product.stock < quantity:
-                    errors.append(f'Stock insuficiente para {product.name} (disponible: {product.stock}, solicitado: {quantity})')
+                    new_stock = product.stock - quantity
+                    warnings.append(f'{product.name} quedará con stock negativo ({new_stock})')
             
-            if errors:
-                db.session.rollback()
-                flash('; '.join(errors), 'danger')
-                return redirect(url_for('invoices.new'))
+            if warnings:
+                current_app.logger.warning(f'Venta con stock negativo: {"; ".join(warnings)}')
 
             for item_data in items_data:
                 product_id = item_data['product_id']
@@ -116,10 +117,10 @@ def new():
                 # Descontar stock
                 product = db.session.get(Product, product_id)
                 if product:
-                    # Advertencia si queda por debajo de stock_min
+                    # Advertencia si queda por debajo de stock_min (incluye negativos)
                     new_stock = product.stock - quantity
                     stock_min = product.effective_stock_min
-                    if new_stock < stock_min and new_stock >= 0:
+                    if new_stock < stock_min:
                         current_app.logger.warning(f'Venta deja producto {product.name} con stock={new_stock} (min={stock_min})')
                     
                     product.stock -= quantity

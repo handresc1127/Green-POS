@@ -1,8 +1,10 @@
 """Green-POS - API Routes
 Blueprint para endpoints JSON y datos dinámicos.
+
+DEBUG MODE: Activado para investigación de issues de búsqueda.
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required
 from sqlalchemy import or_
 
@@ -23,14 +25,20 @@ def product_details(id):
     Returns:
         JSON con id, name, code, sale_price, stock
     """
+    current_app.logger.debug(f'[API DEBUG] product_details llamado con ID: {id}')
+    
     product = Product.query.get_or_404(id)
-    return jsonify({
+    
+    result = {
         'id': product.id,
         'name': product.name,
         'code': product.code,
         'sale_price': float(product.sale_price or 0),
         'stock': product.stock
-    })
+    }
+    
+    current_app.logger.debug(f'[API DEBUG] product_details retornando: {result}')
+    return jsonify(result)
 
 
 @api_bp.route('/products/search')
@@ -61,13 +69,20 @@ def products_search():
     query = request.args.get('q', '').strip()
     limit = request.args.get('limit', 10, type=int)
     
+    current_app.logger.debug(f'[API DEBUG] products_search llamado')
+    current_app.logger.debug(f'[API DEBUG]   Query: "{query}"')
+    current_app.logger.debug(f'[API DEBUG]   Limit: {limit}')
+    
     if not query:
+        current_app.logger.debug('[API DEBUG]   → Query vacio, retornando []')
         return jsonify([])
     
     if limit > 50:
         limit = 50  # Máximo 50 resultados para evitar sobrecarga
     
     # Búsqueda multi-código con DISTINCT
+    current_app.logger.debug('[API DEBUG]   Ejecutando query SQL...')
+    
     results = db.session.query(Product)\
         .outerjoin(ProductCode)\
         .filter(
@@ -81,14 +96,21 @@ def products_search():
         .limit(limit)\
         .all()
     
-    return jsonify([{
+    current_app.logger.debug(f'[API DEBUG]   Resultados encontrados: {len(results)}')
+    
+    response_data = [{
         'id': p.id,
         'name': p.name,
         'code': p.code,
         'alternative_codes': [ac.code for ac in p.alternative_codes.all()],
         'sale_price': float(p.sale_price or 0),
         'stock': p.stock
-    } for p in results])
+    } for p in results]
+    
+    if response_data:
+        current_app.logger.debug(f'[API DEBUG]   Primer resultado: ID={response_data[0]["id"]}, name={response_data[0]["name"]}')
+    
+    return jsonify(response_data)
 
 
 @api_bp.route('/pets/by_customer/<int:customer_id>')
