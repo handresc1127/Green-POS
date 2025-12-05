@@ -1,7 +1,7 @@
 ---
 description: Implementa planes técnicos de .github/plans/ con verificación automatizada y manual para Green-POS
 argument-hint: "Implementa plan .github/plans/2025-11-24-sistema-descuentos.md"
-tools: ['vscode/getProjectSetupInfo', 'vscode/installExtension', 'vscode/openSimpleBrowser', 'vscode/vscodeAPI', 'vscode/extensions', 'launch', 'edit/createFile', 'edit/editFiles', 'edit/editNotebook', 'execute', 'read', 'search', 'web', 'shell', 'agents', 'todo']
+tools: ['vscode/getProjectSetupInfo', 'vscode/installExtension', 'vscode/openSimpleBrowser', 'vscode/vscodeAPI', 'vscode/extensions', 'execute', 'read', 'edit/createDirectory', 'edit/createFile', 'edit/editFiles', 'edit/editNotebook', 'search', 'web', 'agent', 'pylance-mcp-server/*', 'ms-python.python/getPythonEnvironmentInfo', 'ms-python.python/getPythonExecutableCommand', 'ms-python.python/installPythonPackage', 'ms-python.python/configurePythonEnvironment', 'todo']
 model: Claude Sonnet 4.5
 name: implementador-plan
 ---
