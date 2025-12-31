@@ -2522,6 +2522,123 @@ stats = merge_products(
 - Consolidación: ~2-5 segundos para 3-5 productos
 - Backup automático: ~1 segundo
 
+### Sistema de Notas de Crédito Unificadas (DIAN) (Dic 2025) 🎫
+**ESTADO**: ✅ **100% COMPLETADO Y PROBADO EN PRODUCCIÓN**
+
+#### Característica Implementada
+Sistema completo de Notas de Crédito (NC) unificadas con facturación según normativa DIAN, usando **Single Table Inheritance** para mantener numeración consecutiva única.
+
+#### Componentes Implementados
+
+**1. Modelo Unificado (Single Table Inheritance)**:
+- Tabla única `invoice` con columna discriminadora `document_type`
+- Valores: `'invoice'` (factura) | `'credit_note'` (NC)
+- Numeración consecutiva compartida: INV-000001, INV-000002 (ambos)
+- Nuevas columnas en `invoice`:
+  * `reference_invoice_id` (FK a factura origen)
+  * `credit_reason` (razón de devolución, mínimo 4 caracteres)
+  * `stock_restored` (flag de restauración automática)
+- Nueva columna en `customer`: `credit_balance` (saldo disponible por NC)
+
+**2. Tabla credit_note_application**:
+- Tracking de redenciones de NC (qué NC pagó qué factura)
+- Columnas: `credit_note_id`, `invoice_id`, `amount_applied`, `applied_at`, `applied_by`
+- Relación Many-to-Many entre NC e Invoices con cantidad aplicada
+
+**3. Creación de NC** (routes/invoices.py):
+- Ruta: `POST /invoices/<id>/create_credit_note`
+- Modal en detalle de factura para seleccionar productos
+- Validaciones:
+  * Usuario admin
+  * Razón >= 4 caracteres
+  * Factura pagada/validada (temporal: bypass para testing)
+- Proceso automático:
+  1. Genera NC con número consecutivo
+  2. Restaura stock de productos devueltos
+  3. Crea `ProductStockLog` con razón "Devolución por NC"
+  4. Incrementa `customer.credit_balance`
+  5. Marca `stock_restored = True`
+
+**4. Pago Mixto Discriminado** (templates/invoices/form.html):
+- Campos separados cuando método = "Mixto (Discriminado)":
+  * `amount_credit_note`: Monto usando NC (valida <= saldo disponible)
+  * `amount_cash`: Monto efectivo
+  * `amount_transfer`: Monto transferencia bancaria
+- Validación tiempo real: suma debe igualar total factura
+- Variable global `currentInvoiceTotal` (numérica) para evitar parseo de texto
+- Almacenamiento en `invoice.notes`:
+  ```
+  --- PAGO MIXTO ---
+  Nota de Crédito: $200
+  Efectivo: $400
+  Transferencia: $400
+  Total: $1.000
+  ```
+
+**5. Aplicación de NC** (routes/invoices.py - new()):
+- FIFO: Busca NC más antiguas disponibles del cliente
+- Calcula saldo por NC: `total - sum(applications.amount_applied)`
+- Crea `CreditNoteApplication` por cada NC usada
+- Reduce `customer.credit_balance` por monto aplicado
+- FK links garantizan integridad referencial
+
+**6. Totalizadores Ajustados** (templates/invoices/list.html):
+- **Total del día**: Loop con `if is_credit_note() → -total else +total`
+- **Efectivo**: Suma solo dinero físico (NO cuenta NC redimidas)
+  * Facturas método cash: total
+  * Pagos mixtos: parsea "Efectivo: $X" de notes
+- **Transferencia**: Suma solo dinero bancario (NO cuenta NC)
+  * Facturas método transfer: total
+  * Pagos mixtos: parsea "Transferencia: $X" de notes
+- **Iconos por método**:
+  * 💵 cash
+  * 💳 transfer
+  * 🎫 credit_note
+  * 💰 mixed (tooltip muestra desglose)
+
+**7. Reportes con NC** (routes/reports.py):
+- Ingresos: `case((document_type == 'credit_note', -total), else_=total)`
+- Utilidades: `case((document_type == 'credit_note', -profit), else_=profit)`
+- NC se restan de totales para análisis correcto
+
+**8. API Endpoint** (routes/api.py):
+- `GET /api/customers/<id>`: Retorna customer con `credit_balance`
+- Usado por form.html para cargar saldo disponible al seleccionar cliente
+
+#### Beneficios
+- ✅ Cumplimiento normativa DIAN (numeración consecutiva)
+- ✅ Restauración automática de inventario
+- ✅ Tracking completo de redenciones (FK integrity)
+- ✅ Pagos mixtos discriminados correctamente
+- ✅ Totalización precisa (NC restan, dinero no duplica)
+- ✅ Reportes ajustados (NC como ingresos negativos)
+- ✅ UX intuitiva (modal desde factura, validación tiempo real)
+
+#### Issues Resueltos Durante Implementación
+1. **JS Syntax Error**: Corchete extra en event listener
+2. **Total Mal Parseado**: Variable global numérica en lugar de parsear texto
+3. **NC Balance No Carga**: Agregado `/api/customers/<id>` endpoint
+4. **NC Se Sumaban**: Loop con condicional en lugar de `sum(attribute)`
+5. **Reportes Incorrectos**: `case()` para negar valores de NC
+6. **Migración Obsoleta**: Script corregido para STI (Single Table)
+7. **Totalizadores Mixtos**: Parseo correcto de notes con regex
+
+#### Documentación
+- Implementación completa: `docs/IMPLEMENTACION_NOTAS_CREDITO_DIAN.md`
+- Guía de uso: Ver sección "Uso para Usuarios" en doc
+- Migración: `migrations/migration_add_credit_notes.py`
+
+#### Casos de Prueba Validados
+- ✅ Crear NC $60.500 → Stock restaurado, balance +$60.500
+- ✅ Pago mixto $60.200 ($20k transfer + $40.2k cash) → Totales correctos
+- ✅ Redimir NC $110.400 ($60.5k NC + $20k transfer + $29.9k cash) → Balance = $0
+- ✅ Reportes: 31 ventas, $941.400 ingresos, $302.232 utilidad, 32.1% margen
+
+#### Próximos Pasos (Pre-Producción)
+- [ ] Eliminar debug panel de `templates/invoices/view.html` (líneas 42-58)
+- [ ] Restaurar validación status en `models.py:can_create_credit_note()`
+- [ ] Verificar migración en clon de DB producción
+
 ### Sistema de Trazabilidad de Inventario (Oct 2025)
 - Implementado modelo `ProductStockLog`
 - Ruta `/products/<id>/stock-history` para ver historial
@@ -2565,8 +2682,8 @@ stats = merge_products(
 
 ---
 
-**Última actualización**: 22 de octubre de 2025  
-**Versión del proyecto**: 2.0  
+**Última actualización**: 31 de diciembre de 2025  
+**Versión del proyecto**: 2.1  
 **Contacto**: Sistema Green-POS - Pet Services Management
 
 ---

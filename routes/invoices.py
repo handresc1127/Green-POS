@@ -7,7 +7,10 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from sqlalchemy import func, desc, or_
 from extensions import db
-from models.models import Invoice, InvoiceItem, Customer, Product, Setting, ProductStockLog
+from models.models import (
+    Invoice, InvoiceItem, Customer, Product, Setting, ProductStockLog,
+    CreditNoteApplication
+)
 from utils.decorators import role_required
 from utils.backup import auto_backup
 
@@ -20,17 +23,26 @@ CO_TZ = ZoneInfo("America/Bogota")
 @invoices_bp.route('/')
 @login_required
 def list():
-    """Lista facturas agrupadas por fecha."""
+    """Lista facturas y notas de crédito agrupadas por fecha con filtrado."""
     query = request.args.get('query', '')
+    document_type_filter = request.args.get('type', '')  # '' = todos, 'invoice' = facturas, 'credit_note' = NC
     
+    # Base query
+    base_query = Invoice.query
+    
+    # Filtrar por tipo de documento si se especifica
+    if document_type_filter:
+        base_query = base_query.filter(Invoice.document_type == document_type_filter)
+    
+    # Filtrar por búsqueda de texto
     if query:
-        invoices = Invoice.query.join(Customer).filter(
+        invoices = base_query.join(Customer).filter(
             Invoice.number.contains(query) | 
             Customer.name.contains(query) | 
             Customer.document.contains(query)
         ).order_by(Invoice.date.desc()).all()
     else:
-        invoices = Invoice.query.order_by(Invoice.date.desc()).all()
+        invoices = base_query.order_by(Invoice.date.desc()).all()
     
     # Agrupar facturas por fecha local (Colombia)
     invoices_by_date = {}
@@ -51,7 +63,10 @@ def list():
     # Ordenar el diccionario por fecha de manera descendente
     invoices_by_date = dict(sorted(invoices_by_date.items(), reverse=True))
         
-    return render_template('invoices/list.html', invoices_by_date=invoices_by_date, query=query)
+    return render_template('invoices/list.html', 
+                         invoices_by_date=invoices_by_date, 
+                         query=query,
+                         document_type_filter=document_type_filter)
 
 
 @invoices_bp.route('/new', methods=['GET', 'POST'])
@@ -64,6 +79,33 @@ def new():
             customer_id = request.form['customer_id']
             payment_method = request.form['payment_method']
             notes = request.form.get('notes', '')
+            
+            # Procesar montos de pago mixto si aplica
+            mixed_payment_details = None
+            if payment_method == 'mixed':
+                amount_nc = float(request.form.get('amount_credit_note', 0))
+                amount_cash = float(request.form.get('amount_cash', 0))
+                amount_transfer = float(request.form.get('amount_transfer', 0))
+                
+                mixed_payment_details = {
+                    'credit_note': amount_nc,
+                    'cash': amount_cash,
+                    'transfer': amount_transfer,
+                    'total': amount_nc + amount_cash + amount_transfer
+                }
+                
+                # Agregar detalles a las notas
+                if not notes:
+                    notes = ''
+                notes += f"\n\n--- PAGO MIXTO ---\n"
+                if amount_nc > 0:
+                    notes += f"Nota de Crédito: ${amount_nc:,.0f}\n"
+                if amount_cash > 0:
+                    notes += f"Efectivo: ${amount_cash:,.0f}\n"
+                if amount_transfer > 0:
+                    notes += f"Transferencia: ${amount_transfer:,.0f}\n"
+                notes += f"Total: ${mixed_payment_details['total']:,.0f}"
+            
             setting = Setting.get()
             number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
             setting.next_invoice_number += 1
@@ -126,8 +168,106 @@ def new():
                     product.stock -= quantity
             
             invoice.calculate_totals()
+            
+            # Aplicar pago con Nota de Crédito si corresponde
+            if payment_method in ['credit_note', 'mixed']:
+                customer = db.session.get(Customer, customer_id)
+                if customer and customer.credit_balance > 0:
+                    # Determinar monto a aplicar
+                    if payment_method == 'mixed' and mixed_payment_details:
+                        # Usar el monto especificado por el usuario
+                        amount_to_apply_target = mixed_payment_details['credit_note']
+                    else:
+                        # Aplicar todo lo disponible hasta cubrir el total
+                        amount_to_apply_target = min(customer.credit_balance, invoice.total)
+                    
+                    if amount_to_apply_target > 0:
+                        # Buscar NC disponibles del cliente (con saldo sin aplicar)
+                        available_credit_notes = Invoice.query.filter(
+                            Invoice.customer_id == customer_id,
+                            Invoice.document_type == 'credit_note',
+                            Invoice.status == 'validated'
+                        ).order_by(Invoice.date.asc()).all()  # FIFO: más antiguas primero
+                        
+                        # Calcular saldo disponible de cada NC
+                        nc_with_balance = []
+                        for nc in available_credit_notes:
+                            # Calcular cuánto ya se ha aplicado de esta NC
+                            applied_sum = db.session.query(func.sum(CreditNoteApplication.amount_applied))\
+                                .filter(CreditNoteApplication.credit_note_id == nc.id)\
+                                .scalar() or 0
+                            
+                            available_balance = nc.total - applied_sum
+                            if available_balance > 0:
+                                nc_with_balance.append({
+                                    'nc': nc,
+                                    'available': available_balance
+                                })
+                        
+                        if nc_with_balance:
+                            # Aplicar NC hasta el monto especificado
+                            remaining_to_apply = amount_to_apply_target
+                            total_nc_applied = 0
+                            
+                            for nc_info in nc_with_balance:
+                                if remaining_to_apply <= 0:
+                                    break
+                                
+                                # Aplicar lo que se pueda de esta NC
+                                amount_to_apply = min(nc_info['available'], remaining_to_apply)
+                                
+                                # Crear registro de aplicación
+                                application = CreditNoteApplication(
+                                    credit_note_id=nc_info['nc'].id,
+                                    invoice_id=invoice.id,
+                                    amount_applied=amount_to_apply,
+                                    applied_by=current_user.id
+                                )
+                                db.session.add(application)
+                                
+                                # Actualizar contadores
+                                remaining_to_apply -= amount_to_apply
+                                total_nc_applied += amount_to_apply
+                                
+                                # Descontar del saldo del cliente
+                                customer.credit_balance -= amount_to_apply
+                            
+                            # Verificar si quedó NC sin aplicar por falta de saldo
+                            if remaining_to_apply > 0:
+                                flash(f'Solo se aplicaron ${total_nc_applied:,.0f} de NC (saldo insuficiente)', 'warning')
+                            
+                            # Actualizar estado de factura
+                            if payment_method == 'mixed':
+                                # En mixto, se considera pagada si se cubrió todo
+                                if mixed_payment_details['total'] >= invoice.total:
+                                    invoice.status = 'paid'
+                                    flash(f'Venta pagada con: NC ${total_nc_applied:,.0f}, Efectivo ${mixed_payment_details["cash"]:,.0f}, Transferencia ${mixed_payment_details["transfer"]:,.0f}', 'success')
+                                else:
+                                    flash(f'Pago parcial registrado. Total pagado: ${mixed_payment_details["total"]:,.0f}', 'warning')
+                            else:
+                                # Solo NC
+                                if total_nc_applied >= invoice.total:
+                                    invoice.status = 'paid'
+                                    flash(f'Venta pagada completamente con Nota de Crédito (${total_nc_applied:,.0f})', 'success')
+                                else:
+                                    flash(f'NC aplicada: ${total_nc_applied:,.0f}. Saldo pendiente: ${invoice.total - total_nc_applied:,.0f}', 'warning')
+                        else:
+                            flash('No hay notas de crédito disponibles para aplicar', 'warning')
+                    else:
+                        if payment_method == 'mixed':
+                            # Si no se especificó NC, está OK (pago solo con efectivo/transferencia)
+                            invoice.status = 'paid'
+                            flash(f'Venta pagada con Efectivo ${mixed_payment_details["cash"]:,.0f}, Transferencia ${mixed_payment_details["transfer"]:,.0f}', 'success')
+                        else:
+                            flash('Cliente no tiene saldo a favor disponible', 'warning')
+                else:
+                    flash('Cliente no tiene saldo a favor disponible', 'warning')
+            
             db.session.commit()
-            flash('Venta registrada exitosamente', 'success')
+            
+            if payment_method != 'credit_note' or invoice.status != 'paid':
+                flash('Venta registrada exitosamente', 'success')
+            
             return redirect(url_for('invoices.view', id=invoice.id))
         except Exception as e:
             db.session.rollback()
@@ -167,6 +307,146 @@ def view(id):
     invoice = Invoice.query.get_or_404(id)
     setting = Setting.get()
     return render_template('invoices/view.html', invoice=invoice, setting=setting, colombia_tz=CO_TZ)
+
+
+@invoices_bp.route('/<int:id>/create-credit-note', methods=['POST'])
+@login_required
+@auto_backup()  # Backup antes de crear nota de crédito (modifica stock)
+def create_credit_note(id):
+    """Crea una nota de crédito desde una factura.
+    
+    Validaciones:
+    - Solo facturas tipo 'invoice' pueden generar NC
+    - Razón obligatoria (min 10 caracteres)
+    - Productos y cantidades válidas
+    - No exceder cantidades de factura original
+    - Restaura stock automáticamente
+    - Genera número consecutivo unificado (INV-000001)
+    """
+    try:
+        invoice = Invoice.query.get_or_404(id)
+        
+        # Validación 1: Solo facturas pueden generar NC
+        if not invoice.can_create_credit_note():
+            flash('Esta factura no puede generar una Nota de Crédito', 'error')
+            return redirect(url_for('invoices.view', id=id))
+        
+        # Validación 2: Razón obligatoria (min 4 caracteres)
+        credit_reason = request.form.get('credit_reason', '').strip()
+        if len(credit_reason) < 4:
+            flash('La razón de la nota de crédito debe tener al menos 4 caracteres', 'error')
+            return redirect(url_for('invoices.view', id=id))
+        
+        # Validación 3: Procesar productos y cantidades
+        items_json = request.form.get('items_json', '[]')
+        try:
+            items_data = json.loads(items_json)
+        except json.JSONDecodeError:
+            flash('Error al procesar los productos de la nota de crédito', 'error')
+            return redirect(url_for('invoices.view', id=id))
+        
+        if not items_data:
+            flash('Debe seleccionar al menos un producto para la nota de crédito', 'error')
+            return redirect(url_for('invoices.view', id=id))
+        
+        # Validación 4: Verificar cantidades no excedan factura original
+        invoice_items_dict = {item.product_id: item for item in invoice.items}
+        
+        for item_data in items_data:
+            product_id = int(item_data['product_id'])
+            quantity = int(item_data['quantity'])
+            
+            if product_id not in invoice_items_dict:
+                flash(f'El producto ID {product_id} no está en la factura original', 'error')
+                return redirect(url_for('invoices.view', id=id))
+            
+            original_item = invoice_items_dict[product_id]
+            if quantity > original_item.quantity:
+                product = db.session.get(Product, product_id)
+                product_name = product.name if product else f'ID {product_id}'
+                flash(f'Cantidad de "{product_name}" ({quantity}) excede factura original ({original_item.quantity})', 'error')
+                return redirect(url_for('invoices.view', id=id))
+        
+        # Crear la Nota de Crédito con numeración unificada
+        setting = Setting.get()
+        number = f"{setting.invoice_prefix}-{setting.next_invoice_number:06d}"
+        setting.next_invoice_number += 1
+        
+        # Usar la hora actual de Colombia convertida a UTC
+        local_now = datetime.now(CO_TZ)
+        utc_now = local_now.astimezone(timezone.utc)
+        
+        credit_note = Invoice(
+            number=number,
+            document_type='credit_note',  # Discriminador
+            customer_id=invoice.customer_id,
+            payment_method=invoice.payment_method,
+            notes=f'Nota de Crédito de factura {invoice.number}',
+            status='validated',  # NC se crea ya validada
+            user_id=current_user.id,
+            date=utc_now,
+            reference_invoice_id=invoice.id,  # Referencia a factura original
+            credit_reason=credit_reason,
+            stock_restored=False  # Se marcará True después de restaurar
+        )
+        db.session.add(credit_note)
+        db.session.flush()  # Obtener credit_note.id
+        
+        # Crear InvoiceItems para la NC (con cantidades negativas para cálculo)
+        for item_data in items_data:
+            product_id = int(item_data['product_id'])
+            quantity = int(item_data['quantity'])
+            original_item = invoice_items_dict[product_id]
+            
+            credit_item = InvoiceItem(
+                invoice_id=credit_note.id,
+                product_id=product_id,
+                quantity=quantity,  # Cantidad positiva (se interpreta como devolución)
+                price=original_item.price  # Mismo precio unitario de factura original
+            )
+            db.session.add(credit_item)
+        
+        # Calcular totales de la NC
+        credit_note.calculate_totals()
+        
+        # Restaurar stock de productos devueltos
+        for item in credit_note.items:
+            product = item.product
+            if product:
+                old_stock = product.stock
+                product.stock += item.quantity
+                new_stock = product.stock
+                
+                # Crear log de movimiento de inventario
+                log = ProductStockLog(
+                    product_id=product.id,
+                    user_id=current_user.id,
+                    quantity=item.quantity,
+                    movement_type='addition',
+                    reason=f'Devolución por Nota de Crédito {credit_note.number} (Ref: {invoice.number})',
+                    previous_stock=old_stock,
+                    new_stock=new_stock
+                )
+                db.session.add(log)
+        
+        # Marcar stock como restaurado
+        credit_note.stock_restored = True
+        
+        # Actualizar saldo a favor del cliente
+        customer = db.session.get(Customer, invoice.customer_id)
+        if customer:
+            customer.credit_balance = (customer.credit_balance or 0) + credit_note.total
+        
+        db.session.commit()
+        
+        flash(f'Nota de Crédito {credit_note.number} creada exitosamente. Stock restaurado. Saldo a favor: ${credit_note.total:,.0f}', 'success')
+        return redirect(url_for('invoices.view', id=credit_note.id))
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error al crear Nota de Crédito: {str(e)}')
+        flash(f'Error al crear Nota de Crédito: {str(e)}', 'error')
+        return redirect(url_for('invoices.view', id=id))
 
 
 @invoices_bp.route('/validate/<int:id>', methods=['POST'])

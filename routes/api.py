@@ -9,7 +9,7 @@ from flask_login import login_required
 from sqlalchemy import or_
 
 from extensions import db
-from models.models import Product, Pet, ProductCode
+from models.models import Product, Pet, ProductCode, Customer
 
 # Crear Blueprint
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -134,6 +134,28 @@ def pets_by_customer(customer_id):
         }
         for p in pets
     ])
+
+
+@api_bp.route('/customers/<int:customer_id>')
+@login_required
+def customer_details(customer_id):
+    """Obtiene detalles de un cliente específico.
+    
+    Args:
+        customer_id: ID del cliente
+        
+    Returns:
+        JSON con id, name, document, phone, email, credit_balance
+    """
+    customer = Customer.query.get_or_404(customer_id)
+    return jsonify({
+        'id': customer.id,
+        'name': customer.name,
+        'document': customer.document,
+        'phone': customer.phone or '',
+        'email': customer.email or '',
+        'credit_balance': float(customer.credit_balance or 0)
+    })
 
 
 @api_bp.route('/products/code-index')

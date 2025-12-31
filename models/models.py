@@ -156,6 +156,7 @@ class Customer(db.Model):
     email = db.Column(db.String(100))
     phone = db.Column(db.String(20))
     address = db.Column(db.String(255))
+    credit_balance = db.Column(db.Float, default=0.0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -198,6 +199,7 @@ class Invoice(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.String(30), unique=True, nullable=False)
+    document_type = db.Column(db.String(20), default='invoice', nullable=False, index=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -208,14 +210,38 @@ class Invoice(db.Model):
     status = db.Column(db.String(20), default='pending')
     payment_method = db.Column(db.String(50), default='cash')
     notes = db.Column(db.Text)
+    reference_invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=True)
+    credit_reason = db.Column(db.Text, nullable=True)
+    stock_restored = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade="all, delete-orphan")
     user = db.relationship('User')
+    reference_invoice = db.relationship('Invoice', 
+                                       remote_side=[id], 
+                                       foreign_keys=[reference_invoice_id],
+                                       backref='credit_notes_issued')
 
     def __repr__(self):
         return f"<Invoice {self.number}>"
+    
+    def is_credit_note(self):
+        """Verifica si el documento es una nota de crédito."""
+        return self.document_type == 'credit_note'
+    
+    def can_create_credit_note(self):
+        """Verifica si se puede crear NC desde esta factura."""
+        return (self.document_type == 'invoice' and 
+                self.status in ['validated', 'paid'] and
+                len(self.credit_notes_issued) == 0)
+    
+    def get_net_total(self):
+        """Calcula total neto (total - NC emitidas)."""
+        if self.document_type == 'invoice':
+            nc_total = sum(nc.total for nc in self.credit_notes_issued)
+            return self.total - nc_total
+        return self.total
 
     def calculate_totals(self):
         self.subtotal = sum(item.quantity * item.price for item in self.items)
@@ -505,3 +531,30 @@ class ProductCode(db.Model):
     
     def __repr__(self):
         return f'<ProductCode {self.code} ({self.code_type}) → Product {self.product_id}>'
+
+
+
+
+
+class CreditNoteApplication(db.Model):
+    """Aplicación de NC como método de pago en facturas.
+    
+    Nota: credit_note_id apunta a invoice.id donde document_type='credit_note'
+    """
+    __tablename__ = 'credit_note_application'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    credit_note_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False)
+    amount_applied = db.Column(db.Float, nullable=False)
+    applied_at = db.Column(db.DateTime, default=datetime.utcnow)
+    applied_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relaciones
+    credit_note = db.relationship('Invoice', foreign_keys=[credit_note_id])
+    invoice = db.relationship('Invoice', foreign_keys=[invoice_id])
+    user = db.relationship('User')
+    
+    def __repr__(self):
+        return f'<CreditNoteApplication NC={self.credit_note_id} Invoice={self.invoice_id} ${self.amount_applied}>'
+

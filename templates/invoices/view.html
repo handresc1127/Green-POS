@@ -14,8 +14,17 @@ Default code page: Page0
 
 {% block title %}Venta {{ invoice.number }} - {{ setting.business_name or 'Venta' }}{% endblock %}
 
-{% block page_title %}<span class="d-print-none">Venta #{{ invoice.number }} ({{ setting.document_label }})</span>{%
-endblock %}
+{% block page_title %}<span class="d-print-none">
+    {% if invoice.is_credit_note() %}
+    <span class="badge bg-danger me-2">Nota de Crédito</span>
+    {% else %}
+    <span class="badge bg-primary me-2">Factura</span>
+    {% endif %}
+    #{{ invoice.number }}
+    {% if invoice.is_credit_note() and invoice.reference_invoice %}
+    <small class="text-muted">(Ref: {{ invoice.reference_invoice.number }})</small>
+    {% endif %}
+</span>{% endblock %}
 
 {% block page_info %}
 <div class="d-print-none mb-3">
@@ -35,6 +44,11 @@ endblock %}
     <a href="{{ url_for('invoices.list') }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Volver
     </a>
+    {% if current_user.role == 'admin' and invoice.can_create_credit_note() %}
+    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#createCreditNoteModal">
+        <i class="bi bi-file-earmark-minus"></i> Crear Nota de Crédito
+    </button>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -373,6 +387,58 @@ endblock %}
             </table>
         </div>
 
+        {% if not invoice.is_credit_note() and invoice.credit_notes_issued %}
+        <!-- Sección de Notas de Crédito Emitidas -->
+        <div class="mt-4 d-print-none" id="creditNotesIssuedBlock">
+            <h5 class="text-danger"><i class="bi bi-file-earmark-minus"></i> Notas de Crédito Emitidas</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Número</th>
+                            <th>Fecha</th>
+                            <th>Monto</th>
+                            <th>Razón</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for credit_note in invoice.credit_notes_issued %}
+                        <tr>
+                            <td>{{ credit_note.number }}</td>
+                            <td>{{ credit_note.date|format_date_co }}</td>
+                            <td class="text-danger">-{{ credit_note.total|currency_co }}</td>
+                            <td><small>{{ credit_note.credit_reason }}</small></td>
+                            <td>
+                                <a href="{{ url_for('invoices.view', id=credit_note.id) }}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> Ver
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="2" class="text-end">Total Notas de Crédito:</th>
+                            <th class="text-danger">
+                                -{{ invoice.credit_notes_issued|sum(attribute='total')|currency_co }}
+                            </th>
+                            <th colspan="2"></th>
+                        </tr>
+                        <tr>
+                            <th colspan="2" class="text-end">Total Neto:</th>
+                            <th class="text-success">
+                                {{ invoice.get_net_total()|currency_co }}
+                            </th>
+                            <th colspan="2"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
         {% if invoice.notes %}
         <div class="mt-4" id="invoiceNotesBlock">
             <h5 id="invoiceNotesTitle">Notas</h5>
@@ -387,6 +453,105 @@ endblock %}
         </div>
     </div>
 </div>
+</div>
+
+<!-- Modal para Crear Nota de Crédito -->
+<div class="modal fade" id="createCreditNoteModal" tabindex="-1" aria-labelledby="createCreditNoteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="createCreditNoteModalLabel">
+                    <i class="bi bi-file-earmark-minus"></i> Crear Nota de Crédito
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="createCreditNoteForm" action="{{ url_for('invoices.create_credit_note', id=invoice.id) }}" method="post">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>¡Importante!</strong> La Nota de Crédito:
+                        <ul class="mb-0 mt-2">
+                            <li>Generará un número consecutivo unificado ({{ setting.invoice_prefix }}-XXXXXX)</li>
+                            <li>Restaurará automáticamente el stock de los productos seleccionados</li>
+                            <li>Agregará saldo a favor al cliente</li>
+                            <li>Esta acción NO se puede deshacer</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="credit_reason" class="form-label">
+                            <strong>Razón de la Nota de Crédito:</strong> <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="credit_reason" name="credit_reason" rows="3" required minlength="4"
+                                  placeholder="Describa la razón de la devolución (mínimo 4 caracteres)"></textarea>
+                        <div class="form-text">
+                            Ejemplo: "Producto defectuoso", "Error en facturación", "Cliente insatisfecho"
+                        </div>
+                    </div>
+                    
+                    <h6 class="mb-3"><strong>Seleccionar Productos a Devolver:</strong></h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered" id="creditNoteItemsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 60px;">
+                                        <input type="checkbox" id="selectAll" title="Seleccionar todos">
+                                    </th>
+                                    <th>Producto</th>
+                                    <th style="width: 100px;">Cant. Original</th>
+                                    <th style="width: 120px;">Cant. a Devolver</th>
+                                    <th style="width: 120px;">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in invoice.items %}
+                                <tr>
+                                    <td class="text-center">
+                                        <input type="checkbox" 
+                                               class="item-checkbox" 
+                                               data-product-id="{{ item.product_id }}"
+                                               data-max-quantity="{{ item.quantity }}"
+                                               data-price="{{ item.price }}">
+                                    </td>
+                                    <td>{{ item.product.name }}</td>
+                                    <td class="text-center">{{ item.quantity }}</td>
+                                    <td>
+                                        <input type="number" 
+                                               class="form-control form-control-sm quantity-input" 
+                                               data-product-id="{{ item.product_id }}"
+                                               min="1" 
+                                               max="{{ item.quantity }}" 
+                                               value="{{ item.quantity }}"
+                                               disabled>
+                                    </td>
+                                    <td class="text-end subtotal-cell" data-product-id="{{ item.product_id }}">
+                                        {{ (item.quantity * item.price)|currency_co }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="4" class="text-end">Total Nota de Crédito:</th>
+                                    <th class="text-end text-danger" id="creditNoteTotal">$0</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <input type="hidden" id="items_json" name="items_json" value="">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger" id="submitCreditNoteBtn" disabled>
+                        <i class="bi bi-check-circle"></i> Crear Nota de Crédito
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <div class="modal fade" id="deleteModal" tabindex="-1">
@@ -439,6 +604,142 @@ endblock %}
                 printCutSpace.style.height = '50px';
             }
         });
+
+        // ==== JAVASCRIPT PARA MODAL DE NOTA DE CRÉDITO ====
+        const creditNoteModal = document.getElementById('createCreditNoteModal');
+        if (creditNoteModal) {
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const itemCheckboxes = document.querySelectorAll('.item-checkbox');
+            const quantityInputs = document.querySelectorAll('.quantity-input');
+            const submitBtn = document.getElementById('submitCreditNoteBtn');
+            const itemsJsonInput = document.getElementById('items_json');
+            const creditNoteTotalEl = document.getElementById('creditNoteTotal');
+
+            // Función para formatear moneda
+            function formatCurrency(amount) {
+                return new Intl.NumberFormat('es-CO', {
+                    style: 'currency',
+                    currency: 'COP',
+                    minimumFractionDigits: 0
+                }).format(amount);
+            }
+
+            // Función para calcular total
+            function calculateTotal() {
+                let total = 0;
+                let itemsData = [];
+                let hasSelection = false;
+
+                itemCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        hasSelection = true;
+                        const productId = checkbox.getAttribute('data-product-id');
+                        const price = parseFloat(checkbox.getAttribute('data-price'));
+                        const quantityInput = document.querySelector(`.quantity-input[data-product-id="${productId}"]`);
+                        const quantity = parseInt(quantityInput.value) || 0;
+                        
+                        if (quantity > 0) {
+                            const subtotal = quantity * price;
+                            total += subtotal;
+                            
+                            // Agregar al array de items
+                            itemsData.push({
+                                product_id: productId,
+                                quantity: quantity,
+                                price: price
+                            });
+                            
+                            // Actualizar celda de subtotal
+                            const subtotalCell = document.querySelector(`.subtotal-cell[data-product-id="${productId}"]`);
+                            if (subtotalCell) {
+                                subtotalCell.textContent = formatCurrency(subtotal);
+                            }
+                        }
+                    }
+                });
+
+                // Actualizar total
+                creditNoteTotalEl.textContent = formatCurrency(total);
+
+                // Habilitar/deshabilitar botón de submit
+                submitBtn.disabled = !hasSelection || total === 0;
+
+                // Actualizar JSON hidden input
+                itemsJsonInput.value = JSON.stringify(itemsData);
+            }
+
+            // Evento: Seleccionar todos
+            selectAllCheckbox.addEventListener('change', function() {
+                itemCheckboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                    const productId = checkbox.getAttribute('data-product-id');
+                    const quantityInput = document.querySelector(`.quantity-input[data-product-id="${productId}"]`);
+                    quantityInput.disabled = !this.checked;
+                });
+                calculateTotal();
+            });
+
+            // Evento: Checkboxes individuales
+            itemCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const productId = this.getAttribute('data-product-id');
+                    const quantityInput = document.querySelector(`.quantity-input[data-product-id="${productId}"]`);
+                    quantityInput.disabled = !this.checked;
+                    
+                    // Si se desmarca, resetear a cantidad original
+                    if (!this.checked) {
+                        const maxQuantity = parseInt(this.getAttribute('data-max-quantity'));
+                        quantityInput.value = maxQuantity;
+                    }
+                    
+                    calculateTotal();
+                });
+            });
+
+            // Evento: Inputs de cantidad
+            quantityInputs.forEach(input => {
+                input.addEventListener('input', calculateTotal);
+            });
+
+            // Validación antes de submit
+            document.getElementById('createCreditNoteForm').addEventListener('submit', function(e) {
+                const creditReason = document.getElementById('credit_reason').value.trim();
+                
+                if (creditReason.length < 4) {
+                    e.preventDefault();
+                    alert('La razón debe tener al menos 4 caracteres');
+                    return false;
+                }
+                
+                const itemsData = JSON.parse(itemsJsonInput.value);
+                if (itemsData.length === 0) {
+                    e.preventDefault();
+                    alert('Debe seleccionar al menos un producto');
+                    return false;
+                }
+                
+                // Confirmar antes de crear
+                if (!confirm('¿Está seguro de crear esta Nota de Crédito? Esta acción NO se puede deshacer.')) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+
+            // Resetear modal al cerrar
+            creditNoteModal.addEventListener('hidden.bs.modal', function() {
+                document.getElementById('credit_reason').value = '';
+                selectAllCheckbox.checked = false;
+                itemCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                    const productId = checkbox.getAttribute('data-product-id');
+                    const quantityInput = document.querySelector(`.quantity-input[data-product-id="${productId}"]`);
+                    const maxQuantity = parseInt(checkbox.getAttribute('data-max-quantity'));
+                    quantityInput.value = maxQuantity;
+                    quantityInput.disabled = true;
+                });
+                calculateTotal();
+            });
+        }
     });
 </script>
 {% endblock %}

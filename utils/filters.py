@@ -108,6 +108,31 @@ def format_time_co(dt, tz="America/Bogota", assume="UTC"):
     return f"{hour}:{minute} {period}"
 
 
+def format_date_co(dt, tz="America/Bogota", assume="UTC"):
+    """Formatea solo la fecha al estilo colombiano: DD/MM/YYYY
+    
+    Args:
+        dt: datetime (aware o naive)
+        tz: Zona horaria destino (default: America/Bogota)
+        assume: Zona para datetime naive (default: UTC)
+    
+    Returns:
+        str: Fecha formateada estilo colombiano
+    """
+    if dt is None:
+        return ""
+    
+    if isinstance(tz, str):
+        tz = ZoneInfo(tz)
+    
+    if dt.tzinfo is None:
+        src = ZoneInfo(assume) if assume and assume != "UTC" else timezone.utc
+        dt = dt.replace(tzinfo=src)
+    
+    local_dt = dt.astimezone(tz)
+    return local_dt.strftime('%d/%m/%Y')
+
+
 def register_filters(app):
     """Registra todos los filtros Jinja2 en la aplicación.
     
@@ -118,3 +143,4 @@ def register_filters(app):
     app.jinja_env.filters['format_tz'] = format_tz
     app.jinja_env.filters['format_tz_co'] = format_tz_co
     app.jinja_env.filters['format_time_co'] = format_time_co
+    app.jinja_env.filters['format_date_co'] = format_date_co

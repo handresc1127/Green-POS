@@ -41,9 +41,20 @@ cd Green-POS
 ### 🧾 Facturación Inteligente
 - Generación automática de facturas
 - Múltiples métodos de pago (efectivo, tarjeta, transferencia)
+- **Pago Mixto Discriminado**: Especificar montos exactos por método (NC + Efectivo + Transferencia)
 - Formato optimizado para impresoras térmicas (3nStar RPT004)
 - Impresión en blanco y negro con watermark
 - Numeración secuencial automática
+
+### 🎫 Notas de Crédito (DIAN)
+- **Numeración consecutiva unificada** con facturas (INV-XXXXXX)
+- Creación desde factura existente seleccionando productos devueltos
+- Restauración automática de stock al inventario
+- **Saldo de crédito por cliente** para redimir en futuras compras
+- Aplicación automática de NC en pagos mixtos
+- Tracking completo de NC aplicadas con registros FK
+- Cumplimiento normativa DIAN colombiana
+- Ver documentación: `docs/IMPLEMENTACION_NOTAS_CREDITO_DIAN.md`
 
 ### 🐾 Servicios de Mascota
 - Gestión de servicios de grooming y baño

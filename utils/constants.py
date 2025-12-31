@@ -21,7 +21,7 @@ SERVICE_TYPE_LABELS = {
 }
 
 # Métodos de pago válidos
-VALID_PAYMENT_METHODS = ['cash', 'transfer', 'card', 'mixed']
+VALID_PAYMENT_METHODS = ['cash', 'transfer', 'card', 'mixed', 'credit_note']
 
 # Estados de citas y servicios
 APPOINTMENT_STATUSES = ['pending', 'done', 'cancelled']

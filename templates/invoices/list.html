@@ -66,14 +66,43 @@
                             <span class="formatted-date" data-date="{{ date }}">{{ date }}</span>
                             <small class="text-muted ms-2">
                                 ({{ invoices|length }} venta{{ 's' if invoices|length != 1 }})
-                                <span class="ms-2">Total: {{ invoices|sum(attribute='total')|currency_co }}</span>
-                                {% set efectivo = invoices|selectattr('payment_method', 'equalto', 'cash')|sum(attribute='total') %}
-                                {% set transferencia = invoices|selectattr('payment_method', 'equalto', 'transfer')|sum(attribute='total') %}
-                                {% if efectivo > 0 %}
-                                <span class="ms-2 text-success">💵 Efectivo: {{ efectivo|currency_co }}</span>
+                                {% set total_ventas = namespace(value=0) %}
+                                {% for inv in invoices %}
+                                    {% if inv.is_credit_note() %}
+                                        {% set total_ventas.value = total_ventas.value - inv.total %}
+                                    {% else %}
+                                        {% set total_ventas.value = total_ventas.value + inv.total %}
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="ms-2">Total: {{ total_ventas.value|currency_co }}</span>
+                                
+                                {# Calcular efectivo: suma directa + parte mixta #}
+                                {% set efectivo = namespace(value=0) %}
+                                {% for inv in invoices %}
+                                    {% if inv.payment_method == 'cash' %}
+                                        {% set efectivo.value = efectivo.value + inv.total %}
+                                    {% elif inv.payment_method == 'mixed' and inv.notes and 'Efectivo: $' in inv.notes %}
+                                        {% set cash_part = inv.notes.split('Efectivo: $')[1].split('\n')[0].replace(',', '').replace('.', '') %}
+                                        {% set efectivo.value = efectivo.value + (cash_part|int) %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {# Calcular transferencia: suma directa + parte mixta #}
+                                {% set transferencia = namespace(value=0) %}
+                                {% for inv in invoices %}
+                                    {% if inv.payment_method == 'transfer' %}
+                                        {% set transferencia.value = transferencia.value + inv.total %}
+                                    {% elif inv.payment_method == 'mixed' and inv.notes and 'Transferencia: $' in inv.notes %}
+                                        {% set transfer_part = inv.notes.split('Transferencia: $')[1].split('\n')[0].replace(',', '').replace('.', '') %}
+                                        {% set transferencia.value = transferencia.value + (transfer_part|int) %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if efectivo.value > 0 %}
+                                <span class="ms-2 text-success">💵 Efectivo: {{ efectivo.value|currency_co }}</span>
                                 {% endif %}
-                                {% if transferencia > 0 %}
-                                <span class="ms-2 text-primary">💳 Transferencias: {{ transferencia|currency_co }}</span>
+                                {% if transferencia.value > 0 %}
+                                <span class="ms-2 text-primary">💳 Transferencias: {{ transferencia.value|currency_co }}</span>
                                 {% endif %}
                                 {% set total_groomer = namespace(value=0) %}
                                 {% for inv in invoices %}
@@ -95,6 +124,7 @@
                         <table class="table table-hover mb-0">
                         <thead>
                             <tr>
+                                <th>Tipo</th>
                                 <th>Número</th>
                                 <th>Cliente</th>
                                 <th>Hora</th>
@@ -106,14 +136,32 @@
                         <tbody>
                             {% for invoice in invoices %}
                             <tr>
-                                <td>{{ invoice.number }}</td>
+                                <td>
+                                    {% if invoice.is_credit_note() %}
+                                    <span class="badge bg-danger" title="Nota de Crédito">NC</span>
+                                    {% else %}
+                                    <span class="badge bg-primary" title="Factura">F</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ invoice.number }}
+                                    {% if invoice.is_credit_note() and invoice.reference_invoice %}
+                                    <br><small class="text-muted">Ref: {{ invoice.reference_invoice.number }}</small>
+                                    {% endif %}
+                                </td>
                                 <td>{{ invoice.customer.name }}</td>
                                 <td>
                                     <span class="utc-time" data-utc="{{ invoice.date.isoformat() }}">
                                         {{ invoice.date|format_time_co }}
                                     </span>
                                 </td>
-                                <td>{{ invoice.total | currency_co }}</td>
+                                <td>
+                                    {% if invoice.is_credit_note() %}
+                                    <span class="text-danger">-{{ invoice.total | currency_co }}</span>
+                                    {% else %}
+                                    {{ invoice.total | currency_co }}
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <span
                                         class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
@@ -128,16 +176,13 @@
                                                 class="btn btn-outline-primary" title="Ver">
                                                 <i class="bi bi-eye"></i>
                                             </a>
-                                            {% if current_user.role == 'admin' %}
-                                            {% if invoice.status == 'pending' %}
+                                            {% if current_user.role == 'admin' and invoice.status == 'pending' %}
                                             <form method="post" action="{{ url_for('invoices.validate', id=invoice.id) }}"
                                                 onsubmit="return confirm('Validar esta venta?');">
                                                 <button type="submit" class="btn btn-outline-success" title="Validar">
                                                     <i class="bi bi-check2-circle"></i>
                                                 </button>
                                             </form>
-                                            {% endif %}
-                                            {% if invoice.status != 'validated' %}
                                             <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal"
                                                 data-bs-target="#editModal" 
                                                 data-id="{{ invoice.id }}"
@@ -156,18 +201,37 @@
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                             {% endif %}
-                                            {% endif %}
                                         </div>
                                         <div class="d-flex gap-1">
-                                            <span class="fs-5" title="{{ 'Efectivo' if invoice.payment_method == 'cash' else ('Transferencia' if invoice.payment_method == 'transfer' else 'Efectivo') }}">
-                                                {% if invoice.payment_method == 'cash' %}
-                                                    💵
-                                                {% elif invoice.payment_method == 'transfer' %}
-                                                    💳
+                                            {% if invoice.payment_method == 'cash' %}
+                                                <span class="fs-5" title="Efectivo">💵</span>
+                                            {% elif invoice.payment_method == 'transfer' %}
+                                                <span class="fs-5" title="Transferencia">💳</span>
+                                            {% elif invoice.payment_method == 'credit_note' %}
+                                                <span class="fs-5" title="Nota de Crédito">🎫</span>
+                                            {% elif invoice.payment_method == 'mixed' %}
+                                                {% if invoice.notes and '--- PAGO MIXTO ---' in invoice.notes %}
+                                                    {% set parts = [] %}
+                                                    {% if 'Nota de Crédito: $' in invoice.notes %}
+                                                        {% set nc_line = invoice.notes.split('Nota de Crédito: $')[1].split('\n')[0] %}
+                                                        {% set parts = parts + [nc_line.replace(',', '.') + ' NC'] %}
+                                                    {% endif %}
+                                                    {% if 'Efectivo: $' in invoice.notes %}
+                                                        {% set cash_line = invoice.notes.split('Efectivo: $')[1].split('\n')[0] %}
+                                                        {% set parts = parts + [cash_line.replace(',', '.') + ' Efectivo'] %}
+                                                    {% endif %}
+                                                    {% if 'Transferencia: $' in invoice.notes %}
+                                                        {% set transfer_line = invoice.notes.split('Transferencia: $')[1].split('\n')[0] %}
+                                                        {% set parts = parts + [transfer_line.replace(',', '.') + ' Transferencia'] %}
+                                                    {% endif %}
+                                                    {% set payment_details = 'Mixto: ' + parts|join(', ') if parts else 'Pago combinado' %}
                                                 {% else %}
-                                                    💵
+                                                    {% set payment_details = 'Pago combinado' %}
                                                 {% endif %}
-                                            </span>
+                                                <span class="fs-5" title="{{ payment_details }}">💰</span>
+                                            {% else %}
+                                                <span class="fs-5" title="Efectivo">💵</span>
+                                            {% endif %}
                                             {% if invoice.notes and ('Servicios de mascota' in invoice.notes or 'Cita' in invoice.notes) %}
                                             <span class="fs-5" style="color: #8b5cf6;" title="Groomer: {{ (invoice.subtotal / 2)|currency_co }} (50% del subtotal)">
                                                 🐾

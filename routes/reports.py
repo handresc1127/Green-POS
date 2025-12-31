@@ -63,18 +63,30 @@ def index():
     total_invoices = invoices_query.count()
     invoices = invoices_query.order_by(Invoice.date.desc()).all()
     
-    # Calcular ingresos totales
-    total_revenue = db.session.query(
-        func.sum(Invoice.total)
+    # Calcular ingresos totales (facturas - NC)
+    total_revenue_query = db.session.query(
+        func.sum(
+            case(
+                (Invoice.document_type == 'credit_note', -Invoice.total),
+                else_=Invoice.total
+            )
+        )
     ).filter(
         Invoice.date >= start_datetime,
         Invoice.date <= end_datetime
-    ).scalar() or 0.0
+    ).scalar()
+    
+    total_revenue = total_revenue_query or 0.0
     
     # Calcular utilidades (precio venta - precio compra)
+    # Para NC: restar la utilidad (multiplicar por -1)
     profit_query = db.session.query(
         func.sum(
-            (InvoiceItem.price - Product.purchase_price) * InvoiceItem.quantity
+            case(
+                (Invoice.document_type == 'credit_note',
+                 -(InvoiceItem.price - Product.purchase_price) * InvoiceItem.quantity),
+                else_=(InvoiceItem.price - Product.purchase_price) * InvoiceItem.quantity
+            )
         )
     ).join(
         Invoice, InvoiceItem.invoice_id == Invoice.id

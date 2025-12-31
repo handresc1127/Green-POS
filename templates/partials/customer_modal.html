@@ -15,7 +15,7 @@
         <div class="table-responsive" style="max-height:320px; overflow-y:auto;">
           <table class="table table-hover table-sm">
             <thead>
-              <tr><th>Nombre</th><th>Documento</th><th>Email / Teléfono</th><th></th></tr>
+              <tr><th>Nombre</th><th>Documento</th><th>Email / Teléfono</th><th>Saldo NC</th><th></th></tr>
             </thead>
             <tbody id="customersList">
               {% for c in customers %}
@@ -23,6 +23,13 @@
                 <td>{{ c.name }}</td>
                 <td>{{ c.document }}</td>
                 <td>{{ c.email or c.phone or '' }}</td>
+                <td>
+                  {% if c.credit_balance and c.credit_balance > 0 %}
+                  <span class="badge bg-success">{{ c.credit_balance|currency_co }}</span>
+                  {% else %}
+                  <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
                 <td class="text-end">
                   <button type="button" class="btn btn-sm btn-outline-primary select-customer-btn" data-id="{{ c.id }}" data-name="{{ c.name }}" data-document="{{ c.document }}">
                     <i class="bi bi-check2"></i>
