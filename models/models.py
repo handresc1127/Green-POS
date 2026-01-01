@@ -233,7 +233,7 @@ class Invoice(db.Model):
     def can_create_credit_note(self):
         """Verifica si se puede crear NC desde esta factura."""
         return (self.document_type == 'invoice' and 
-                self.status in ['validated', 'paid'] and
+                self.status != 'cancelled' and
                 len(self.credit_notes_issued) == 0)
     
     def get_net_total(self):

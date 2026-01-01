@@ -76,25 +76,33 @@
                                 {% endfor %}
                                 <span class="ms-2">Total: {{ total_ventas.value|currency_co }}</span>
                                 
-                                {# Calcular efectivo: suma directa + parte mixta #}
+                                {# Calcular efectivo: suma directa + parte mixta (SOLO dinero físico recibido) #}
                                 {% set efectivo = namespace(value=0) %}
                                 {% for inv in invoices %}
-                                    {% if inv.payment_method == 'cash' %}
-                                        {% set efectivo.value = efectivo.value + inv.total %}
-                                    {% elif inv.payment_method == 'mixed' and inv.notes and 'Efectivo: $' in inv.notes %}
-                                        {% set cash_part = inv.notes.split('Efectivo: $')[1].split('\n')[0].replace(',', '').replace('.', '') %}
-                                        {% set efectivo.value = efectivo.value + (cash_part|int) %}
+                                    {# NO sumar si es NC (document_type='credit_note') #}
+                                    {% if not inv.is_credit_note() %}
+                                        {# NO sumar si fue pagada totalmente con NC (payment_method='credit_note') #}
+                                        {% if inv.payment_method == 'cash' %}
+                                            {% set efectivo.value = efectivo.value + inv.total %}
+                                        {% elif inv.payment_method == 'mixed' and inv.notes and 'Efectivo: $' in inv.notes %}
+                                            {% set cash_part = inv.notes.split('Efectivo: $')[1].split('\n')[0].replace(',', '').replace('.', '') %}
+                                            {% set efectivo.value = efectivo.value + (cash_part|int) %}
+                                        {% endif %}
                                     {% endif %}
                                 {% endfor %}
                                 
-                                {# Calcular transferencia: suma directa + parte mixta #}
+                                {# Calcular transferencia: suma directa + parte mixta (SOLO dinero bancario recibido) #}
                                 {% set transferencia = namespace(value=0) %}
                                 {% for inv in invoices %}
-                                    {% if inv.payment_method == 'transfer' %}
-                                        {% set transferencia.value = transferencia.value + inv.total %}
-                                    {% elif inv.payment_method == 'mixed' and inv.notes and 'Transferencia: $' in inv.notes %}
-                                        {% set transfer_part = inv.notes.split('Transferencia: $')[1].split('\n')[0].replace(',', '').replace('.', '') %}
-                                        {% set transferencia.value = transferencia.value + (transfer_part|int) %}
+                                    {# NO sumar si es NC (document_type='credit_note') #}
+                                    {% if not inv.is_credit_note() %}
+                                        {# NO sumar si fue pagada totalmente con NC (payment_method='credit_note') #}
+                                        {% if inv.payment_method == 'transfer' %}
+                                            {% set transferencia.value = transferencia.value + inv.total %}
+                                        {% elif inv.payment_method == 'mixed' and inv.notes and 'Transferencia: $' in inv.notes %}
+                                            {% set transfer_part = inv.notes.split('Transferencia: $')[1].split('\n')[0].replace(',', '').replace('.', '') %}
+                                            {% set transferencia.value = transferencia.value + (transfer_part|int) %}
+                                        {% endif %}
                                     {% endif %}
                                 {% endfor %}
                                 
@@ -203,12 +211,15 @@
                                             {% endif %}
                                         </div>
                                         <div class="d-flex gap-1">
-                                            {% if invoice.payment_method == 'cash' %}
+                                            {% if invoice.is_credit_note() %}
+                                                {# Si es NC, mostrar icono de NC independiente del payment_method #}
+                                                <span class="fs-5" title="Nota de Crédito (Devolución)">🎫</span>
+                                            {% elif invoice.payment_method == 'cash' %}
                                                 <span class="fs-5" title="Efectivo">💵</span>
                                             {% elif invoice.payment_method == 'transfer' %}
                                                 <span class="fs-5" title="Transferencia">💳</span>
                                             {% elif invoice.payment_method == 'credit_note' %}
-                                                <span class="fs-5" title="Nota de Crédito">🎫</span>
+                                                <span class="fs-5" title="Pagado con Nota de Crédito">🎫</span>
                                             {% elif invoice.payment_method == 'mixed' %}
                                                 {% if invoice.notes and '--- PAGO MIXTO ---' in invoice.notes %}
                                                     {% set parts = [] %}
