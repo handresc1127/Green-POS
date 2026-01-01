@@ -923,3 +923,253 @@ def appointment_whatsapp_summary():
         ]
     })
 
+
+# ==================== PRICING SUGGESTION FUNCTIONS ====================
+
+def find_similar_breed(breed_input, species, threshold=0.6):
+    """Encuentra raza similar en BD usando fuzzy matching.
+    
+    Args:
+        breed_input: Raza ingresada por usuario (puede tener typos)
+        species: Especie para filtrar razas ('Gato', 'Perro')
+        threshold: Score mínimo de similitud (0.0-1.0, default 0.6)
+        
+    Returns:
+        dict: {
+            'matched_breed': str,     # Raza en BD más similar
+            'original_input': str,    # Input del usuario
+            'similarity_score': float, # Score 0.0-1.0
+            'is_exact_match': bool    # True si coincidencia exacta
+        }
+        None si no hay match suficientemente cercano
+    """
+    from difflib import get_close_matches, SequenceMatcher
+    from sqlalchemy import func
+    import re
+    
+    if not breed_input:
+        return None
+    
+    # Normalizar input
+    breed_normalized = breed_input.lower().strip()
+    breed_normalized = re.sub(r'\s+', ' ', breed_normalized)  # Espacios múltiples → 1
+    
+    # Obtener lista de razas únicas de esa especie en BD
+    breeds_in_db = db.session.query(Pet.breed).join(
+        Appointment, Appointment.pet_id == Pet.id
+    ).filter(
+        Pet.breed.isnot(None),
+        Pet.breed != '',
+        func.lower(Pet.species) == species.lower(),
+        Appointment.status == 'done'
+    ).distinct().all()
+    
+    if not breeds_in_db:
+        return None
+    
+    # Convertir a lista de strings normalizados
+    breed_list = [b.breed.lower().strip() for b in breeds_in_db]
+    breed_list = list(set(breed_list))  # Remover duplicados
+    
+    # Buscar coincidencia exacta primero
+    if breed_normalized in breed_list:
+        return {
+            'matched_breed': breed_input,  # Usar input original
+            'original_input': breed_input,
+            'similarity_score': 1.0,
+            'is_exact_match': True
+        }
+    
+    # Fuzzy matching con difflib
+    matches = get_close_matches(breed_normalized, breed_list, n=1, cutoff=threshold)
+    
+    if not matches:
+        return None
+    
+    matched_breed = matches[0]
+    
+    # Calcular score de similitud (ratio de Levenshtein)
+    score = SequenceMatcher(None, breed_normalized, matched_breed).ratio()
+    
+    # Obtener raza original de BD (con capitalización correcta)
+    original_breed_obj = db.session.query(Pet.breed).filter(
+        func.lower(Pet.breed) == matched_breed
+    ).first()
+    
+    matched_breed_original = original_breed_obj.breed if original_breed_obj else matched_breed
+    
+    return {
+        'matched_breed': matched_breed_original,
+        'original_input': breed_input,
+        'similarity_score': score,
+        'is_exact_match': False
+    }
+
+
+def get_price_stats_by_species_breed(species, breed, start_date, end_date, min_count=3):
+    """Calcula estadísticas de precios por especie/raza en período específico.
+    
+    IMPORTANTE: Calcula estadísticas usando Appointment.total_price (precio de cita completa),
+    NO PetService.price individual.
+    
+    Args:
+        species: Especie de la mascota ('Gato', 'Perro')
+        breed: Raza (puede ser None para buscar solo por especie)
+        start_date: Fecha inicio del período (datetime)
+        end_date: Fecha fin del período (datetime)
+        min_count: Mínimo de citas para considerar estadística válida (default 3)
+        
+    Returns:
+        dict: {
+            'average': float,      # Promedio de total_price
+            'mode': float,         # Moda (valor más frecuente)
+            'median': float,       # Mediana
+            'min': float,          # Mínimo
+            'max': float,          # Máximo
+            'count': int,          # Número de citas
+            'suggested': float     # Precio sugerido (= mode)
+        }
+        None si count < min_count
+    """
+    from sqlalchemy import func
+    from collections import Counter
+    
+    # Query base de appointments
+    query = db.session.query(
+        Appointment.total_price
+    ).join(
+        Pet, Appointment.pet_id == Pet.id
+    ).filter(
+        Appointment.status == 'done',
+        Appointment.total_price > 0,
+        Appointment.created_at >= start_date,
+        Appointment.created_at <= end_date,
+        func.lower(Pet.species) == species.lower()
+    )
+    
+    # Filtrar por raza si está especificada
+    if breed:
+        query = query.filter(func.lower(Pet.breed) == breed.lower())
+    
+    # Obtener todos los precios para calcular moda
+    prices = [row.total_price for row in query.all()]
+    
+    if len(prices) < min_count:
+        return None
+    
+    # Calcular estadísticas básicas
+    average = sum(prices) / len(prices)
+    minimum = min(prices)
+    maximum = max(prices)
+    count = len(prices)
+    
+    # Calcular mediana
+    sorted_prices = sorted(prices)
+    mid = len(sorted_prices) // 2
+    if len(sorted_prices) % 2 == 0:
+        median = (sorted_prices[mid - 1] + sorted_prices[mid]) / 2
+    else:
+        median = sorted_prices[mid]
+    
+    # Calcular moda (valor más frecuente)
+    # Redondear a múltiplo de 1000 para agrupar valores cercanos
+    rounded_prices = [round(p / 1000) * 1000 for p in prices]
+    price_counts = Counter(rounded_prices)
+    mode_price = price_counts.most_common(1)[0][0] if price_counts else average
+    
+    return {
+        'average': float(average),
+        'mode': float(mode_price),
+        'median': float(median),
+        'min': float(minimum),
+        'max': float(maximum),
+        'count': int(count),
+        'suggested': float(mode_price)  # Usar moda como sugerencia
+    }
+
+
+def get_price_stats_with_temporal_scaling(species, breed, year=2025):
+    """Calcula estadísticas con escalado temporal: mes → trimestre → año.
+    
+    Args:
+        species: Especie de la mascota
+        breed: Raza (se aplica fuzzy matching)
+        year: Año de referencia (default 2025)
+        
+    Returns:
+        tuple: (stats_dict, period_label, matched_breed_info)
+        
+        stats_dict: Resultado de get_price_stats_by_species_breed() o None
+        period_label: 'mes_actual' | 'ultimo_trimestre' | 'año_completo' | 'sin_datos'
+        matched_breed_info: Resultado de find_similar_breed() o None
+    """
+    from datetime import timedelta
+    
+    now = datetime.now(CO_TZ)
+    
+    # Intentar fuzzy matching de raza
+    matched_breed_info = None
+    search_breed = breed
+    
+    if breed:
+        matched_breed_info = find_similar_breed(breed, species, threshold=0.6)
+        if matched_breed_info:
+            search_breed = matched_breed_info['matched_breed']
+    
+    # 1. Intentar con MES ACTUAL (enero 2026)
+    first_day_current_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    stats = get_price_stats_by_species_breed(
+        species, 
+        search_breed, 
+        first_day_current_month, 
+        now,
+        min_count=3
+    )
+    
+    if stats:
+        return (stats, 'mes_actual', matched_breed_info)
+    
+    # 2. Intentar con ÚLTIMO TRIMESTRE (octubre-diciembre 2025)
+    # Si estamos en enero 2026, último trimestre es oct-dic 2025
+    three_months_ago = now - timedelta(days=90)
+    stats = get_price_stats_by_species_breed(
+        species,
+        search_breed,
+        three_months_ago,
+        now,
+        min_count=3
+    )
+    
+    if stats:
+        return (stats, 'ultimo_trimestre', matched_breed_info)
+    
+    # 3. Fallback: TODO EL AÑO ANTERIOR (2025)
+    start_prev_year = datetime(year, 1, 1, 0, 0, 0, tzinfo=CO_TZ)
+    end_prev_year = datetime(year, 12, 31, 23, 59, 59, tzinfo=CO_TZ)
+    stats = get_price_stats_by_species_breed(
+        species,
+        search_breed,
+        start_prev_year,
+        end_prev_year,
+        min_count=3
+    )
+    
+    if stats:
+        return (stats, 'año_completo', matched_breed_info)
+    
+    # 4. Último intento: Solo por especie (ignorar raza)
+    if search_breed:
+        stats = get_price_stats_by_species_breed(
+            species,
+            None,  # Sin filtro de raza
+            start_prev_year,
+            end_prev_year,
+            min_count=3
+        )
+        
+        if stats:
+            return (stats, 'año_completo_especie', None)
+    
+    # Sin datos suficientes
+    return (None, 'sin_datos', matched_breed_info)
+

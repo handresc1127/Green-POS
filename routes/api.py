@@ -15,6 +15,20 @@ from models.models import Product, Pet, ProductCode, Customer
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
 
+# ==================== PRICING SUGGESTION HELPERS ====================
+
+def _get_price_stats_with_temporal_scaling(species, breed, year=2025):
+    """Wrapper para funciones de pricing de services.
+    
+    Importa dinámicamente para evitar circular imports.
+    """
+    from routes.services import get_price_stats_with_temporal_scaling
+    return get_price_stats_with_temporal_scaling(species, breed, year)
+
+
+# ==================== PRODUCT ENDPOINTS ====================
+
+
 @api_bp.route('/products/<int:id>')
 def product_details(id):
     """Obtiene detalles de un producto específico.
@@ -136,6 +150,31 @@ def pets_by_customer(customer_id):
     ])
 
 
+@api_bp.route('/pets/<int:pet_id>')
+@login_required
+def pet_details(pet_id):
+    """Obtiene detalles de una mascota específica.
+    
+    Args:
+        pet_id: ID de la mascota
+        
+    Returns:
+        JSON con id, name, species, breed, age_years, notes
+    """
+    pet = Pet.query.get_or_404(pet_id)
+    return jsonify({
+        'id': pet.id,
+        'name': pet.name,
+        'species': pet.species or '',
+        'breed': pet.breed or '',
+        'age_years': pet.age_years or 0,
+        'color': pet.color or '',
+        'sex': pet.sex or '',
+        'weight_kg': pet.weight_kg or 0,
+        'notes': pet.notes or ''
+    })
+
+
 @api_bp.route('/customers/<int:customer_id>')
 @login_required
 def customer_details(customer_id):
@@ -197,3 +236,95 @@ def products_code_index():
     response = jsonify(code_index)
     response.headers['Cache-Control'] = 'public, max-age=300'  # 5 minutos
     return response
+
+
+# ==================== PRICING SUGGESTION ENDPOINT ====================
+
+@api_bp.route('/pricing/suggest', methods=['GET'])
+@login_required
+def pricing_suggest():
+    """API para sugerir precios basados en histórico.
+    
+    Query Parameters:
+        species: Especie ('Gato', 'Perro')
+        breed: Raza (opcional, se aplica fuzzy matching)
+        year: Año de referencia (default: 2025)
+        
+    Returns:
+        JSON: {
+            'success': bool,
+            'stats': {
+                'average': float,
+                'mode': float,
+                'median': float,
+                'min': float,
+                'max': float,
+                'count': int,
+                'suggested': float
+            },
+            'period': 'mes_actual' | 'ultimo_trimestre' | 'año_completo' | 'sin_datos',
+            'breed_match': {
+                'matched_breed': str,
+                'original_input': str,
+                'similarity_score': float,
+                'is_exact_match': bool
+            } | null,
+            'message': str
+        }
+    """
+    try:
+        # Obtener parámetros
+        species = request.args.get('species', '').strip()
+        breed = request.args.get('breed', '').strip()
+        year = int(request.args.get('year', 2025))
+        
+        if not species:
+            return jsonify({
+                'success': False,
+                'message': 'Parámetro species es requerido'
+            }), 400
+        
+        # Calcular estadísticas con escalado temporal
+        stats, period, breed_match = _get_price_stats_with_temporal_scaling(
+            species, 
+            breed if breed else None, 
+            year
+        )
+        
+        if not stats:
+            return jsonify({
+                'success': False,
+                'stats': None,
+                'period': period,
+                'breed_match': breed_match,
+                'message': 'No hay suficientes datos históricos para esta especie/raza'
+            })
+        
+        # Mensajes según período
+        period_messages = {
+            'mes_actual': f'Basado en citas del mes actual ({stats["count"]} registros)',
+            'ultimo_trimestre': f'Basado en últimos 3 meses ({stats["count"]} registros)',
+            'año_completo': f'Basado en año {year} completo ({stats["count"]} registros)',
+            'año_completo_especie': f'Basado en año {year} (solo especie, sin filtro de raza, {stats["count"]} registros)',
+            'sin_datos': 'Sin datos suficientes'
+        }
+        
+        return jsonify({
+            'success': True,
+            'stats': stats,
+            'period': period,
+            'breed_match': breed_match,
+            'message': period_messages.get(period, 'Datos obtenidos')
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error en parámetros: {str(e)}'
+        }), 400
+    except Exception as e:
+        current_app.logger.error(f"Error en pricing_suggest: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Error interno del servidor'
+        }), 500

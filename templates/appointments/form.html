@@ -2,6 +2,7 @@
 {% block title %}Nueva Cita{% endblock %}
 {% block page_title %}Nueva Cita{% endblock %}
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/pricing-suggestion.js') }}"></script>
 <script>
 // Refactor: módulo aislado para el formulario de servicios
 window.ServiceForm = (function(){
@@ -363,6 +364,183 @@ document.addEventListener('DOMContentLoaded', function(){
       {% endfor %}
     </div>
   </div>
+  
+  <!-- PRICING SUGGESTION SECTION -->
+  <div class="col-12" id="pricingSuggestionContainer" style="display: none;">
+    <div class="card border-info shadow-sm">
+      <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+          <i class="bi bi-graph-up-arrow"></i> Sugerencia de Precio Histórico
+        </h6>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshPricingBtn" title="Recalcular sugerencia">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        <!-- Estado: Cargando -->
+        <div id="pricingLoading" class="text-center py-3" style="display: none;">
+          <div class="spinner-border spinner-border-sm text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+          </div>
+          <span class="ms-2 text-muted">Calculando sugerencia basada en histórico...</span>
+        </div>
+        
+        <!-- Estado: Sin datos -->
+        <div id="pricingNoData" class="alert alert-warning mb-0" style="display: none;">
+          <i class="bi bi-exclamation-triangle"></i>
+          <strong>Sin datos históricos suficientes</strong><br>
+          <small>No hay al menos 3 citas previas para esta especie/raza en el período evaluado.</small>
+        </div>
+        
+        <!-- Estado: Sugerencia disponible -->
+        <div id="pricingData" style="display: none;">
+          <!-- Información del análisis -->
+          <div class="alert alert-light border mb-3">
+            <div class="row g-2 small">
+              <div class="col-md-4">
+                <strong><i class="bi bi-bookmark-star text-primary"></i> Mascota:</strong>
+                <span id="pricingPetInfo" class="d-block text-muted">-</span>
+              </div>
+              <div class="col-md-4">
+                <strong><i class="bi bi-calendar-range text-success"></i> Período:</strong>
+                <span id="pricingPeriodBadge" class="badge bg-secondary ms-1">-</span>
+              </div>
+              <div class="col-md-4">
+                <strong><i class="bi bi-database text-info"></i> Registros:</strong>
+                <span id="pricingCountText" class="ms-1">-</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row g-3">
+            <!-- Estadísticas visuales -->
+            <div class="col-12">
+              <div class="row g-2">
+                <!-- Moda (Sugerido) -->
+                <div class="col-md-3 col-6">
+                  <div class="card bg-success bg-opacity-10 border-success h-100">
+                    <div class="card-body p-2 text-center">
+                      <small class="text-muted d-block">Moda (Sugerido)</small>
+                      <strong id="pricingModeValue" class="fs-5 text-success">$0</strong>
+                      <small class="d-block text-muted">
+                        <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Valor más frecuente en las citas"></i>
+                      </small>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Promedio -->
+                <div class="col-md-3 col-6">
+                  <div class="card bg-primary bg-opacity-10 border-primary h-100">
+                    <div class="card-body p-2 text-center">
+                      <small class="text-muted d-block">Promedio</small>
+                      <strong id="pricingAverageValue" class="fs-5 text-primary">$0</strong>
+                      <small class="d-block text-muted">
+                        <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Media aritmética"></i>
+                      </small>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Rango Mínimo -->
+                <div class="col-md-3 col-6">
+                  <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                    <div class="card-body p-2 text-center">
+                      <small class="text-muted d-block">Mínimo</small>
+                      <strong id="pricingMinValue" class="fs-6 text-secondary">$0</strong>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Rango Máximo -->
+                <div class="col-md-3 col-6">
+                  <div class="card bg-secondary bg-opacity-10 border-secondary h-100">
+                    <div class="card-body p-2 text-center">
+                      <small class="text-muted d-block">Máximo</small>
+                      <strong id="pricingMaxValue" class="fs-6 text-secondary">$0</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Precio base (para aplicar incremento) -->
+            <div class="col-md-6">
+              <label class="form-label fw-bold">
+                <i class="bi bi-cash-stack"></i> Precio Base
+                <button type="button" class="btn btn-link btn-sm p-0 ms-1" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-html="true" title="Información del Precio Base" data-bs-content="<small>Este precio se calcula con la <strong>moda</strong> (valor más frecuente) del histórico. Es el punto de partida para aplicar incrementos.</small>">
+                  <i class="bi bi-question-circle text-muted"></i>
+                </button>
+              </label>
+              <div class="input-group input-group-lg">
+                <span class="input-group-text bg-success bg-opacity-10">
+                  <i class="bi bi-cash-coin text-success"></i>
+                </span>
+                <input type="text" id="suggestedPriceDisplay" class="form-control fw-bold text-success" readonly value="$0">
+              </div>
+            </div>
+            
+            <!-- Campo de incremento porcentual -->
+            <div class="col-md-6">
+              <label class="form-label fw-bold" for="priceIncrementPercent">
+                <i class="bi bi-calculator"></i> Incremento (%)
+                <button type="button" class="btn btn-link btn-sm p-0 ms-1" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-html="true" title="Cómo usar el Incremento" data-bs-content="<small><strong>Positivo:</strong> Aumenta el precio<br><strong>Negativo:</strong> Reduce el precio<br><strong>Ejemplo:</strong> 10% sobre $50,000 = $55,000</small>">
+                  <i class="bi bi-question-circle text-muted"></i>
+                </button>
+              </label>
+              <div class="input-group input-group-lg">
+                <button type="button" class="btn btn-outline-danger" id="decrementBtn" title="Disminuir 5%">
+                  <i class="bi bi-dash-lg"></i>
+                </button>
+                <input type="number" id="priceIncrementPercent" class="form-control text-center fw-bold" placeholder="0" step="5" min="-100" max="1000" value="0">
+                <span class="input-group-text">%</span>
+                <button type="button" class="btn btn-outline-success" id="incrementBtn" title="Aumentar 5%">
+                  <i class="bi bi-plus-lg"></i>
+                </button>
+              </div>
+              <small class="text-muted">Usa botones +/- para ajustes rápidos de 5%</small>
+            </div>
+            
+            <!-- Precio final calculado -->
+            <div class="col-12">
+              <div class="alert alert-success bg-success bg-opacity-10 border-success mb-0">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <div>
+                    <strong class="d-block mb-1">
+                      <i class="bi bi-calculator-fill"></i> Precio Final Calculado
+                    </strong>
+                    <span id="finalCalculatedPrice" class="fs-3 text-success fw-bold">$0</span>
+                    <small id="priceChangeIndicator" class="d-block text-muted mt-1"></small>
+                  </div>
+                  <button type="button" class="btn btn-success" id="applyCalculatedPriceBtn" disabled>
+                    <i class="bi bi-check-circle-fill"></i> Aplicar a Servicios Seleccionados
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Breed match info (si aplica fuzzy matching) -->
+          <div id="breedMatchInfo" class="alert alert-warning border-warning mt-3 mb-0" style="display: none;">
+            <div class="d-flex align-items-start gap-2">
+              <i class="bi bi-search fs-5"></i>
+              <div class="flex-grow-1">
+                <strong>Raza similar encontrada:</strong>
+                <span id="breedMatchText" class="d-block mt-1"></span>
+                <small class="d-block text-muted mt-1">
+                  <i class="bi bi-percent"></i> Coincidencia: <span id="breedMatchScore" class="fw-bold"></span>%
+                  <span class="ms-2">
+                    <i class="bi bi-info-circle"></i> Se usó búsqueda aproximada para encontrar datos históricos
+                  </span>
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <div class="col-12">
   <label class="form-label" for="description_input">Descripción</label>
   <textarea id="description_input" name="description" class="form-control" rows="2"></textarea>
