@@ -7,7 +7,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="card mb-4">
+<!-- Información del Producto -->
+<div id="product-info-card" class="card mb-3">
     <div class="card-body">
         <div class="row">
             <div class="col-md-8">
@@ -16,30 +17,13 @@
                 </h5>
                 <p class="mb-1"><strong>Código:</strong> {{ product.code }}</p>
                 <p class="mb-1"><strong>Categoría:</strong> {{ product.category or '-' }}</p>
-                <p class="mb-1"><strong>Stock Actual:</strong> 
-                    {% set stock_min = product.effective_stock_min %}
-                    {% set stock_warning = product.effective_stock_warning %}
-                    {% set badge_class = 'success' %}
-                    
-                    {# Productos a necesidad siempre success #}
-                    {% if stock_min == 0 and stock_warning == 0 %}
-                        {% set badge_class = 'success' %}
-                    {% elif product.stock <= stock_min %}
-                        {% set badge_class = 'danger' %}
-                    {% elif product.stock <= stock_warning %}
-                        {% set badge_class = 'warning' %}
-                    {% endif %}
-                    <span class="badge bg-{{ badge_class }}">
-                        {{ product.stock }} unidades
-                    </span>
-                </p>
             </div>
             <div class="col-md-4 text-end">
-                <a href="{{ url_for('products.list', query=query, sort_by=sort_by, sort_order=sort_order, supplier_id=supplier_id) }}" class="btn btn-outline-secondary mb-2">
+                <a id="btn-back-to-products" href="{{ url_for('products.list', query=query, sort_by=sort_by, sort_order=sort_order, supplier_id=supplier_id) }}" class="btn btn-outline-secondary mb-2">
                     <i class="bi bi-arrow-left"></i> Volver a Productos
                 </a>
                 {% if current_user.role == 'admin' %}
-                <a href="{{ url_for('products.edit', id=product.id, query=query, sort_by=sort_by, sort_order=sort_order, supplier_id=supplier_id) }}" class="btn btn-outline-primary mb-2">
+                <a id="btn-edit-product" href="{{ url_for('products.edit', id=product.id, query=query, sort_by=sort_by, sort_order=sort_order, supplier_id=supplier_id) }}" class="btn btn-outline-primary mb-2">
                     <i class="bi bi-pencil"></i> Editar Producto
                 </a>
                 {% endif %}
@@ -48,88 +32,239 @@
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header bg-light">
-        <h5 class="mb-0">
-            <i class="bi bi-journal-text"></i> Movimientos de Inventario
-        </h5>
+<!-- Card de Estadísticas del Producto -->
+<div id="statistics-card" class="card mb-3">
+  <div id="statistics-header" class="card-header bg-light">
+    <h5 class="mb-0">
+      <i class="bi bi-graph-up"></i> Estadísticas de Inventario
+    </h5>
+  </div>
+  <div id="statistics-body" class="card-body">
+    <div class="row">
+      <!-- Promedio Ventas Mensuales -->
+      <div id="stat-avg-monthly" class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="text-center" title="Promedio de unidades vendidas por mes (últimos 6 meses)">
+          <small class="text-muted d-block">Promedio Mensual</small>
+          <h4 id="avg-monthly-value" class="mb-0 text-primary">{{ avg_monthly_sales|round(1) }}</h4>
+          <small class="text-muted">unidades/mes</small>
+        </div>
+      </div>
+      
+      <!-- Total Ingresados -->
+      <div id="stat-total-purchased" class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="text-center" title="Compras y recepciones de proveedor (excluye ajustes de inventario)">
+          <small class="text-muted d-block">Total Comprado</small>
+          <h4 id="total-purchased-value" class="mb-0 text-success">{{ total_purchased }}</h4>
+          <small class="text-muted">compras</small>
+        </div>
+      </div>
+      
+      <!-- Total Vendidos -->
+      <div id="stat-net-sold" class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="text-center" title="Total de unidades vendidas menos devoluciones (notas de crédito)">
+          <small class="text-muted d-block">Total Vendido</small>
+          <h4 id="net-sold-value" class="mb-0 text-info">{{ net_sold }}</h4>
+          <small class="text-muted">ventas netas</small>
+        </div>
+      </div>
+      
+      <!-- Total Perdidos -->
+      <div id="stat-total-lost" class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="text-center" title="Unidades perdidas o dañadas (ajustes negativos manuales, excluye ventas y faltantes de inventario físico)">
+          <small class="text-muted d-block">Total Perdido</small>
+          <h4 id="total-lost-value" class="mb-0 text-danger">{{ total_lost }}</h4>
+          <small class="text-muted">ajustes -</small>
+        </div>
+      </div>
+      
+      <!-- Proyección Días -->
+      <div id="stat-days-until-stockout" class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="text-center" title="Días estimados hasta agotar inventario actual según velocidad de ventas de los últimos 30 días">
+          <small class="text-muted d-block">Proyección Stock</small>
+          <h4 id="days-until-stockout-value" class="mb-0 {% if days_until_stockout and days_until_stockout < 30 %}text-warning{% endif %}">
+            {% if days_until_stockout %}
+              {{ days_until_stockout|round(0)|int }}
+            {% else %}
+              ∞
+            {% endif %}
+          </h4>
+          <small class="text-muted">días</small>
+        </div>
+      </div>
+      
+      <!-- Rotación de Inventario -->
+      <div id="stat-inventory-turnover" class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="text-center" title="Veces que se renovó el inventario completo (ventas ÷ stock promedio). Mayor rotación = producto se vende más rápido">
+          <small class="text-muted d-block">Rotación</small>
+          <h4 id="inventory-turnover-value" class="mb-0">
+            {% if inventory_turnover %}
+              {{ inventory_turnover|round(2) }}x
+            {% else %}
+              N/A
+            {% endif %}
+          </h4>
+          <small class="text-muted">veces</small>
+        </div>
+      </div>
     </div>
-    <div class="card-body">
-        {% if logs %}
-        <div class="table-responsive">
-            <table class="table table-hover table-sm align-middle">
-                <thead>
-                    <tr>
-                        <th>Fecha y Hora</th>
-                        <th>Usuario</th>
-                        <th>Tipo</th>
-                        <th>Cantidad</th>
-                        <th>Stock Anterior</th>
-                        <th>Stock Nuevo</th>
-                        <th>Razón</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in logs %}
-                    <tr>
-                        <td>
-                            <small>{{ log.created_at|format_tz_co }}</small>
-                        </td>
-                        <td>
-                            <small>{{ log.user.username if log.user else 'Sistema' }}</small>
-                        </td>
-                        <td>
-                            {% if log.movement_type == 'addition' %}
-                                <span class="badge bg-success">
-                                    <i class="bi bi-plus-circle"></i> Ingreso
-                                </span>
-                            {% elif log.movement_type == 'subtraction' %}
-                                <span class="badge bg-danger">
-                                    <i class="bi bi-dash-circle"></i> Egreso
-                                </span>
-                            {% else %}
-                                <span class="badge bg-info">
-                                    <i class="bi bi-clipboard-check"></i> Inventario
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if log.movement_type == 'inventory' %}
-                                <span class="text-muted">
-                                    <i class="bi bi-check-circle"></i> 0
-                                </span>
-                            {% else %}
-                                <strong class="text-{{ 'success' if log.movement_type == 'addition' else 'danger' }}">
-                                    {{ '+' if log.movement_type == 'addition' else '-' }}{{ log.quantity }}
-                                </strong>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            <span class="text-muted">{{ log.previous_stock }}</span>
-                        </td>
-                        <td class="text-center">
-                            <strong>{{ log.new_stock }}</strong>
-                        </td>
-                        <td>
-                            <small class="text-muted">{{ log.reason }}</small>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    
+    <!-- Fila adicional: Stock Actual y Última Venta -->
+    <div id="additional-info-row" class="row border-top pt-3 mt-2">
+      <div id="current-stock-info" class="col-md-6 mb-3">
+        <div class="d-flex align-items-center" title="Cantidad actual en inventario del sistema">
+          <i class="bi bi-box-seam fs-3 text-secondary me-3"></i>
+          <div>
+            <small class="text-muted">Stock Actual</small>
+            <h5 class="mb-0">
+              <span id="current-stock-value">{{ product.stock }}</span> unidades
+              {% if product.stock <= product.effective_stock_min %}
+                <span id="stock-badge" class="badge bg-danger ms-2">Bajo</span>
+              {% elif product.stock <= product.effective_stock_warning %}
+                <span id="stock-badge" class="badge bg-warning ms-2">Alerta</span>
+              {% endif %}
+            </h5>
+          </div>
         </div>
-        
-        <div class="alert alert-info mt-3">
-            <i class="bi bi-info-circle"></i> 
-            <strong>Total de movimientos registrados:</strong> {{ logs|length }}
+      </div>
+      <div id="last-sale-info" class="col-md-6 mb-3">
+        <div class="d-flex align-items-center" title="Días transcurridos desde la última venta registrada">
+          <i class="bi bi-calendar-check fs-3 text-info me-3"></i>
+          <div>
+            <small class="text-muted">Última Venta</small>
+            <h5 class="mb-0">
+              <span id="days-since-last-sale-value">
+              {% if days_since_last_sale is not none %}
+                Hace {{ days_since_last_sale }} días
+              {% else %}
+                Sin ventas registradas
+              {% endif %}
+              </span>
+            </h5>
+          </div>
         </div>
-        {% else %}
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> 
-            No hay movimientos de inventario registrados para este producto.
-            Los movimientos se registran automáticamente al actualizar las existencias.
-        </div>
-        {% endif %}
+      </div>
     </div>
+  </div>
+</div>
+
+<!-- Card de Historial Consolidado -->
+<div id="history-card" class="card">
+  <div id="history-header" class="card-header bg-light">
+    <h5 class="mb-0">
+      <i class="bi bi-clock-history"></i> Historial Completo de Movimientos
+    </h5>
+  </div>
+  <div id="history-body" class="card-body p-0">
+    <div class="table-responsive">
+      <table id="movements-table" class="table table-sm table-hover mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Fecha y Hora</th>
+            <th>Usuario</th>
+            <th>Tipo</th>
+            <th class="text-center">Cantidad</th>
+            <th class="text-center">Stock Anterior</th>
+            <th class="text-center">Stock Nuevo</th>
+            <th>Razón</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if movements %}
+            {% for movement in movements %}
+            <tr>
+              <!-- Fecha y Hora -->
+              <td>
+                <small>{{ movement.date|format_tz_co }}</small>
+              </td>
+              
+              <!-- Usuario -->
+              <td><small>{{ movement.user }}</small></td>
+              
+              <!-- Tipo con Badge -->
+              <td>
+                {% if movement.type == 'venta' %}
+                  <span class="badge bg-warning text-dark">
+                    <i class="bi bi-cart-dash"></i> Venta
+                  </span>
+                {% elif movement.type == 'addition' %}
+                  <span class="badge bg-success">
+                    <i class="bi bi-arrow-up-circle"></i> Ingreso
+                  </span>
+                {% elif movement.type == 'subtraction' %}
+                  <span class="badge bg-danger">
+                    <i class="bi bi-arrow-down-circle"></i> Egreso
+                  </span>
+                {% elif movement.type == 'inventory' %}
+                  <span class="badge bg-info">
+                    <i class="bi bi-clipboard-check"></i> Inventario
+                  </span>
+                {% endif %}
+              </td>
+              
+              <!-- Cantidad -->
+              <td class="text-center">
+                {% if movement.type == 'venta' or movement.type == 'subtraction' %}
+                  <span class="text-danger fw-bold">-{{ movement.quantity }}</span>
+                {% elif movement.type == 'inventory' and movement.quantity == 0 %}
+                  <span class="text-muted">0</span>
+                {% else %}
+                  <span class="text-success fw-bold">+{{ movement.quantity }}</span>
+                {% endif %}
+              </td>
+              
+              <!-- Stock Anterior -->
+              <td class="text-center">
+                {% if movement.previous_stock is not none %}
+                  <span class="badge {% if movement.previous_stock < 0 %}bg-danger{% else %}bg-secondary{% endif %}">
+                    {{ movement.previous_stock }}
+                  </span>
+                {% else %}
+                  <small class="text-muted">N/A</small>
+                {% endif %}
+              </td>
+              
+              <!-- Stock Nuevo -->
+              <td class="text-center">
+                {% if movement.new_stock is not none %}
+                  <span class="badge {% if movement.new_stock < 0 %}bg-danger{% else %}bg-primary{% endif %}">
+                    {{ movement.new_stock }}
+                  </span>
+                {% else %}
+                  <small class="text-muted">N/A</small>
+                {% endif %}
+              </td>
+              
+              <!-- Razón -->
+              <td>
+                <small>{{ movement.reason }}</small>
+                {% if movement.is_inventory %}
+                  <span class="badge bg-info ms-1">Físico</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">
+                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                No hay movimientos registrados para este producto
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  <!-- Footer con totales -->
+  <div id="history-footer" class="card-footer text-muted">
+    <small>
+      <i class="bi bi-info-circle"></i>
+      Total de movimientos: <strong id="total-movements">{{ movements|length }}</strong>
+      {% if movements %}
+        | Período: <span id="period-range">{{ movements[-1].date|format_date_co }} a {{ movements[0].date|format_date_co }}</span>
+      {% endif %}
+    </small>
+  </div>
 </div>
 {% endblock %}

@@ -4,12 +4,17 @@ Blueprint para CRUD de productos e historial de stock.
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_, and_, extract
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from extensions import db
-from models.models import Product, InvoiceItem, Supplier, ProductStockLog, Invoice, ProductCode
+from models.models import Product, InvoiceItem, Supplier, ProductStockLog, Invoice, ProductCode, User
 from utils.decorators import role_required
 from utils.backup import auto_backup
+
+# Timezone de Colombia
+CO_TZ = ZoneInfo("America/Bogota")
 
 # Crear Blueprint
 products_bp = Blueprint('products', __name__, url_prefix='/products')
@@ -363,7 +368,7 @@ def delete(id):
 @products_bp.route('/<int:id>/stock-history')
 @login_required
 def stock_history(id):
-    """Ver historial de movimientos de inventario de un producto."""
+    """Ver historial consolidado de movimientos de inventario (logs + ventas) con estadísticas."""
     product = Product.query.get_or_404(id)
     
     # Leer parámetros de navegación para preservar estado de filtros
@@ -372,18 +377,201 @@ def stock_history(id):
     sort_order = request.args.get('sort_order', 'asc')
     supplier_id = request.args.get('supplier_id', '')
     
-    # Obtener todos los logs del producto, ordenados por fecha descendente
-    logs = ProductStockLog.query.filter_by(product_id=id)\
-        .order_by(ProductStockLog.created_at.desc())\
+    # === PASO 1: Obtener todos los movimientos de ProductStockLog ===
+    stock_logs = ProductStockLog.query.filter_by(product_id=id)\
+        .order_by(ProductStockLog.created_at.asc())\
         .all()
     
-    return render_template('products/stock_history.html', 
-                         product=product, 
-                         logs=logs,
-                         query=query,
-                         sort_by=sort_by,
-                         sort_order=sort_order,
-                         supplier_id=supplier_id)
+    # === PASO 2: Obtener todas las ventas desde InvoiceItem ===
+    # Solo ventas (document_type='invoice'), NC ya están en ProductStockLog
+    sales = db.session.query(
+        InvoiceItem, Invoice, User
+    ).select_from(InvoiceItem)\
+     .join(Invoice, InvoiceItem.invoice_id == Invoice.id)\
+     .outerjoin(User, Invoice.user_id == User.id)\
+     .filter(
+        InvoiceItem.product_id == id,
+        Invoice.document_type == 'invoice'
+    ).order_by(Invoice.date.asc())\
+     .all()
+    
+    # === PASO 3: Consolidar movimientos en una sola lista ===
+    movements = []
+    
+    # Agregar logs existentes
+    for log in stock_logs:
+        movements.append({
+            'date': log.created_at,
+            'user': log.user.username if log.user else 'Sistema',
+            'type': log.movement_type,
+            'quantity': log.quantity,
+            'previous_stock': log.previous_stock,
+            'new_stock': log.new_stock,
+            'reason': log.reason,
+            'is_inventory': log.is_inventory,
+            'source': 'log'
+        })
+    
+    # Agregar ventas
+    for sale_item, invoice, user in sales:
+        movements.append({
+            'date': invoice.date,
+            'user': user.username if user else 'Sistema',
+            'type': 'venta',
+            'quantity': sale_item.quantity,
+            'previous_stock': None,  # Se calculará
+            'new_stock': None,       # Se calculará
+            'reason': f'Venta en factura {invoice.number}',
+            'is_inventory': False,
+            'source': 'sale',
+            'invoice_number': invoice.number
+        })
+    
+    # === PASO 4: Ordenar cronológicamente (CRÍTICO) ===
+    movements.sort(key=lambda x: x['date'])
+    
+    # === PASO 5: Calcular stock anterior/nuevo retroactivamente ===
+    # Comenzar desde stock actual y retroceder
+    current_stock = product.stock
+    
+    # Iterar en reversa (de más reciente a más antiguo)
+    for movement in reversed(movements):
+        if movement['source'] == 'log':
+            # ProductStockLog ya tiene valores correctos
+            # No modificar, solo sincronizar current_stock para continuar retrocediendo
+            current_stock = movement['previous_stock']
+        else:
+            # Venta: calcular stocks retroactivamente
+            # Después de esta venta, el stock quedó en current_stock
+            movement['new_stock'] = current_stock
+            
+            # Antes de esta venta, el stock era current_stock + cantidad_vendida
+            movement['previous_stock'] = current_stock + movement['quantity']
+            
+            # Actualizar current_stock para la siguiente iteración (más antigua)
+            current_stock = movement['previous_stock']
+    
+    # Revertir orden para mostrar más recientes primero
+    movements.reverse()
+    
+    # === PASO 6: Calcular estadísticas ===
+    
+    # 6.1. Promedio ventas mensuales (últimos 6 meses desde sept 2025)
+    six_months_ago = datetime.now(CO_TZ) - timedelta(days=180)
+    monthly_sales_data = db.session.query(
+        extract('year', Invoice.date).label('year'),
+        extract('month', Invoice.date).label('month'),
+        func.sum(InvoiceItem.quantity).label('quantity')
+    ).join(Invoice).filter(
+        InvoiceItem.product_id == id,
+        Invoice.document_type == 'invoice',
+        Invoice.date >= six_months_ago
+    ).group_by(
+        extract('year', Invoice.date),
+        extract('month', Invoice.date)
+    ).all()
+    
+    total_monthly_quantity = sum(sale.quantity for sale in monthly_sales_data)
+    months_with_sales = len(monthly_sales_data) if monthly_sales_data else 6
+    avg_monthly_sales = total_monthly_quantity / months_with_sales if months_with_sales > 0 else 0
+    
+    # 6.2. Total ingresados (desde ProductStockLog con movement_type='addition')
+    total_purchased = db.session.query(
+        func.sum(ProductStockLog.quantity)
+    ).filter(
+        ProductStockLog.product_id == id,
+        ProductStockLog.movement_type == 'addition',
+        ProductStockLog.is_inventory == False  # Excluir sobrantes de inventario físico
+    ).scalar() or 0
+    
+    # 6.3. Total vendidos (cantidad desde InvoiceItem)
+    total_sold = db.session.query(
+        func.sum(InvoiceItem.quantity)
+    ).join(Invoice).filter(
+        InvoiceItem.product_id == id,
+        Invoice.document_type == 'invoice'
+    ).scalar() or 0
+    
+    # Restar devoluciones (NC)
+    total_returned = db.session.query(
+        func.sum(InvoiceItem.quantity)
+    ).join(Invoice).filter(
+        InvoiceItem.product_id == id,
+        Invoice.document_type == 'credit_note'
+    ).scalar() or 0
+    
+    net_sold = total_sold - total_returned
+    
+    # 6.4. Total perdidos (desde ProductStockLog con movement_type='subtraction')
+    total_lost = db.session.query(
+        func.sum(ProductStockLog.quantity)
+    ).filter(
+        ProductStockLog.product_id == id,
+        ProductStockLog.movement_type == 'subtraction',
+        ProductStockLog.is_inventory == False  # Excluir faltantes de inventario físico
+    ).scalar() or 0
+    
+    # 6.5. Velocidad de ventas (unidades/día en últimos 30 días)
+    thirty_days_ago = datetime.now(CO_TZ) - timedelta(days=30)
+    recent_sales = db.session.query(
+        func.sum(InvoiceItem.quantity)
+    ).join(Invoice).filter(
+        InvoiceItem.product_id == id,
+        Invoice.document_type == 'invoice',
+        Invoice.date >= thirty_days_ago
+    ).scalar() or 0
+    
+    sales_velocity = recent_sales / 30.0
+    
+    # 6.6. Proyección (días hasta agotarse)
+    if sales_velocity > 0:
+        days_until_stockout = product.stock / sales_velocity
+    else:
+        days_until_stockout = None  # Nunca se agota (sin ventas recientes)
+    
+    # 6.7. Rotación de inventario (total vendido / stock promedio)
+    # Aproximación: usar stock actual como referencia
+    if product.stock > 0:
+        inventory_turnover = net_sold / product.stock
+    else:
+        inventory_turnover = None
+    
+    # 6.8. Última venta (días atrás)
+    last_sale_date = db.session.query(
+        func.max(Invoice.date)
+    ).join(InvoiceItem).filter(
+        InvoiceItem.product_id == id,
+        Invoice.document_type == 'invoice'
+    ).scalar()
+    
+    if last_sale_date:
+        # Usar datetime naive para compatibilidad con fechas de BD
+        now = datetime.now()
+        # Si last_sale_date tiene timezone, quitarlo
+        if last_sale_date.tzinfo is not None:
+            last_sale_date = last_sale_date.replace(tzinfo=None)
+        days_since_last_sale = (now - last_sale_date).days
+    else:
+        days_since_last_sale = None
+    
+    # === PASO 7: Pasar datos al template ===
+    return render_template('products/stock_history.html',
+                          product=product,
+                          movements=movements,
+                          # Estadísticas
+                          avg_monthly_sales=avg_monthly_sales,
+                          total_purchased=total_purchased,
+                          net_sold=net_sold,
+                          total_lost=total_lost,
+                          sales_velocity=sales_velocity,
+                          days_until_stockout=days_until_stockout,
+                          inventory_turnover=inventory_turnover,
+                          days_since_last_sale=days_since_last_sale,
+                          # Parámetros de navegación
+                          query=query,
+                          sort_by=sort_by,
+                          sort_order=sort_order,
+                          supplier_id=supplier_id)
 
 
 @products_bp.route('/merge', methods=['GET', 'POST'])
