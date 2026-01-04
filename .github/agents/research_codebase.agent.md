@@ -412,26 +412,14 @@ Contexto Green-POS para Síntesis:
 <recopilar_metadata>
 **Recopilar Metadata del Documento de Investigación:**
 
-Ejecutar comandos para recopilar metadata:
+1. **Determinar research_id consecutivo:**
+   - Listar archivos en `docs/research/` con patrón `YYYY-MM-DD-*.md`
+   - Encontrar número consecutivo más alto del día (NNN)
+   - Incrementar en 1, o usar 001 si es el primero del día
 
-1. **Obtener fecha/hora actual:**
-   ```powershell
-   Get-Date -Format "yyyy-MM-dd HH:mm:ss K"
-   ```
-
-2. **Obtener información de git:**
-   ```powershell
-   git log -1 --format="%H"; git branch --show-current; git config --get remote.origin.url
-   ```
-
-3. **Obtener nombre del investigador:**
-   ```powershell
-   git config --get user.name
-   ```
-
-4. **Determinar nombre de archivo:**
-   - Formato: `YYYY-MM-DD-descripcion.md`
-   - Ruta: `docs/research/[nombre-archivo]` (o crear directorio si no existe)
+2. **Determinar nombre de archivo:**
+   - Formato: `YYYY-MM-DD-NNN-descripcion.md` (ej: `2026-01-04-001-inventory-consolidation.md`)
+   - Ruta: `docs/research/[nombre-archivo]` (crear directorio si no existe)
 
 Almacenar toda la metadata para uso en generación de documento.
 
@@ -446,10 +434,9 @@ Usa #create_file para generar el documento de investigación en la ruta determin
 
 ```markdown
 ---
-date: [Fecha/hora formato ISO con timezone]
+research_id: [YYYY-MM-DD-NNN]
+date: [YYYY-MM-DD]
 researcher: [Nombre del investigador]
-git_commit: [Hash del commit]
-branch: [Nombre del branch]
 repository: Green-POS
 topic: "[Pregunta de investigación del usuario]"
 tags: [research, green-pos, componentes-relevantes]
@@ -460,10 +447,9 @@ last_updated_by: [Nombre del investigador]
 
 # Investigación: [Pregunta/Tema del Usuario]
 
-**Fecha**: [Fecha/hora actual]
+**Research ID**: [YYYY-MM-DD-NNN]
+**Fecha**: [YYYY-MM-DD]
 **Investigador**: [Nombre]
-**Git Commit**: [Hash]
-**Branch**: [Branch]
 **Repositorio**: Green-POS
 
 ## Pregunta de Investigación

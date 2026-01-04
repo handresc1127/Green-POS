@@ -1111,6 +1111,7 @@ let debugTotal = 0;  // TEMP
 ### HTML/Templates (Jinja2)
 - **Plantilla base**: Siempre extender `layout.html`
 - **Bootstrap 5.3+**: Uso exclusivo (sin jQuery)
+- **IDs descriptivos**: Usar kebab-case con convenciones específicas (ver abajo)
 - **Breadcrumbs**: Obligatorios en vistas internas
   ```html
   <nav aria-label="breadcrumb">
@@ -1124,6 +1125,33 @@ let debugTotal = 0;  // TEMP
 - **Mensajes flash**: Renderizar en layout.html automáticamente
 - **Responsive**: Mobile-first con Bootstrap grid
 - **Iconos**: Bootstrap Icons (`<i class="bi bi-*">`)
+
+### Convenciones de IDs en HTML (OBLIGATORIAS)
+**Formato kebab-case con prefijos descriptivos:**
+- **Formularios**: `{module}-form` → `product-form`, `invoice-form`
+- **Inputs**: `{field}-input` → `name-input`, `email-input`, `product-code-input`
+- **Selects**: `{field}-select` → `category-select`, `customer-select`
+- **Textareas**: `{field}-textarea` → `notes-textarea`, `description-textarea`
+- **Botones**: `{action}-btn` → `save-btn`, `delete-btn`, `cancel-btn`, `add-service-btn`
+- **Tablas**: `{module}-table` → `products-table`, `invoices-table`, `stock-history-table`
+- **Modales**: `{purpose}-modal` → `delete-modal`, `confirm-modal`, `service-type-form-modal`
+- **Contenedores**: `{purpose}-container` → `invoice-items-container`, `search-results-container`
+
+**Ejemplo completo:**
+```html
+<form id="product-form" method="POST">
+  <input type="text" id="product-code-input" name="code">
+  <input type="text" id="product-name-input" name="name">
+  <select id="category-select" name="category"></select>
+  <textarea id="notes-textarea" name="notes"></textarea>
+  <button id="save-btn" type="submit">Guardar</button>
+  <button id="cancel-btn" type="button">Cancelar</button>
+</form>
+<table id="products-table" class="table"></table>
+<div id="delete-modal" class="modal"></div>
+```
+
+**Ver guía completa en:** `.github/instructions/frontend-html-agent.instructions.md` sección "Buenas Prácticas de Naming de IDs"
 
 ### JavaScript (Vanilla JS)
 - **NO usar jQuery**: Migración completa a Vanilla JS
@@ -1582,8 +1610,8 @@ appointment.scheduled_at = datetime.strptime(
 
 **Modals para CRUD rápido**:
 ```html
-<!-- Modal de eliminación -->
-<div class="modal fade" id="deleteModal" tabindex="-1">
+<!-- Modal de eliminación con ID descriptivo -->
+<div class="modal fade" id="delete-modal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
@@ -1594,9 +1622,9 @@ appointment.scheduled_at = datetime.strptime(
         ¿Está seguro de eliminar este registro?
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-secondary" id="cancel-delete-btn" data-bs-dismiss="modal">Cancelar</button>
         <form method="post" action="{{ url_for('entity_delete', id=item.id) }}">
-          <button type="submit" class="btn btn-danger">Eliminar</button>
+          <button type="submit" class="btn btn-danger" id="confirm-delete-btn">Eliminar</button>
         </form>
       </div>
     </div>
@@ -1667,23 +1695,23 @@ appointment.scheduled_at = datetime.strptime(
 - Info (cyan): Información adicional
 
 ### Formularios
-**Validación HTML5 + JavaScript**:
+**Validación HTML5 + JavaScript con IDs descriptivos**:
 ```html
-<form method="post" novalidate>
+<form id="entity-form" method="post" novalidate>
   <div class="mb-3">
-    <label for="name" class="form-label">Nombre <span class="text-danger">*</span></label>
-    <input type="text" class="form-control" id="name" name="name" required>
+    <label for="name-input" class="form-label">Nombre <span class="text-danger">*</span></label>
+    <input type="text" class="form-control" id="name-input" name="name" required>
     <div class="invalid-feedback">
       Este campo es requerido
     </div>
   </div>
   
   <div class="mb-3">
-    <label for="stock" class="form-label">Existencias</label>
-    <input type="number" class="form-control" id="stock" name="stock" min="0">
+    <label for="stock-input" class="form-label">Existencias</label>
+    <input type="number" class="form-control" id="stock-input" name="stock" min="0">
   </div>
   
-  <button type="submit" class="btn btn-primary">
+  <button type="submit" class="btn btn-primary" id="save-btn">
     <i class="bi bi-save"></i> Guardar
   </button>
 </form>
@@ -1691,11 +1719,11 @@ appointment.scheduled_at = datetime.strptime(
 
 **Campo de razón para cambios de stock** (implementado):
 ```html
-<div id="stockReasonGroup" class="mb-3" style="display: none;">
-  <label for="stock_reason" class="form-label">
+<div id="stock-reason-group" class="mb-3" style="display: none;">
+  <label for="stock-reason-textarea" class="form-label">
     Razón del Cambio de Stock <span class="text-danger">*</span>
   </label>
-  <textarea class="form-control" id="stock_reason" name="stock_reason" rows="3"
+  <textarea class="form-control" id="stock-reason-textarea" name="stock_reason" rows="3"
             placeholder="Ej: Nueva compra factura #1234 del proveedor Italcol - 20/10/2025"></textarea>
   <small class="text-muted">
     Este cambio quedará registrado en el historial de inventario
@@ -1704,16 +1732,16 @@ appointment.scheduled_at = datetime.strptime(
 
 <script>
 const originalStock = {{ product.stock if product else 0 }};
-document.getElementById('stock').addEventListener('input', function() {
+document.getElementById('stock-input').addEventListener('input', function() {
   const newStock = parseInt(this.value) || 0;
-  const reasonGroup = document.getElementById('stockReasonGroup');
+  const reasonGroup = document.getElementById('stock-reason-group');
   
   if (newStock !== originalStock) {
     reasonGroup.style.display = 'block';
-    document.getElementById('stock_reason').required = true;
+    document.getElementById('stock-reason-textarea').required = true;
   } else {
     reasonGroup.style.display = 'none';
-    document.getElementById('stock_reason').required = false;
+    document.getElementById('stock-reason-textarea').required = false;
   }
 });
 </script>

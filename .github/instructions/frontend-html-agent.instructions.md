@@ -42,6 +42,301 @@ Desarrollar interfaces web responsivas, accesibles y visualmente atractivas para
 
 ---
 
+## 🏷️ Buenas Prácticas de Naming de IDs
+
+### Principios Fundamentales
+
+**SIEMPRE usar IDs descriptivos siguiendo estas reglas:**
+
+1. **Formato kebab-case**: Usar guiones entre palabras
+   ```html
+   ✅ CORRECTO: id="product-name-input"
+   ❌ INCORRECTO: id="productNameInput" (camelCase)
+   ❌ INCORRECTO: id="product_name_input" (snake_case)
+   ```
+
+2. **Descriptivos y específicos**: El ID debe indicar propósito y contexto
+   ```html
+   ✅ CORRECTO: id="customer-search-input"
+   ❌ INCORRECTO: id="input1"
+   ❌ INCORRECTO: id="search"
+   ```
+
+3. **Únicos por página**: Cada ID debe aparecer solo una vez
+   ```html
+   ✅ CORRECTO: Un solo elemento con id="invoice-form"
+   ❌ INCORRECTO: Múltiples elementos con el mismo ID
+   ```
+
+4. **Prefijo por módulo**: Prevenir colisiones entre módulos
+   ```html
+   ✅ CORRECTO: id="product-save-btn" (módulo products)
+   ✅ CORRECTO: id="invoice-save-btn" (módulo invoices)
+   ❌ INCORRECTO: id="save-btn" (ambiguo, puede colisionar)
+   ```
+
+### Convenciones por Tipo de Elemento
+
+#### Formularios
+```html
+<!-- Patrón: {module}-{purpose}-form -->
+<form id="product-create-form" method="POST">...</form>
+<form id="customer-edit-form" method="POST">...</form>
+<form id="invoice-payment-form" method="POST">...</form>
+```
+
+#### Inputs de Texto/Número/Email
+```html
+<!-- Patrón: {module}-{field}-input o {field}-input si contexto es claro -->
+<input type="text" id="product-name-input" name="name">
+<input type="number" id="product-stock-input" name="stock">
+<input type="email" id="customer-email-input" name="email">
+
+<!-- En formularios con contexto claro del módulo -->
+<input type="text" id="name-input" name="name">
+<input type="text" id="code-input" name="code">
+```
+
+#### Select/Dropdown
+```html
+<!-- Patrón: {field}-select o {module}-{field}-select -->
+<select id="category-select" name="category">...</select>
+<select id="customer-select" name="customer_id">...</select>
+<select id="payment-method-select" name="payment_method">...</select>
+```
+
+#### Textarea
+```html
+<!-- Patrón: {field}-textarea -->
+<textarea id="notes-textarea" name="notes"></textarea>
+<textarea id="description-textarea" name="description"></textarea>
+<textarea id="consent-textarea" name="consent"></textarea>
+```
+
+#### Botones
+```html
+<!-- Patrón: {action}-btn o {module}-{action}-btn -->
+<button id="save-btn" type="submit">Guardar</button>
+<button id="cancel-btn" type="button">Cancelar</button>
+<button id="delete-btn" type="button">Eliminar</button>
+<button id="product-search-btn" type="button">Buscar</button>
+
+<!-- Botones de acción específica -->
+<button id="add-service-btn">Agregar Servicio</button>
+<button id="remove-item-btn">Remover Item</button>
+<button id="print-invoice-btn">Imprimir</button>
+```
+
+#### Tablas
+```html
+<!-- Patrón: {module}-table -->
+<table id="products-table" class="table">...</table>
+<table id="invoices-table" class="table">...</table>
+<table id="customers-table" class="table">...</table>
+<table id="stock-history-table" class="table">...</table>
+```
+
+#### Modales
+```html
+<!-- Patrón: {purpose}-modal -->
+<div id="delete-modal" class="modal">...</div>
+<div id="confirm-modal" class="modal">...</div>
+<div id="customer-details-modal" class="modal">...</div>
+<div id="service-type-form-modal" class="modal">...</div>
+```
+
+#### Divs de Contenido
+```html
+<!-- Patrón: {purpose}-container o {purpose}-section -->
+<div id="search-results-container">...</div>
+<div id="invoice-items-container">...</div>
+<div id="statistics-section">...</div>
+<div id="services-list-section">...</div>
+```
+
+#### Elementos de Mensaje/Alerta
+```html
+<!-- Patrón: {purpose}-alert o {purpose}-message -->
+<div id="error-alert" class="alert alert-danger">...</div>
+<div id="success-message" class="alert alert-success">...</div>
+<div id="validation-errors" class="alert alert-warning">...</div>
+```
+
+### Ejemplos Completos por Módulo
+
+#### Módulo Products (Inventario)
+```html
+<!-- Formulario -->
+<form id="product-form" method="POST">
+    <!-- Inputs -->
+    <input type="text" id="product-code-input" name="code">
+    <input type="text" id="product-name-input" name="name">
+    <input type="number" id="product-price-input" name="price">
+    <input type="number" id="product-stock-input" name="stock">
+    
+    <!-- Select -->
+    <select id="product-category-select" name="category"></select>
+    <select id="product-supplier-select" name="supplier_id"></select>
+    
+    <!-- Textarea -->
+    <textarea id="product-notes-textarea" name="notes"></textarea>
+    
+    <!-- Botones -->
+    <button id="product-save-btn" type="submit">Guardar</button>
+    <button id="product-cancel-btn" type="button">Cancelar</button>
+</form>
+
+<!-- Tabla de productos -->
+<table id="products-table" class="table"></table>
+
+<!-- Modal de eliminación -->
+<div id="product-delete-modal" class="modal"></div>
+
+<!-- Historial de stock -->
+<table id="stock-history-table" class="table"></table>
+```
+
+#### Módulo Invoices (Facturación)
+```html
+<!-- Formulario de factura -->
+<form id="invoice-form" method="POST">
+    <!-- Selección de cliente -->
+    <select id="customer-select" name="customer_id"></select>
+    
+    <!-- Método de pago -->
+    <select id="payment-method-select" name="payment_method"></select>
+    
+    <!-- Notas -->
+    <textarea id="invoice-notes-textarea" name="notes"></textarea>
+    
+    <!-- Contenedor de items -->
+    <div id="invoice-items-container"></div>
+    
+    <!-- Botones -->
+    <button id="add-item-btn" type="button">Agregar Item</button>
+    <button id="invoice-save-btn" type="submit">Guardar Factura</button>
+    <button id="invoice-print-btn" type="button">Imprimir</button>
+</form>
+
+<!-- Tabla de facturas -->
+<table id="invoices-table" class="table"></table>
+
+<!-- Total del día -->
+<div id="daily-total-section"></div>
+```
+
+#### Módulo Appointments (Citas)
+```html
+<!-- Formulario de cita -->
+<form id="appointment-form" method="POST">
+    <!-- Selección de cliente y mascota -->
+    <select id="customer-select" name="customer_id"></select>
+    <select id="pet-select" name="pet_id"></select>
+    
+    <!-- Fecha y hora -->
+    <input type="date" id="appointment-date-input" name="date">
+    <input type="time" id="appointment-time-input" name="time">
+    
+    <!-- Servicios -->
+    <div id="services-container"></div>
+    
+    <!-- Consentimiento -->
+    <textarea id="consent-textarea" name="consent"></textarea>
+    
+    <!-- Botones -->
+    <button id="add-service-btn" type="button">Agregar Servicio</button>
+    <button id="appointment-save-btn" type="submit">Guardar Cita</button>
+</form>
+
+<!-- Lista de citas -->
+<div id="appointments-list-container"></div>
+
+<!-- Modal de servicios -->
+<div id="service-types-modal" class="modal"></div>
+```
+
+### Cuándo NO Usar ID
+
+**NO usar ID si:**
+- El elemento es repetido múltiples veces (usar class en su lugar)
+- Solo necesitas estilo CSS (usar class)
+- No necesitas seleccionarlo desde JavaScript
+- Es un elemento puramente decorativo
+
+```html
+<!-- ❌ INCORRECTO: ID en elementos repetidos -->
+<tr>
+    <td id="product-name">Producto 1</td>
+    <td id="product-name">Producto 2</td>  <!-- Duplicado! -->
+</tr>
+
+<!-- ✅ CORRECTO: Usar class para elementos repetidos -->
+<tr>
+    <td class="product-name">Producto 1</td>
+    <td class="product-name">Producto 2</td>
+</tr>
+```
+
+### Accesibilidad con IDs
+
+**IDs críticos para accesibilidad:**
+
+1. **Labels asociados a inputs**:
+```html
+<label for="customer-name-input">Nombre del Cliente</label>
+<input type="text" id="customer-name-input" name="name">
+```
+
+2. **Aria-describedby**:
+```html
+<input type="text" id="email-input" aria-describedby="email-help">
+<small id="email-help">Ingrese un email válido</small>
+```
+
+3. **Aria-labelledby**:
+```html
+<div id="error-message" role="alert" aria-live="polite">
+    Error al guardar
+</div>
+```
+
+### Testing y Mantenibilidad
+
+**Beneficios de IDs bien nombrados:**
+
+1. **Selectores JavaScript claros**:
+```javascript
+// ✅ CORRECTO: Intención clara
+document.getElementById('product-save-btn').addEventListener('click', ...);
+document.getElementById('invoice-items-container').innerHTML = ...;
+
+// ❌ INCORRECTO: Selectores ambiguos
+document.getElementById('btn1').addEventListener('click', ...);
+document.getElementById('container').innerHTML = ...;
+```
+
+2. **Testing E2E más legible**:
+```javascript
+// ✅ CORRECTO: Test auto-documentado
+await page.click('#customer-search-btn');
+await page.fill('#product-name-input', 'Test Product');
+
+// ❌ INCORRECTO: Test poco claro
+await page.click('#btn3');
+await page.fill('#input1', 'Test Product');
+```
+
+3. **Debugging más fácil**:
+```javascript
+// ✅ CORRECTO: Error claro
+console.log('Elemento no encontrado: #invoice-items-container');
+
+// ❌ INCORRECTO: Error confuso
+console.log('Elemento no encontrado: #container1');
+```
+
+---
+
 ## 📋 Estructura de Templates
 
 ### Jerarquía de Plantillas

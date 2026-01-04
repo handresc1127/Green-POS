@@ -236,15 +236,15 @@ Usar `layout.html` como plantilla base:
 ```
 
 ### Formularios
-Incluir validación frontend y backend:
+Incluir validación frontend y backend con **IDs descriptivos siguiendo convenciones kebab-case**:
 
 ```html
-<form method="POST" action="{{ url_for('entity_create') }}" class="needs-validation" novalidate>
+<form id="entity-form" method="POST" action="{{ url_for('entity_create') }}" class="needs-validation" novalidate>
     <div class="mb-3">
-        <label for="name" class="form-label">Nombre <span class="text-danger">*</span></label>
+        <label for="name-input" class="form-label">Nombre <span class="text-danger">*</span></label>
         <input type="text" 
                class="form-control" 
-               id="name" 
+               id="name-input" 
                name="name" 
                value="{{ entity.name if entity else '' }}"
                required
@@ -255,29 +255,50 @@ Incluir validación frontend y backend:
     </div>
 
     <div class="mb-3">
-        <label for="description" class="form-label">Descripción</label>
+        <label for="description-textarea" class="form-label">Descripción</label>
         <textarea class="form-control" 
-                  id="description" 
+                  id="description-textarea" 
                   name="description" 
                   rows="3">{{ entity.description if entity else '' }}</textarea>
     </div>
 
+    <div class="mb-3">
+        <label for="category-select" class="form-label">Categoría</label>
+        <select class="form-select" id="category-select" name="category">
+            <option value="">Seleccione...</option>
+            {% for cat in categories %}
+            <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
     <div class="d-flex justify-content-between">
-        <a href="{{ url_for('entity_list') }}" class="btn btn-secondary">
+        <a href="{{ url_for('entity_list') }}" class="btn btn-secondary" id="cancel-btn">
             <i class="fas fa-arrow-left"></i> Cancelar
         </a>
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary" id="save-btn">
             <i class="fas fa-save"></i> Guardar
         </button>
     </div>
 </form>
 ```
 
+**Convenciones de IDs (OBLIGATORIAS):**
+- **Formularios**: `{module}-form` (ej: `product-form`, `invoice-form`)
+- **Inputs**: `{field}-input` (ej: `name-input`, `email-input`)
+- **Selects**: `{field}-select` (ej: `category-select`, `customer-select`)
+- **Textareas**: `{field}-textarea` (ej: `notes-textarea`, `description-textarea`)
+- **Botones**: `{action}-btn` (ej: `save-btn`, `delete-btn`, `cancel-btn`)
+- **Tablas**: `{module}-table` (ej: `products-table`, `invoices-table`)
+- **Modales**: `{purpose}-modal` (ej: `delete-modal`, `confirm-modal`)
+
+Ver guía completa en: `.github/instructions/frontend-html-agent.instructions.md` sección "Buenas Prácticas de Naming de IDs"
+
 ### Tablas con DataTables
-Para listas de datos:
+Para listas de datos con **IDs descriptivos**:
 
 ```html
-<table id="entityTable" class="table table-striped table-hover">
+<table id="entity-table" class="table table-striped table-hover">
     <thead>
         <tr>
             <th>ID</th>

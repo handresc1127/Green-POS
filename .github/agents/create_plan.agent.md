@@ -347,24 +347,20 @@ Marcar tarea 4 como en progreso.
 Marcar tarea 5 como en progreso.
 
 1. **Determinar nombre de archivo y ruta**:
-   - Obtener fecha actual: Usa #run_in_terminal con `Get-Date -Format "yyyy-MM-dd"`
-   - Extraer número de tarea del branch name si aplica
-   - Formato: `YYYY-MM-DD-descripcion.md` (simple) o `YYYY-MM-DD-TAREA-XXXX-descripcion.md` (con tarea)
-   - Ruta: `d:\Users\Henry.Correa\Downloads\workspace\Green-POS\.github\plans\[nombre-archivo]`
+   - Obtener fecha actual en formato YYYY-MM-DD
+   - Listar archivos existentes en `.github/plans/` con patrón `YYYY-MM-DD-*.md`
+   - Encontrar el número consecutivo más alto del día (NNN)
+   - Incrementar en 1, o usar 001 si es el primero del día
+   - Formato: `YYYY-MM-DD-NNN-descripcion.md` (ej: `2026-01-04-001-sistema-descuentos.md`)
+   - Ruta: `.github/plans/[nombre-archivo]`
 
-2. **Recopilar metadata**:
-   - Fecha/hora actual: `Get-Date -Format "yyyy-MM-dd HH:mm:ss K"`
-   - Info de git: `git log -1 --format="%H"; git branch --show-current`
-   - Nombre de usuario: `git config --get user.name`
-
-3. **Crear documento del plan** usando #create_file con esta estructura:
+2. **Crear documento del plan** usando #create_file con esta estructura:
 
 ````markdown
 ---
-date: [Fecha/hora formato ISO con timezone]
+plan_id: [YYYY-MM-DD-NNN]
+date: [YYYY-MM-DD]
 author: [Nombre del autor]
-git_commit: [Hash del commit]
-branch: [Nombre del branch]
 task: [TAREA-XXXX o N/A]
 status: draft
 last_updated: [YYYY-MM-DD]
@@ -373,11 +369,10 @@ last_updated_by: [Nombre del autor]
 
 # Plan de Implementación: [Nombre de Característica/Tarea]
 
-**Fecha**: [Fecha/hora actual]
+**Plan ID**: [YYYY-MM-DD-NNN]
+**Fecha**: [YYYY-MM-DD]
 **Autor**: [Nombre]
 **Tarea**: [TAREA-XXXX o N/A]
-**Git Commit**: [Hash]
-**Branch**: [Branch]
 
 ## Resumen General
 
@@ -701,23 +696,20 @@ with app.app_context():
 4. **Marcar tarea 5 como completada**
 
 </escribir_plan_detallado>
+   - List existing files in `.github/plans/` with pattern `YYYY-MM-DD-*.md`
+   - Find highest consecutive number for the day (NNN)
+   - Increment by 1, or use 001 if first of the day
    - Extract ticket number from branch name if applicable
-   - Format: `YYYY-MM-DD-MC-XXXX-description.md` (with ticket) or `YYYY-MM-DD-description.md` (without)
-   - Path: `d:\Users\Henry.Correa\Downloads\workspace\mc_core\.github\plans\[filename]`
+   - Format: `YYYY-MM-DD-NNN-description.md` (e.g., `2026-01-04-001-discount-system.md`)
+   - Path: `.github/plans/[filename]`
 
-2. **Gather metadata**:
-   - Current date/time: `Get-Date -Format "yyyy-MM-dd HH:mm:ss K"`
-   - Git info: `git log -1 --format="%H"; git branch --show-current`
-   - User name: `git config --get user.name`
-
-3. **Create plan document** using #create_file with this structure:
+2. **Create plan document** using #create_file with this structure:
 
 ````markdown
 ---
-date: [ISO format date/time with timezone]
+plan_id: [YYYY-MM-DD-NNN]
+date: [YYYY-MM-DD]
 author: [Author name]
-git_commit: [Commit hash]
-branch: [Branch name]
 ticket: [MC-XXXX or N/A]
 status: draft
 last_updated: [YYYY-MM-DD]
@@ -726,11 +718,10 @@ last_updated_by: [Author name]
 
 # [Feature/Task Name] Implementation Plan
 
-**Date**: [Current date/time]
+**Plan ID**: [YYYY-MM-DD-NNN]
+**Date**: [YYYY-MM-DD]
 **Author**: [Name]
 **Ticket**: [MC-XXXX or N/A]
-**Git Commit**: [Hash]
-**Branch**: [Branch]
 
 ## Overview
 
