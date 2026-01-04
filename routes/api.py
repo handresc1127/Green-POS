@@ -9,7 +9,8 @@ from flask_login import login_required
 from sqlalchemy import or_
 
 from extensions import db
-from models.models import Product, Pet, ProductCode, Customer
+from models.models import Product, Pet, ProductCode, Customer, Invoice
+from utils.decorators import role_required
 
 # Crear Blueprint
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -327,4 +328,54 @@ def pricing_suggest():
         return jsonify({
             'success': False,
             'message': 'Error interno del servidor'
+        }), 500
+
+
+# ==================== INVOICE ENDPOINTS ====================
+
+@api_bp.route('/invoices/validate/<int:id>', methods=['POST'])
+@role_required('admin')
+def validate_invoice(id):
+    """Valida una factura vía AJAX (admin only).
+    
+    Args:
+        id: ID de la factura a validar
+        
+    Returns:
+        JSON con:
+        {
+            "success": true/false,
+            "message": "Mensaje de resultado"
+        }
+        
+    Códigos de estado:
+        200: Validación exitosa
+        400: Factura no está en estado pending
+        500: Error interno del servidor
+    """
+    try:
+        invoice = Invoice.query.get_or_404(id)
+        
+        if invoice.status != 'pending':
+            return jsonify({
+                'success': False,
+                'message': 'Solo ventas en estado pendiente pueden validarse'
+            }), 400
+        
+        invoice.status = 'validated'
+        db.session.commit()
+        
+        current_app.logger.info(f"Factura {invoice.number} validada exitosamente por usuario {invoice.id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Venta validada exitosamente'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error validating invoice {id}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al validar venta: {str(e)}'
         }), 500

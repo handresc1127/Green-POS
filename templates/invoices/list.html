@@ -171,7 +171,7 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span
+                                    <span id="status-badge-{{ invoice.id }}"
                                         class="badge bg-{{ 'success' if invoice.status in ['paid','validated'] else ('warning' if invoice.status == 'pending' else 'danger') }}">
                                         {{ {'paid': 'Pagada', 'pending': 'Pendiente', 'cancelled': 'Cancelada',
                                         'validated': 'Validada'}.get(invoice.status, invoice.status) }}
@@ -179,18 +179,18 @@
                                 </td>
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
-                                        <div class="btn-group btn-group-sm">
+                                        <div id="action-buttons-{{ invoice.id }}" class="btn-group btn-group-sm">
                                             <a href="{{ url_for('invoices.view', id=invoice.id) }}"
                                                 class="btn btn-outline-primary" title="Ver">
                                                 <i class="bi bi-eye"></i>
                                             </a>
                                             {% if current_user.role == 'admin' and invoice.status == 'pending' %}
-                                            <form method="post" action="{{ url_for('invoices.validate', id=invoice.id) }}"
-                                                onsubmit="return confirm('Validar esta venta?');">
-                                                <button type="submit" class="btn btn-outline-success" title="Validar">
-                                                    <i class="bi bi-check2-circle"></i>
-                                                </button>
-                                            </form>
+                                            <button type="button" 
+                                                    class="btn btn-outline-success btn-sm" 
+                                                    title="Validar"
+                                                    onclick="openValidateModal({{ invoice.id }}, '{{ invoice.number }}')">
+                                                <i class="bi bi-check2-circle"></i>
+                                            </button>
                                             <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal"
                                                 data-bs-target="#editModal" 
                                                 data-id="{{ invoice.id }}"
@@ -384,11 +384,130 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Validación -->
+<div class="modal fade" id="validateModal" tabindex="-1" aria-labelledby="validateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="validateModalLabel">
+                    <i class="bi bi-check2-circle"></i> Confirmar Validación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro de que desea validar la venta <strong id="validateInvoiceNumber"></strong>?</p>
+                <p class="text-muted small">
+                    <i class="bi bi-info-circle"></i> Una vez validada, la venta no podrá ser editada ni eliminada.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="confirmValidateBtn">
+                    <i class="bi bi-check2-circle"></i> Validar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // Variable global para almacenar ID de factura a validar
+    let invoiceToValidate = null;
+
+    // Función para abrir modal de validación
+    function openValidateModal(invoiceId, invoiceNumber) {
+        invoiceToValidate = invoiceId;
+        document.getElementById('validateInvoiceNumber').textContent = invoiceNumber;
+        
+        const modal = new bootstrap.Modal(document.getElementById('validateModal'));
+        modal.show();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+        // Soporte para tecla Enter en el modal de validación
+        const validateModalElement = document.getElementById('validateModal');
+        if (validateModalElement) {
+            validateModalElement.addEventListener('shown.bs.modal', function() {
+                // Focus en el botón confirmar
+                document.getElementById('confirmValidateBtn').focus();
+                
+                // Agregar listener para Enter
+                function handleEnterKey(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('confirmValidateBtn').click();
+                    }
+                }
+                
+                validateModalElement.addEventListener('keypress', handleEnterKey);
+                
+                // Limpiar listener cuando el modal se cierre
+                validateModalElement.addEventListener('hidden.bs.modal', function cleanup() {
+                    validateModalElement.removeEventListener('keypress', handleEnterKey);
+                    validateModalElement.removeEventListener('hidden.bs.modal', cleanup);
+                }, { once: true });
+            });
+        }
+        
+        // Handler para confirmar validación
+        document.getElementById('confirmValidateBtn').addEventListener('click', async function() {
+            if (!invoiceToValidate) return;
+            
+            const btn = this;
+            const originalText = btn.innerHTML;
+            
+            // Mostrar estado de carga
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Validando...';
+            
+            try {
+                const response = await fetch(`/api/invoices/validate/${invoiceToValidate}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Actualizar badge de estado usando el ID único
+                    const statusBadge = document.getElementById(`status-badge-${invoiceToValidate}`);
+                    if (statusBadge) {
+                        statusBadge.className = 'badge bg-success';
+                        statusBadge.textContent = 'Validada';
+                    }
+                    
+                    // Ocultar botones de acción usando el ID único del contenedor
+                    const actionButtonsContainer = document.getElementById(`action-buttons-${invoiceToValidate}`);
+                    if (actionButtonsContainer) {
+                        actionButtonsContainer.style.display = 'none';
+                    }
+                    
+                    // Mostrar flash message dinámico
+                    showFlashMessage('Venta validada exitosamente', 'success');
+                    
+                    // Cerrar modal
+                    bootstrap.Modal.getInstance(document.getElementById('validateModal')).hide();
+                } else {
+                    showFlashMessage(data.message || 'Error al validar venta', 'danger');
+                }
+            } catch (error) {
+                console.error('Error validating invoice:', error);
+                showFlashMessage('Error de conexión al validar venta', 'danger');
+            } finally {
+                // Restaurar botón
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                invoiceToValidate = null;
+            }
+        });
+        
         // Manejar la rotación del icono chevron
         document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
             const targetId = button.getAttribute('data-bs-target');
@@ -500,5 +619,27 @@
                 new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(finalTotal);
         };
     });
+    
+    // Función para mostrar flash message dinámico
+    function showFlashMessage(message, category) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${category} alert-dismissible alert-dismissible-auto fade show d-print-none`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Insertar al inicio del contenido principal
+        const container = document.querySelector('.container-fluid');
+        if (container && container.firstChild) {
+            container.insertBefore(alertDiv, container.firstChild);
+        }
+        
+        // Auto-dismiss después de 5 segundos
+        setTimeout(() => {
+            const bsAlert = new bootstrap.Alert(alertDiv);
+            bsAlert.close();
+        }, 5000);
+    }
 </script>
 {% endblock %}
