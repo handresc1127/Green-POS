@@ -483,10 +483,61 @@ def edit(id):
         new_discount = float(request.form.get('discount', 0))
         reason = request.form.get('reason', '').strip()
         
+        # Extraer campos de pago mixto si aplica
+        amount_nc = 0
+        amount_cash = 0
+        amount_transfer = 0
+
+        if new_payment_method == 'mixed':
+            amount_nc = float(request.form.get('amount_credit_note', 0))
+            amount_cash = float(request.form.get('amount_cash', 0))
+            amount_transfer = float(request.form.get('amount_transfer', 0))
+        
         # Validar razón obligatoria
         if not reason:
             flash('La razón del cambio es obligatoria', 'warning')
             return redirect(url_for('invoices.list'))
+        
+        # Validar saldo de NC disponible (defense in depth)
+        if new_payment_method == 'mixed' and amount_nc > 0:
+            customer = invoice.customer
+            if not customer:
+                flash('Cliente no encontrado para validar NC', 'danger')
+                return redirect(url_for('invoices.list'))
+            
+            if amount_nc > customer.credit_balance:
+                flash(
+                    f'NC especificada (${amount_nc:,.0f}) excede saldo disponible (${customer.credit_balance:,.0f})', 
+                    'danger'
+                )
+                return redirect(url_for('invoices.list'))
+        
+        # Validar que suma de partes mixtas = total de factura
+        if new_payment_method == 'mixed':
+            total_specified = amount_nc + amount_cash + amount_transfer
+            invoice_total = invoice.subtotal + invoice.tax - new_discount
+            
+            # Tolerancia de 0.01 para floats
+            if abs(total_specified - invoice_total) > 0.01:
+                flash(
+                    f'Suma de pago mixto (${total_specified:,.0f}) no coincide con total de factura (${invoice_total:,.0f})', 
+                    'danger'
+                )
+                return redirect(url_for('invoices.list'))
+        
+        # Bloquear cambio de método mixto con NC aplicadas a otro método
+        if invoice.payment_method == 'mixed' and new_payment_method != 'mixed':
+            # Verificar si tiene NC aplicadas
+            from models.models import CreditNoteApplication
+            applied_ncs = CreditNoteApplication.query.filter_by(invoice_id=invoice.id).count()
+            
+            if applied_ncs > 0:
+                flash(
+                    'No se puede cambiar el método de pago de una venta con NC aplicadas. '
+                    'Para corregir, cancele la venta y cree una nueva.',
+                    'danger'
+                )
+                return redirect(url_for('invoices.list'))
         
         # Construir mensaje de log
         log_messages = []
@@ -495,16 +546,76 @@ def edit(id):
         if new_payment_method != invoice.payment_method:
             old_method_label = {
                 'cash': 'Efectivo',
-                'transfer': 'Transferencia'
+                'transfer': 'Transferencia',
+                'credit_note': 'Nota de Crédito',
+                'mixed': 'Mixto (Discriminado)'
             }.get(invoice.payment_method, invoice.payment_method)
             
             new_method_label = {
                 'cash': 'Efectivo',
-                'transfer': 'Transferencia'
+                'transfer': 'Transferencia',
+                'credit_note': 'Nota de Crédito',
+                'mixed': 'Mixto (Discriminado)'
             }.get(new_payment_method, new_payment_method)
             
             log_messages.append(f"Cambio de método de pago de {old_method_label} a {new_method_label}")
+            
+            # Si nuevo método es mixto, agregar desglose al log
+            if new_payment_method == 'mixed':
+                log_messages.append(
+                    f"Desglose pago mixto: NC ${amount_nc:,.0f}, "
+                    f"Efectivo ${amount_cash:,.0f}, Transferencia ${amount_transfer:,.0f}"
+                )
+            
             invoice.payment_method = new_payment_method
+        
+        # Aplicar NC si método es mixto y amount_nc > 0
+        if new_payment_method == 'mixed' and amount_nc > 0:
+            from models.models import CreditNoteApplication, Invoice as InvoiceModel
+            
+            # Buscar NC disponibles del cliente (FIFO - más antiguas primero)
+            available_credit_notes = InvoiceModel.query.filter(
+                InvoiceModel.customer_id == invoice.customer_id,
+                InvoiceModel.document_type == 'credit_note'
+            ).order_by(InvoiceModel.date.asc()).all()
+            
+            amount_remaining = amount_nc
+            
+            for nc in available_credit_notes:
+                if amount_remaining <= 0:
+                    break
+                
+                # Calcular saldo disponible de esta NC
+                applied = sum(app.amount_applied for app in nc.applications)
+                available = nc.total - applied
+                
+                if available > 0:
+                    amount_to_apply = min(amount_remaining, available)
+                    
+                    # Crear registro de aplicación
+                    application = CreditNoteApplication(
+                        credit_note_id=nc.id,
+                        invoice_id=invoice.id,
+                        amount_applied=amount_to_apply,
+                        applied_by=current_user.id
+                    )
+                    db.session.add(application)
+                    
+                    amount_remaining -= amount_to_apply
+                    
+                    log_messages.append(
+                        f"NC {nc.number} aplicada: ${amount_to_apply:,.0f} "
+                        f"(disponible: ${available:,.0f})"
+                    )
+            
+            # Reducir saldo del cliente
+            customer = invoice.customer
+            customer.credit_balance -= amount_nc
+            
+            log_messages.append(
+                f"Saldo NC del cliente reducido en ${amount_nc:,.0f} "
+                f"(nuevo saldo: ${customer.credit_balance:,.0f})"
+            )
         
         # Calcular nuevo total con ajuste (descuento negativo o incremento positivo)
         new_total = invoice.subtotal + invoice.tax - new_discount
@@ -531,6 +642,14 @@ def edit(id):
             log_entry += "\n".join(log_messages)
             log_entry += f"\nRazón: {reason}"
             log_entry += f"\nEditado por: {current_user.username}"
+            
+            # Si método es mixto, agregar desglose en formato estándar
+            if new_payment_method == 'mixed':
+                log_entry += "\n\n--- PAGO MIXTO ---\n"
+                log_entry += f"Nota de Crédito: ${amount_nc:,.0f}\n"
+                log_entry += f"Efectivo: ${amount_cash:,.0f}\n"
+                log_entry += f"Transferencia: ${amount_transfer:,.0f}\n"
+                log_entry += f"Total: ${amount_nc + amount_cash + amount_transfer:,.0f}"
             
             if invoice.notes:
                 invoice.notes += log_entry

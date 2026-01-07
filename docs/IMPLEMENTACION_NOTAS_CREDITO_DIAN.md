@@ -452,6 +452,36 @@ Restart-Service GreenPOS
 
 ---
 
+## 🆕 Actualización: Pago Mixto en Edición de Ventas (Enero 2026)
+
+**Implementado**: 7 de enero de 2026
+
+El sistema de pago mixto discriminado fue extendido al modal de edición de ventas, permitiendo a administradores modificar métodos de pago de ventas existentes.
+
+### Funcionalidad
+
+**Características**:
+- Cambiar venta de método simple a mixto discriminado
+- Editar montos de NC, Efectivo y Transferencia en ventas mixtas existentes
+- Validación frontend y backend de saldo NC y suma de partes
+- Bloqueo de cambio de mixto con NC aplicadas a otro método
+- Parseo automático de montos mixtos desde `invoice.notes`
+
+**Restricciones**:
+- Solo ventas con `status = 'pending'` son editables
+- No se puede cambiar método mixto con NC aplicadas a otro método (previene inconsistencias)
+- Razón obligatoria para cualquier cambio
+
+**Archivos Modificados**:
+- `templates/invoices/list.html` - Modal de edición con campos de pago mixto
+- `routes/invoices.py` - Función `edit()` extendida para procesar pago mixto
+
+**Referencias**:
+- Investigación: [docs/research/2026-01-04-002-pago-mixto-faltante-edicion-ventas.md](research/2026-01-04-002-pago-mixto-faltante-edicion-ventas.md)
+- Plan: [.github/plans/2026-01-04-implementar-pago-mixto-edicion-ventas.md](../.github/plans/2026-01-04-implementar-pago-mixto-edicion-ventas.md)
+
+---
+
 ## 🔮 Mejoras Futuras
 
 ### Corto Plazo

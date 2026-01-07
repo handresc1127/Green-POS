@@ -200,6 +200,8 @@
                                                 data-subtotal="{{ invoice.subtotal }}"
                                                 data-tax="{{ invoice.tax }}"
                                                 data-total="{{ invoice.total }}"
+                                                data-customer-id="{{ invoice.customer_id }}"
+                                                data-notes="{{ invoice.notes or '' }}"
                                                 title="Editar">
                                                 <i class="bi bi-pencil-square"></i>
                                             </button>
@@ -300,6 +302,8 @@
                         <select class="form-select" id="edit_payment_method" name="payment_method" required>
                             <option value="cash">Efectivo</option>
                             <option value="transfer">Transferencia</option>
+                            <option value="credit_note">Nota de Crédito</option>
+                            <option value="mixed">Mixto (Discriminado)</option>
                         </select>
                     </div>
 
@@ -326,6 +330,48 @@
                                   placeholder="Ej: Cliente cambió forma de pago, descuento por fidelidad, etc."></textarea>
                         <div class="form-text">
                             Explica por qué se está realizando este cambio
+                        </div>
+                    </div>
+
+                    <!-- Sección de Saldo de NC Disponible -->
+                    <div class="mb-3" id="edit_creditBalanceInfo" style="display: none;">
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Saldo Disponible:</strong>
+                            <span id="edit_creditBalanceAmount">$0</span>
+                        </div>
+                    </div>
+
+                    <!-- Detalle de pago mixto (discriminado) -->
+                    <div id="edit_mixedPaymentDetails" style="display: none;">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Pago Mixto:</strong> Especifica el monto con cada método. La suma debe ser igual al total de la factura.
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label for="edit_amount_credit_note" class="form-label">Nota de Crédito ($)</label>
+                            <input type="number" id="edit_amount_credit_note" name="amount_credit_note" 
+                                   class="form-control edit-mixed-payment-input" min="0" step="0.01" value="0">
+                            <small class="text-muted">Disponible: <span id="edit_available_nc">$0</span></small>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label for="edit_amount_cash" class="form-label">Efectivo ($)</label>
+                            <input type="number" id="edit_amount_cash" name="amount_cash" 
+                                   class="form-control edit-mixed-payment-input" min="0" step="0.01" value="0">
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label for="edit_amount_transfer" class="form-label">Transferencia ($)</label>
+                            <input type="number" id="edit_amount_transfer" name="amount_transfer" 
+                                   class="form-control edit-mixed-payment-input" min="0" step="0.01" value="0">
+                        </div>
+                        
+                        <div class="alert alert-secondary mt-2">
+                            <strong>Total especificado:</strong> $<span id="edit_mixedPaymentTotal">0</span><br>
+                            <strong>Total factura:</strong> $<span id="edit_mixedInvoiceTotal">0</span><br>
+                            <span id="edit_mixedPaymentStatus" class="text-danger">⚠ Los totales no coinciden</span>
                         </div>
                     </div>
 
@@ -569,6 +615,11 @@
         let editSubtotal = 0;
         let editTax = 0;
         
+        // Variables para pago mixto en edición
+        let editCurrentCustomerCreditBalance = 0;  // Saldo disponible de NC del cliente
+        let editCurrentInvoiceTotal = 0;           // Total de la factura (subtotal + IVA)
+        let editCustomerId = null;                 // ID del cliente de la factura
+        
         editModal.addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
             const id = button.dataset.id;
@@ -579,15 +630,30 @@
             const tax = parseFloat(button.dataset.tax) || 0;
             const total = parseFloat(button.dataset.total) || 0;
             
+            // Extraer customer_id y notes del botón
+            const customerId = parseInt(button.dataset.customerId) || null;
+            const notes = button.dataset.notes || '';
+            
             // Store values for calculation
             editSubtotal = subtotal;
             editTax = tax;
+            editCurrentInvoiceTotal = total;  // Total para validación mixta
+            editCustomerId = customerId;      // ID del cliente
             
             // Set form values
             document.getElementById('editInvoiceNumber').textContent = number;
             document.getElementById('edit_payment_method').value = paymentMethod;
             document.getElementById('edit_discount').value = discount;
             document.getElementById('edit_reason').value = '';
+            
+            // Resetear campos de pago mixto
+            document.getElementById('edit_amount_credit_note').value = 0;
+            document.getElementById('edit_amount_cash').value = 0;
+            document.getElementById('edit_amount_transfer').value = 0;
+            
+            // Ocultar secciones de pago mixto por defecto
+            document.getElementById('edit_mixedPaymentDetails').style.display = 'none';
+            document.getElementById('edit_creditBalanceInfo').style.display = 'none';
             
             // Update displays
             document.getElementById('edit-subtotal-display').textContent = 
@@ -601,6 +667,37 @@
             
             // Set form action
             document.getElementById('editForm').action = "{{ url_for('invoices.edit', id=0) }}".replace('0', id);
+            
+            // Cargar saldo de NC del cliente
+            if (customerId) {
+                fetch(`/api/customers/${customerId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        editCurrentCustomerCreditBalance = data.credit_balance || 0;
+                        
+                        // Actualizar displays
+                        document.getElementById('edit_creditBalanceAmount').textContent = 
+                            '$' + editCurrentCustomerCreditBalance.toLocaleString('es-CO');
+                        document.getElementById('edit_available_nc').textContent = 
+                            '$' + editCurrentCustomerCreditBalance.toLocaleString('es-CO');
+                        
+                        // Si método actual es mixto o NC, mostrar saldo
+                        if (paymentMethod === 'credit_note' || paymentMethod === 'mixed') {
+                            document.getElementById('edit_creditBalanceInfo').style.display = 'block';
+                        }
+                        
+                        // Si método es mixto, parsear y poblar campos
+                        if (paymentMethod === 'mixed') {
+                            parseMixedPaymentFromNotes(notes);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error cargando saldo de NC:', error);
+                        editCurrentCustomerCreditBalance = 0;
+                        document.getElementById('edit_creditBalanceAmount').textContent = '$0';
+                        document.getElementById('edit_available_nc').textContent = '$0';
+                    });
+            }
         });
         
         // Update edit total function
@@ -617,7 +714,144 @@
             
             document.getElementById('edit-total-display').textContent = 
                 new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(finalTotal);
+            
+            // Actualizar también el total para validación de pago mixto
+            editCurrentInvoiceTotal = finalTotal;
         };
+        
+        // Función para calcular y validar total de pago mixto en edición
+        function validateEditMixedPayment() {
+            const ncAmount = parseFloat(document.getElementById('edit_amount_credit_note').value) || 0;
+            const cashAmount = parseFloat(document.getElementById('edit_amount_cash').value) || 0;
+            const transferAmount = parseFloat(document.getElementById('edit_amount_transfer').value) || 0;
+            
+            const totalSpecified = ncAmount + cashAmount + transferAmount;
+            const invoiceTotal = editCurrentInvoiceTotal;
+            
+            // Formateo de moneda colombiana
+            const formatCo = (n) => {
+                n = Math.round(Number(n) || 0);
+                return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            };
+            
+            // Actualizar displays visuales
+            document.getElementById('edit_mixedPaymentTotal').textContent = formatCo(totalSpecified);
+            document.getElementById('edit_mixedInvoiceTotal').textContent = formatCo(invoiceTotal);
+            
+            const statusElement = document.getElementById('edit_mixedPaymentStatus');
+            
+            // Validación 1: NC no debe exceder saldo disponible
+            if (ncAmount > editCurrentCustomerCreditBalance) {
+                statusElement.innerHTML = '<i class="bi bi-x-circle"></i> NC excede saldo disponible';
+                statusElement.className = 'text-danger';
+                return false;
+            }
+            
+            // Validación 2: Totales deben coincidir (tolerancia 0.01 para floats)
+            if (Math.abs(totalSpecified - invoiceTotal) < 0.01) {
+                statusElement.innerHTML = '<i class="bi bi-check-circle"></i> Totales coinciden';
+                statusElement.className = 'text-success';
+                return true;
+            } else if (totalSpecified > invoiceTotal) {
+                statusElement.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Total especificado excede factura';
+                statusElement.className = 'text-warning';
+                return false;
+            } else {
+                statusElement.innerHTML = '<i class="bi bi-x-circle"></i> Total especificado es menor que factura';
+                statusElement.className = 'text-danger';
+                return false;
+            }
+        }
+        
+        // Función para parsear montos mixtos desde invoice.notes
+        function parseMixedPaymentFromNotes(notes) {
+            if (!notes) {
+                return;
+            }
+            
+            // Regex para extraer montos con formato colombiano ($123.456 o $123456)
+            const ncMatch = notes.match(/Nota de Crédito:\s*\$\s*([0-9.,]+)/i);
+            const cashMatch = notes.match(/Efectivo:\s*\$\s*([0-9.,]+)/i);
+            const transferMatch = notes.match(/Transferencia:\s*\$\s*([0-9.,]+)/i);
+            
+            // Función helper para limpiar formato
+            const cleanAmount = (match) => {
+                if (!match) return 0;
+                // Remover puntos de miles, convertir a float
+                return parseFloat(match[1].replace(/\./g, '').replace(',', '.')) || 0;
+            };
+            
+            // Poblar campos si se encontraron valores
+            const ncAmount = cleanAmount(ncMatch);
+            const cashAmount = cleanAmount(cashMatch);
+            const transferAmount = cleanAmount(transferMatch);
+            
+            document.getElementById('edit_amount_credit_note').value = ncAmount;
+            document.getElementById('edit_amount_cash').value = cashAmount;
+            document.getElementById('edit_amount_transfer').value = transferAmount;
+            
+            // Mostrar sección de pago mixto
+            document.getElementById('edit_mixedPaymentDetails').style.display = 'block';
+            
+            // Ejecutar validación
+            validateEditMixedPayment();
+        }
+        
+        // Validación en submit del formulario de edición
+        const editForm = document.getElementById('editForm');
+        if (editForm) {
+            editForm.addEventListener('submit', function(e) {
+                const paymentMethod = document.getElementById('edit_payment_method').value;
+                
+                // Validar pago mixto si está seleccionado
+                if (paymentMethod === 'mixed') {
+                    if (!validateEditMixedPayment()) {
+                        e.preventDefault();
+                        alert('El pago mixto no es válido. Verifique los montos especificados.');
+                        return false;
+                    }
+                }
+            });
+        }
+        
+        // Event listener para cambio de método de pago en edición
+        const editPaymentMethod = document.getElementById('edit_payment_method');
+        const editCreditBalanceInfo = document.getElementById('edit_creditBalanceInfo');
+        const editMixedPaymentDetails = document.getElementById('edit_mixedPaymentDetails');
+        
+        if (editPaymentMethod) {
+            editPaymentMethod.addEventListener('change', function() {
+                const method = this.value;
+                
+                // Mostrar/ocultar sección de pago mixto
+                if (method === 'mixed') {
+                    editMixedPaymentDetails.style.display = 'block';
+                    editCreditBalanceInfo.style.display = 'block';
+                    
+                    // Actualizar saldo disponible en el campo NC
+                    document.getElementById('edit_available_nc').textContent = 
+                        '$' + editCurrentCustomerCreditBalance.toLocaleString('es-CO');
+                    
+                    // Ejecutar validación inicial
+                    validateEditMixedPayment();
+                } else {
+                    editMixedPaymentDetails.style.display = 'none';
+                    
+                    // Si método es NC puro, mostrar solo saldo
+                    if (method === 'credit_note') {
+                        editCreditBalanceInfo.style.display = 'block';
+                    } else {
+                        editCreditBalanceInfo.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        // Event listeners para inputs de pago mixto (validación en tiempo real)
+        const editMixedPaymentInputs = document.querySelectorAll('.edit-mixed-payment-input');
+        editMixedPaymentInputs.forEach(input => {
+            input.addEventListener('input', validateEditMixedPayment);
+        });
     });
     
     // Función para mostrar flash message dinámico

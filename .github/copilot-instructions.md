@@ -2633,6 +2633,15 @@ Sistema completo de Notas de Crédito (NC) unificadas con facturación según no
 - `GET /api/customers/<id>`: Retorna customer con `credit_balance`
 - Usado por form.html para cargar saldo disponible al seleccionar cliente
 
+**9. Pago Mixto en Edición de Ventas** (Ene 2026):
+- **Nuevo**: Soporte completo en modal de edición (templates/invoices/list.html)
+- Campos: `edit_amount_credit_note`, `edit_amount_cash`, `edit_amount_transfer`
+- Validación frontend: `validateEditMixedPayment()`
+- Parseo automático de montos desde `invoice.notes` para ventas mixtas existentes
+- Bloqueo: No se puede cambiar mixto con NC aplicadas a otro método
+- Backend (routes/invoices.py - edit()): Extrae campos mixtos, valida, aplica NC
+- Almacenamiento: Desglose en `invoice.notes` con formato estándar "--- PAGO MIXTO ---"
+
 #### Beneficios
 - ✅ Cumplimiento normativa DIAN (numeración consecutiva)
 - ✅ Restauración automática de inventario
