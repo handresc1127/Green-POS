@@ -42,6 +42,7 @@
                             <th>Nombre</th>
                             <th>Email</th>
                             <th>Teléfono</th>
+                            <th>Saldo NC</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -52,6 +53,15 @@
                                 <td id="customerName-{{ customer.id }}">{{ customer.name }}</td>
                                 <td id="customerEmail-{{ customer.id }}">{{ customer.email }}</td>
                                 <td id="customerPhone-{{ customer.id }}">{{ customer.phone }}</td>
+                                <td id="customerCreditBalance-{{ customer.id }}">
+                                    {% if customer.credit_balance and customer.credit_balance > 0 %}
+                                        <span class="badge bg-success" title="Saldo disponible en Notas de Crédito">
+                                            🎫 {{ customer.credit_balance|currency_co }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">$0</span>
+                                    {% endif %}
+                                </td>
                                 <td id="customerActions-{{ customer.id }}">
                                     <div class="btn-group btn-group-sm">
                                         <a href="{{ url_for('customers.edit', id=customer.id) }}" 
